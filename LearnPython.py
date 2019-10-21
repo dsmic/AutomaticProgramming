@@ -13,8 +13,8 @@ from tensorflow.keras.layers import Activation, Embedding, Dense,  Lambda, Input
 from tensorflow.keras.layers import SimpleRNN, GRU, LSTM
 from tensorflow.keras.utils import to_categorical
 import numpy as np
-import os
-os.environ["TF_CPP_MIN_LOG_LEVEL"]="2" # remove some optimization warnings for tensorflow
+#import os
+#os.environ["TF_CPP_MIN_LOG_LEVEL"]="2" # remove some optimization warnings for tensorflow
 
 parser = argparse.ArgumentParser(description='train recurrent net.')
 parser.add_argument('--lr', dest='lr',  type=float, default=1e-3)
@@ -36,7 +36,7 @@ parser.add_argument('--float_type', dest='float_type',  type=str, default='float
 
 parser.add_argument('--limit_files', dest='limit_files',  type=int, default=0)
 parser.add_argument('--epoch_size', dest='epoch_size',  type=int, default=1000)
-parser.add_argument('--max_length', dest='max_length',  type=int, default=100000)
+parser.add_argument('--max_length', dest='max_length',  type=int, default=20000)
 
 args = parser.parse_args()
 
@@ -131,6 +131,7 @@ class KerasBatchGenerator(object):
             for python_file in self.data_set:
                 py_program = read_file(python_file.strip())
                 program_lines = []
+                len_of_file = 0
                 for t2 in py_program:
                     program_chars = []
                     for t3 in t2:
@@ -139,27 +140,37 @@ class KerasBatchGenerator(object):
                             num_ord[0] += 1
                         program_chars.append(used_ords[ord(t3)])
                     program_lines.append(program_chars)
+                    len_of_file += len(program_chars)
+#                    if args.max_length < len_of_file:
+#                        break
                 full_python_file_string = []
                 for python_line in program_lines:
                     full_python_file_string.extend(python_line)
                     full_python_file_string.append(0)
-                if args.max_length < len(full_python_file_string):
-                    print('\n'+str(len(full_python_file_string)) + ' character python file cut, as it was longer than '+str(args.max_length))
-                    full_python_file_string= full_python_file_string[:args.max_length]
-                tmp_x =  np.array([full_python_file_string], dtype=int)
-                tmp_y = np.array([full_python_file_string], dtype=int)
-                yield tmp_x, to_categorical(tmp_y, num_classes=max_output)
+#                    if args.max_length < len(full_python_file_string):
+#                        break
+#                if args.max_length < len(full_python_file_string):
+#                    print('\n'+str(len(full_python_file_string)) + ' character python file cut, as it was longer than '+str(args.max_length))
+#                    full_python_file_string= full_python_file_string[:args.max_length]
+#                    model.reset_states()
+                position=0
+                model.reset_states()
+                while position * args.max_length < len(full_python_file_string):
+                    tmp_x = np.array([full_python_file_string[position*args.max_length:(position+1)*args.max_length]], dtype=int)
+                    tmp_y = np.array([full_python_file_string[position*args.max_length:(position+1)*args.max_length]], dtype=int)
+                    yield tmp_x, to_categorical(tmp_y, num_classes=max_output)
 
 
 train_data_generator = KerasBatchGenerator(train_data_set)
 test_data_generator = KerasBatchGenerator(test_data_set)
-count=0
-for tt in train_data_generator.generate():
-    print(tt)
-    count+=1
-    if count>10:
-        break
+# count=0
+# for tt in train_data_generator.generate():
+# #    print(tt)
+#     count+=1
+# #    if count>10:
+# #        break
 
+# print(count)
 
 ###################################################################
 # Network
@@ -186,14 +197,14 @@ if args.pretrained_name is not None:
     print("model length",ml,"different from data length", args.max_length)
     args.max_length = ml
 else:
-  inputs = Input(shape=(None,))
+  inputs = Input(batch_shape=(1,None,))
   embeds = Embedding(len(used_ords), len(used_ords), embeddings_initializer='identity', trainable=True)(inputs)
-  lstm1 = LSTM_use(hidden_size, return_sequences=True)(embeds)
+  lstm1 = LSTM_use(hidden_size, return_sequences=True, stateful = True)(embeds)
   if args.attention:
     lstm1b = Lambda(attentions_layer)(lstm1)
   else:
     lstm1b = lstm1
-  lstm4 = LSTM_use(hidden_size, return_sequences=True)(lstm1b)
+  lstm4 = LSTM_use(hidden_size, return_sequences=True, stateful = True)(lstm1b)
 
   x = Dense(max_output)(lstm4)
   predictions = Activation('softmax')(x)
@@ -205,7 +216,7 @@ print("starting",args)
 num_epochs = args.epochs
 
 model.compile(loss='categorical_crossentropy', optimizer = 'SGD', metrics=['categorical_accuracy'])
-history = model.fit_generator(train_data_generator.generate(), args.epoch_size, num_epochs, validation_data=test_data_generator.generate(), validation_steps=args.epoch_size / 10) 
+model.fit_generator(train_data_generator.generate(), args.epoch_size, num_epochs, validation_data=test_data_generator.generate(), validation_steps=args.epoch_size / 10) 
 
 
 
