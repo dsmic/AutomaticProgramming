@@ -7,11 +7,14 @@ Created on Mon Oct 21 10:04:58 2019
 """
 
 import argparse
+import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.layers import Activation, Embedding, Dense,  Lambda, Input
 from tensorflow.keras.layers import SimpleRNN, GRU, LSTM
 from tensorflow.keras.utils import to_categorical
 import numpy as np
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"]="2" # remove some optimization warnings for tensorflow
 
 parser = argparse.ArgumentParser(description='train recurrent net.')
 parser.add_argument('--lr', dest='lr',  type=float, default=1e-3)
@@ -33,6 +36,7 @@ parser.add_argument('--float_type', dest='float_type',  type=str, default='float
 
 parser.add_argument('--limit_files', dest='limit_files',  type=int, default=0)
 parser.add_argument('--epoch_size', dest='epoch_size',  type=int, default=1000)
+parser.add_argument('--max_length', dest='max_length',  type=int, default=100000)
 
 args = parser.parse_args()
 
@@ -44,6 +48,26 @@ RNN_type['GRU'] = GRU
 RNN_type['SimpleRNN'] = SimpleRNN
 
 LSTM_use = RNN_type[args.RNN_type]
+
+if tf.__version__ < "2.0":
+    from tensorflow.keras.backend import set_session
+    config = tf.ConfigProto()
+    #config.gpu_options.per_process_gpu_memory_fraction = args.gpu_mem
+    config.gpu_options.allow_growth = True
+    set_session(tf.Session(config=config))
+else:
+    #tensorflow 2.0 sets memory growth per default
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+      try:
+        # Currently, memory growth needs to be the same across GPUs
+        for gpu in gpus:
+          tf.config.experimental.set_memory_growth(gpu, True)
+        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+      except RuntimeError as e:
+        # Memory growth must be set before GPUs have been initialized
+        print(e)
 
 def read_file(file_name):
     txt_file = open(file_name)
@@ -119,6 +143,9 @@ class KerasBatchGenerator(object):
                 for python_line in program_lines:
                     full_python_file_string.extend(python_line)
                     full_python_file_string.append(0)
+                if args.max_length < len(full_python_file_string):
+                    print('\n'+str(len(full_python_file_string)) + ' character python file cut, as it was longer than '+str(args.max_length))
+                    full_python_file_string= full_python_file_string[:args.max_length]
                 tmp_x =  np.array([full_python_file_string], dtype=int)
                 tmp_y = np.array([full_python_file_string], dtype=int)
                 yield tmp_x, to_categorical(tmp_y, num_classes=max_output)
@@ -150,15 +177,14 @@ def attentions_layer(x):
 
 hidden_size = args.hidden_size
 
-max_length = 1000
 if args.pretrained_name is not None:
   from keras.models import load_model
   model = load_model(args.pretrained_name)
   print("loaded model",model.layers[0].input_shape[1])
   ml = model.layers[0].input_shape[1]
-  if (ml != max_length):
-    print("model length",ml,"different from data length",max_length)
-    max_length = ml
+  if (ml != args.max_length):
+    print("model length",ml,"different from data length", args.max_length)
+    args.max_length = ml
 else:
   inputs = Input(shape=(None,))
   embeds = Embedding(len(used_ords), len(used_ords), embeddings_initializer='identity', trainable=True)(inputs)
