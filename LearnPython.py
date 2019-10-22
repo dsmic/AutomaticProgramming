@@ -9,6 +9,7 @@ Created on Mon Oct 21 10:04:58 2019
 import argparse
 import tensorflow as tf
 from tensorflow.keras import Model
+from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, Callback
 from tensorflow.keras.layers import Activation, Embedding, Dense,  Lambda, Input
 from tensorflow.keras.layers import SimpleRNN, GRU, LSTM
 from tensorflow.keras.utils import to_categorical
@@ -37,6 +38,8 @@ parser.add_argument('--float_type', dest='float_type',  type=str, default='float
 parser.add_argument('--limit_files', dest='limit_files',  type=int, default=0)
 parser.add_argument('--epoch_size', dest='epoch_size',  type=int, default=1000)
 parser.add_argument('--max_length', dest='max_length',  type=int, default=20000)
+parser.add_argument('--tensorboard_logdir', dest='tensorboard_logdir',  type=str, default='./logs')
+parser.add_argument('--EarlyStop', dest='EarlyStop',  type=str, default='EarlyStop')
 
 args = parser.parse_args()
 
@@ -189,13 +192,13 @@ def attentions_layer(x):
 hidden_size = args.hidden_size
 
 if args.pretrained_name is not None:
-  from keras.models import load_model
+  from tensorflow.keras.models import load_model
   model = load_model(args.pretrained_name)
-  print("loaded model",model.layers[0].input_shape[1])
-  ml = model.layers[0].input_shape[1]
-  if (ml != args.max_length):
-    print("model length",ml,"different from data length", args.max_length)
-    args.max_length = ml
+  # print("loaded model",model.layers[0].input_shape[1])
+  # ml = model.layers[0].input_shape[1]
+  # if (ml != args.max_length):
+  #   print("model length",ml,"different from data length", args.max_length)
+  #   args.max_length = ml
 else:
   inputs = Input(batch_shape=(1,None,))
   embeds = Embedding(len(used_ords), len(used_ords), embeddings_initializer='identity', trainable=True)(inputs)
@@ -211,12 +214,26 @@ else:
   model = Model(inputs=inputs, outputs=predictions)
 
 print("starting",args)
-#checkpointer = ModelCheckpoint(filepath='checkpoints/model-{epoch:02d}.hdf5', verbose=1)
+import os
+class TerminateKey(Callback):
+    def on_epoch_end(self, batch, logs=None):
+        if os.path.exists(args.EarlyStop):
+            self.model.stop_training = True
+
+terminate_on_key = TerminateKey()
+
+tensorboard = TensorBoard(log_dir = args.tensorboard_logdir)
+
+checkpointer = ModelCheckpoint(filepath='checkpoints/model-{epoch:02d}.hdf5', verbose=1)
 
 num_epochs = args.epochs
 
 model.compile(loss='categorical_crossentropy', optimizer = 'SGD', metrics=['categorical_accuracy'])
-model.fit_generator(train_data_generator.generate(), args.epoch_size, num_epochs, validation_data=test_data_generator.generate(), validation_steps=args.epoch_size / 10) 
+model.fit_generator(train_data_generator.generate(), args.epoch_size, num_epochs, validation_data=test_data_generator.generate(), validation_steps=args.epoch_size / 10, callbacks=[checkpointer, tensorboard, terminate_on_key])
+
+if os.path.exists(args.EarlyStop) and os.path.getsize(args.EarlyStop)==0:
+    os.remove(args.EarlyStop)
+    print('removed',args.EarlyStop)
 
 
 
