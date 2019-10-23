@@ -34,43 +34,35 @@ parser.add_argument('--gpu_mem', dest='gpu_mem',  type=float, default=1)
 parser.add_argument('--fill_vars_with_atoms', dest='fill_vars_with_atoms', action='store_true')
 parser.add_argument('--rand_atoms', dest='rand_atoms', action='store_true')
 parser.add_argument('--float_type', dest='float_type',  type=str, default='float32')
+parser.add_argument('--load_weights_name', dest='load_weights_name',  type=str, default=None)
 
 parser.add_argument('--limit_files', dest='limit_files',  type=int, default=0)
 parser.add_argument('--epoch_size', dest='epoch_size',  type=int, default=1000)
 parser.add_argument('--max_length', dest='max_length',  type=int, default=20000)
 parser.add_argument('--tensorboard_logdir', dest='tensorboard_logdir',  type=str, default='./logs')
 parser.add_argument('--EarlyStop', dest='EarlyStop',  type=str, default='EarlyStop')
-
+parser.add_argument('--embeddings_trainable', dest='embeddings_trainable', action='store_true')
 args = parser.parse_args()
 
 RNN_type = {}
-  
-
 RNN_type['LSTM'] = LSTM
 RNN_type['GRU'] = GRU
 RNN_type['SimpleRNN'] = SimpleRNN
 
 LSTM_use = RNN_type[args.RNN_type]
 
-if tf.__version__ < "2.0":
-    from tensorflow.keras.backend import set_session
-    config = tf.ConfigProto()
-    #config.gpu_options.per_process_gpu_memory_fraction = args.gpu_mem
-    config.gpu_options.allow_growth = True
-    set_session(tf.Session(config=config))
-else:
-    #tensorflow 2.0 sets memory growth per default
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    if gpus:
-      try:
-        # Currently, memory growth needs to be the same across GPUs
-        for gpu in gpus:
-          tf.config.experimental.set_memory_growth(gpu, True)
-        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-      except RuntimeError as e:
-        # Memory growth must be set before GPUs have been initialized
-        print(e)
+#tensorflow 2.0b sets memory growth per default, seems to be changed ?!
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+  try:
+    # Currently, memory growth needs to be the same across GPUs
+    for gpu in gpus:
+      tf.config.experimental.set_memory_growth(gpu, True)
+    logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+    print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+  except RuntimeError as e:
+    # Memory growth must be set before GPUs have been initialized
+    print(e)
 
 def read_file(file_name):
     txt_file = open(file_name)
@@ -79,7 +71,6 @@ def read_file(file_name):
 used_ords = {}
 used_ords['\n']=0
 num_ord = [1] # starting the translation table 0 reserved to seperate lines which are striped here
-
 
 def load_dataset(file_names):
     global num_ord
@@ -108,18 +99,15 @@ def load_dataset(file_names):
 
 train_data_set = load_dataset(read_file('python100k_train.txt'))    
 
-
 print(len(train_data_set))
 print(len(used_ords))
 print(num_ord[0])
 
 test_data_set = load_dataset(read_file('python50k_eval.txt'))    
 
-
 print(len(test_data_set))
 print(len(used_ords))
 print(num_ord[0])
-
 
 max_output = len(used_ords)
 
@@ -144,18 +132,10 @@ class KerasBatchGenerator(object):
                         program_chars.append(used_ords[ord(t3)])
                     program_lines.append(program_chars)
                     len_of_file += len(program_chars)
-#                    if args.max_length < len_of_file:
-#                        break
                 full_python_file_string = []
                 for python_line in program_lines:
                     full_python_file_string.extend(python_line)
                     full_python_file_string.append(0)
-#                    if args.max_length < len(full_python_file_string):
-#                        break
-#                if args.max_length < len(full_python_file_string):
-#                    print('\n'+str(len(full_python_file_string)) + ' character python file cut, as it was longer than '+str(args.max_length))
-#                    full_python_file_string= full_python_file_string[:args.max_length]
-#                    model.reset_states()
                 position=0
                 model.reset_states()
                 while position * args.max_length < len(full_python_file_string):
@@ -163,21 +143,8 @@ class KerasBatchGenerator(object):
                     tmp_y = np.array([full_python_file_string[position*args.max_length:(position+1)*args.max_length]], dtype=int)
                     yield tmp_x, to_categorical(tmp_y, num_classes=max_output)
 
-
 train_data_generator = KerasBatchGenerator(train_data_set)
 test_data_generator = KerasBatchGenerator(test_data_set)
-# count=0
-# for tt in train_data_generator.generate():
-# #    print(tt)
-#     count+=1
-# #    if count>10:
-# #        break
-
-# print(count)
-
-###################################################################
-# Network
-
 
 def attentions_layer(x):
   from keras import backend as K
@@ -189,29 +156,30 @@ def attentions_layer(x):
 
   return x
 
-hidden_size = args.hidden_size
-
+# at the moment loaded models seem not to support cudnn
+# https://github.com/tensorflow/tensorflow/issues/33601
+# you can use load_weights_name to load the weights into the model
 if args.pretrained_name is not None:
   from tensorflow.keras.models import load_model
   model = load_model(args.pretrained_name)
-  # print("loaded model",model.layers[0].input_shape[1])
-  # ml = model.layers[0].input_shape[1]
-  # if (ml != args.max_length):
-  #   print("model length",ml,"different from data length", args.max_length)
-  #   args.max_length = ml
 else:
   inputs = Input(batch_shape=(1,None,))
-  embeds = Embedding(len(used_ords), len(used_ords), embeddings_initializer='identity', trainable=True)(inputs)
-  lstm1 = LSTM_use(hidden_size, return_sequences=True, stateful = True)(embeds)
+  embeds = Embedding(len(used_ords), len(used_ords), embeddings_initializer='identity', trainable=args.embeddings_trainable)(inputs)
+  lstm1 = LSTM_use(args.hidden_size, return_sequences=True, stateful = True)(embeds)
   if args.attention:
     lstm1b = Lambda(attentions_layer)(lstm1)
   else:
     lstm1b = lstm1
-  lstm4 = LSTM_use(hidden_size, return_sequences=True, stateful = True)(lstm1b)
+  lstm4 = LSTM_use(args.hidden_size, return_sequences=True, stateful = True)(lstm1b)
 
   x = Dense(max_output)(lstm4)
   predictions = Activation('softmax')(x)
   model = Model(inputs=inputs, outputs=predictions)
+print(model.summary())
+
+if args.load_weights_name:
+    model.load_weights(args.load_weights_name, by_name=True)
+    print('weights loaded')
 
 print("starting",args)
 import os
@@ -226,15 +194,15 @@ tensorboard = TensorBoard(log_dir = args.tensorboard_logdir)
 
 checkpointer = ModelCheckpoint(filepath='checkpoints/model-{epoch:02d}.hdf5', verbose=1)
 
-num_epochs = args.epochs
-
 model.compile(loss='categorical_crossentropy', optimizer = 'SGD', metrics=['categorical_accuracy'])
-model.fit_generator(train_data_generator.generate(), args.epoch_size, num_epochs, validation_data=test_data_generator.generate(), validation_steps=args.epoch_size / 10, callbacks=[checkpointer, tensorboard, terminate_on_key])
+model.fit_generator(train_data_generator.generate(), args.epoch_size, args.epochs, validation_data=test_data_generator.generate(), validation_steps=args.epoch_size / 10, callbacks=[checkpointer, tensorboard, terminate_on_key])
 
 if os.path.exists(args.EarlyStop) and os.path.getsize(args.EarlyStop)==0:
     os.remove(args.EarlyStop)
     print('removed',args.EarlyStop)
 
+model.save(args.final_name+'.hdf5')
+model.save_weights(args.final_name+'-weights.hdf5')
 
 
 
