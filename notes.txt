@@ -1,0 +1,340 @@
+Notes from testing and training:
+
+
+(tf2-gpu) detlef@ubuntu-i7:~/AutomaticProgramming$ python LearnPython.py --epoch_size 10000 --epochs 200
+2019-10-22 18:17:33.708938: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcuda.so.1
+2019-10-22 18:17:33.711532: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:1006] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2019-10-22 18:17:33.711943: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1618] Found device 0 with properties: 
+name: GeForce GTX 1070 Ti major: 6 minor: 1 memoryClockRate(GHz): 1.683
+pciBusID: 0000:01:00.0
+2019-10-22 18:17:33.712075: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcudart.so.10.0
+2019-10-22 18:17:33.712971: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcublas.so.10.0
+2019-10-22 18:17:33.713711: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcufft.so.10.0
+2019-10-22 18:17:33.713902: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcurand.so.10.0
+2019-10-22 18:17:33.714927: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcusolver.so.10.0
+2019-10-22 18:17:33.715661: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcusparse.so.10.0
+2019-10-22 18:17:33.717851: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcudnn.so.7
+2019-10-22 18:17:33.717953: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:1006] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2019-10-22 18:17:33.718439: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:1006] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2019-10-22 18:17:33.718830: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1746] Adding visible gpu devices: 0
+2019-10-22 18:17:33.719103: I tensorflow/core/platform/cpu_feature_guard.cc:142] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
+2019-10-22 18:17:33.742561: I tensorflow/core/platform/profile_utils/cpu_utils.cc:94] CPU Frequency: 3999620000 Hz
+2019-10-22 18:17:33.743124: I tensorflow/compiler/xla/service/service.cc:168] XLA service 0x45f2c50 executing computations on platform Host. Devices:
+2019-10-22 18:17:33.743147: I tensorflow/compiler/xla/service/service.cc:175]   StreamExecutor device (0): Host, Default Version
+2019-10-22 18:17:33.820575: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:1006] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2019-10-22 18:17:33.821064: I tensorflow/compiler/xla/service/service.cc:168] XLA service 0x45f4ab0 executing computations on platform CUDA. Devices:
+2019-10-22 18:17:33.821079: I tensorflow/compiler/xla/service/service.cc:175]   StreamExecutor device (0): GeForce GTX 1070 Ti, Compute Capability 6.1
+2019-10-22 18:17:33.821259: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:1006] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2019-10-22 18:17:33.821668: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1618] Found device 0 with properties: 
+name: GeForce GTX 1070 Ti major: 6 minor: 1 memoryClockRate(GHz): 1.683
+pciBusID: 0000:01:00.0
+2019-10-22 18:17:33.821702: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcudart.so.10.0
+2019-10-22 18:17:33.821710: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcublas.so.10.0
+2019-10-22 18:17:33.821716: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcufft.so.10.0
+2019-10-22 18:17:33.821722: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcurand.so.10.0
+2019-10-22 18:17:33.821729: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcusolver.so.10.0
+2019-10-22 18:17:33.821735: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcusparse.so.10.0
+2019-10-22 18:17:33.821742: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcudnn.so.7
+2019-10-22 18:17:33.821787: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:1006] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2019-10-22 18:17:33.822206: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:1006] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2019-10-22 18:17:33.822632: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1746] Adding visible gpu devices: 0
+2019-10-22 18:17:33.822663: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcudart.so.10.0
+2019-10-22 18:17:33.823257: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1159] Device interconnect StreamExecutor with strength 1 edge matrix:
+2019-10-22 18:17:33.823266: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1165]      0 
+2019-10-22 18:17:33.823280: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1178] 0:   N 
+2019-10-22 18:17:33.823441: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:1006] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2019-10-22 18:17:33.823870: I tensorflow/stream_executor/cuda/cuda_gpu_executor.cc:1006] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero
+2019-10-22 18:17:33.824309: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1304] Created TensorFlow device (/job:localhost/replica:0/task:0/device:GPU:0 with 6445 MB memory) -> physical GPU (device: 0, name: GeForce GTX 1070 Ti, pci bus id: 0000:01:00.0, compute capability: 6.1)
+1 Physical GPUs, 1 Logical GPUs
+data/python-excel/xlrd/xlrd/biffh.py
+  wrong encoding 'utf-8' codec can't decode byte 0xa9 in position 94: invalid start byte
+data/babble/babble/include/jython/Lib/getopt.py
+  wrong encoding 'utf-8' codec can't decode byte 0xc5 in position 858: invalid continuation byte
+data/cloudera/hue/desktop/core/ext-py/tablib-0.10.0/tablib/packages/xlrd/formatting.py
+  wrong encoding 'utf-8' codec can't decode byte 0xa9 in position 82: invalid start byte
+data/francelabs/datafari/windows/python/Tools/i18n/msgfmt.py
+  wrong encoding 'utf-8' codec can't decode byte 0xf6 in position 76: invalid start byte
+data/babble/babble/include/jython/Lib/test/test_csv.py
+  wrong encoding 'utf-8' codec can't decode byte 0xf6 in position 3829: invalid start byte
+data/ctxis/canape/CANAPE.Scripting/Lib/sqlite3/dbapi2.py
+  wrong encoding 'utf-8' codec can't decode byte 0xe4 in position 113: invalid continuation byte
+data/cloudera/hue/desktop/core/ext-py/pysqlite/pysqlite2/test/__init__.py
+  wrong encoding 'utf-8' codec can't decode byte 0xe4 in position 133: invalid continuation byte
+data/cloudera/hue/desktop/core/ext-py/tablib-0.10.0/tablib/packages/xlrd/biffh.py
+  wrong encoding 'utf-8' codec can't decode byte 0xa9 in position 94: invalid start byte
+data/deanhiller/databus/webapp/play1.3.x/python/Lib/msilib/__init__.py
+  wrong encoding 'utf-8' codec can't decode byte 0xf6 in position 62: invalid start byte
+data/jpm/papercut/storage/forwarding_proxy.py
+  wrong encoding 'utf-8' codec can't decode byte 0xe4 in position 428: invalid continuation byte
+data/Flolagale/mailin/python/DNS/Lib.py
+  wrong encoding 'utf-8' codec can't decode byte 0xf6 in position 7039: invalid start byte
+data/cloudera/hue/desktop/core/ext-py/pysqlite/pysqlite2/test/dbapi.py
+  wrong encoding 'utf-8' codec can't decode byte 0xe4 in position 120: invalid continuation byte
+data/dropbox/pyston/from_cpython/Lib/sqlite3/dbapi2.py
+  wrong encoding 'utf-8' codec can't decode byte 0xe4 in position 114: invalid continuation byte
+data/dropbox/pyston/from_cpython/Lib/sqlite3/test/transactions.py
+  wrong encoding 'utf-8' codec can't decode byte 0xe4 in position 118: invalid continuation byte
+data/hydroshare/hydroshare2/hs_docker_base/pysqlite-2.6.3/build/lib.macosx-10.9-intel-2.7/pysqlite2/dbapi2.py
+  wrong encoding 'utf-8' codec can't decode byte 0xe4 in position 113: invalid continuation byte
+data/cloudera/hue/desktop/core/ext-py/tablib-0.10.0/tablib/packages/xlrd/formula.py
+  wrong encoding 'utf-8' codec can't decode byte 0xa9 in position 104: invalid start byte
+data/kennethreitz/tablib/tablib/packages/xlrd/examples/xlrdnameAPIdemo.py
+  wrong encoding 'utf-8' codec can't decode byte 0xa9 in position 161: invalid start byte
+data/dropbox/pyston/from_cpython/Lib/plat-mac/macerrors.py
+  wrong encoding 'utf-8' codec can't decode byte 0x80 in position 4015: invalid start byte
+data/hydroshare/hydroshare2/hs_docker_base/pysqlite-2.6.3/build/lib.macosx-10.9-intel-2.7/pysqlite2/test/transactions.py
+  wrong encoding 'utf-8' codec can't decode byte 0xe4 in position 118: invalid continuation byte
+99981
+1361
+1361
+data/dropbox/pyston/from_cpython/Lib/msilib/__init__.py
+  wrong encoding 'utf-8' codec can't decode byte 0xf6 in position 61: invalid start byte
+data/kleientertainment/ds_mod_tools/pkg/win32/Python27/Lib/site-packages/PIL/WalImageFile.py
+  wrong encoding 'utf-8' codec can't decode byte 0xe4 in position 1876: invalid continuation byte
+data/eBay/restcommander/play-1.2.4/python/Lib/msilib/__init__.py
+  wrong encoding 'utf-8' codec can't decode byte 0xf6 in position 61: invalid start byte
+data/python-excel/xlrd/xlrd/examples/xlrdnameAPIdemo.py
+  wrong encoding 'utf-8' codec can't decode byte 0xa9 in position 161: invalid start byte
+data/hydroshare/hydroshare2/hs_docker_base/pysqlite-2.6.3/build/lib.macosx-10.9-intel-2.7/pysqlite2/test/dbapi.py
+  wrong encoding 'utf-8' codec can't decode byte 0xe4 in position 120: invalid continuation byte
+data/CouchPotato/CouchPotatoServer/libs/xmpp/session.py
+  wrong encoding 'utf-8' codec can't decode byte 0xe4 in position 7553: invalid continuation byte
+data/dropbox/pyston/from_cpython/Lib/sqlite3/test/dbapi.py
+  wrong encoding 'utf-8' codec can't decode byte 0xe4 in position 120: invalid continuation byte
+data/cloudera/hue/desktop/core/ext-py/pysqlite/pysqlite2/test/userfunctions.py
+  wrong encoding 'utf-8' codec can't decode byte 0xe4 in position 184: invalid continuation byte
+data/hydroshare/hydroshare2/hs_docker_base/pysqlite-2.6.3/build/lib.macosx-10.9-intel-2.7/pysqlite2/test/userfunctions.py
+  wrong encoding 'utf-8' codec can't decode byte 0xe4 in position 184: invalid continuation byte
+49991
+1499
+1499
+Model: "model"
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+input_1 (InputLayer)         [(1, None)]               0         
+_________________________________________________________________
+embedding (Embedding)        (1, None, 1499)           2247001   
+_________________________________________________________________
+gru (GRU)                    (1, None, 50)             232650    
+_________________________________________________________________
+gru_1 (GRU)                  (1, None, 50)             15300     
+_________________________________________________________________
+dense (Dense)                (1, None, 1499)           76449     
+_________________________________________________________________
+activation (Activation)      (1, None, 1499)           0         
+=================================================================
+Total params: 2,571,400
+Trainable params: 324,399
+Non-trainable params: 2,247,001
+_________________________________________________________________
+None
+starting Namespace(EarlyStop='EarlyStop', RNN_type='GRU', add_history=False, attention=False, debug=False, depth=3, embeddings_trainable=False, epoch_size=10000, epochs=200, fill_vars_with_atoms=False, final_name='final_model', float_type='float32', gpu_mem=1, hidden_size=50, limit_files=0, lr=0.001, max_length=20000, only_one=False, pretrained_name=None, rand_atoms=False, revert=False, tensorboard_logdir='./logs')
+Epoch 1/200
+2019-10-22 18:19:33.883197: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcudnn.so.7
+2019-10-22 18:19:34.394080: I tensorflow/stream_executor/platform/default/dso_loader.cc:44] Successfully opened dynamic library libcublas.so.10.0
+2019-10-22 18:19:34.608033: I tensorflow/core/profiler/lib/profiler_session.cc:184] Profiler session started.
+2019-10-22 18:19:34.608192: W tensorflow/stream_executor/platform/default/dso_loader.cc:55] Could not load dynamic library 'libcupti.so.10.0'; dlerror: libcupti.so.10.0: cannot open shared object file: No such file or directory
+2019-10-22 18:19:34.608213: W tensorflow/core/profiler/lib/profiler_session.cc:192] Encountered error while starting profiler: Unavailable: CUPTI error: CUPTI could not be loaded or symbol could not be found.
+    1/10000 [..............................] - ETA: 2:03:04 - loss: 7.3123 - categorical_accuracy: 0.0000e+002019-10-22 18:19:34.761353: I tensorflow/core/platform/default/device_tracer.cc:588] Collecting 0 kernel records, 0 memcpy records.
+2019-10-22 18:19:34.763568: E tensorflow/core/platform/default/device_tracer.cc:70] CUPTI error: CUPTI could not be loaded or symbol could not be found.
+ 9999/10000 [============================>.] - ETA: 0s - loss: 2.6784 - categorical_accuracy: 0.4099         
+Epoch 00001: saving model to checkpoints/model-01.hdf5
+10000/10000 [==============================] - 1111s 111ms/step - loss: 2.6783 - categorical_accuracy: 0.4099 - val_loss: 3.3641 - val_categorical_accuracy: 0.1950
+Epoch 2/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 1.7527 - categorical_accuracy: 0.5285   
+Epoch 00002: saving model to checkpoints/model-02.hdf5
+10000/10000 [==============================] - 1046s 105ms/step - loss: 1.7527 - categorical_accuracy: 0.5285 - val_loss: 2.7253 - val_categorical_accuracy: 0.2982
+Epoch 3/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 1.2564 - categorical_accuracy: 0.6772   
+Epoch 00003: saving model to checkpoints/model-03.hdf5
+10000/10000 [==============================] - 1074s 107ms/step - loss: 1.2563 - categorical_accuracy: 0.6772 - val_loss: 2.1796 - val_categorical_accuracy: 0.4518
+Epoch 4/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.9163 - categorical_accuracy: 0.7671   
+Epoch 00004: saving model to checkpoints/model-04.hdf5
+10000/10000 [==============================] - 1081s 108ms/step - loss: 0.9163 - categorical_accuracy: 0.7671 - val_loss: 1.6985 - val_categorical_accuracy: 0.6017
+Epoch 5/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.6949 - categorical_accuracy: 0.8316   
+Epoch 00005: saving model to checkpoints/model-05.hdf5
+10000/10000 [==============================] - 1086s 109ms/step - loss: 0.6949 - categorical_accuracy: 0.8316 - val_loss: 1.4034 - val_categorical_accuracy: 0.7440
+Epoch 6/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.5442 - categorical_accuracy: 0.8888   
+Epoch 00006: saving model to checkpoints/model-06.hdf5
+10000/10000 [==============================] - 1078s 108ms/step - loss: 0.5442 - categorical_accuracy: 0.8888 - val_loss: 1.2272 - val_categorical_accuracy: 0.7485
+Epoch 7/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.4679 - categorical_accuracy: 0.8973   
+Epoch 00007: saving model to checkpoints/model-07.hdf5
+10000/10000 [==============================] - 1090s 109ms/step - loss: 0.4679 - categorical_accuracy: 0.8973 - val_loss: 1.1301 - val_categorical_accuracy: 0.7741
+Epoch 8/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.4166 - categorical_accuracy: 0.9154   
+Epoch 00008: saving model to checkpoints/model-08.hdf5
+10000/10000 [==============================] - 1090s 109ms/step - loss: 0.4166 - categorical_accuracy: 0.9154 - val_loss: 1.0565 - val_categorical_accuracy: 0.7907
+Epoch 9/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.3765 - categorical_accuracy: 0.9323   
+Epoch 00009: saving model to checkpoints/model-09.hdf5
+10000/10000 [==============================] - 1086s 109ms/step - loss: 0.3765 - categorical_accuracy: 0.9323 - val_loss: 1.0004 - val_categorical_accuracy: 0.8208
+Epoch 10/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.3439 - categorical_accuracy: 0.9367   
+Epoch 00010: saving model to checkpoints/model-10.hdf5
+10000/10000 [==============================] - 1105s 111ms/step - loss: 0.3439 - categorical_accuracy: 0.9367 - val_loss: 0.9524 - val_categorical_accuracy: 0.8223
+Epoch 11/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.3156 - categorical_accuracy: 0.9414   
+Epoch 00011: saving model to checkpoints/model-11.hdf5
+10000/10000 [==============================] - 1082s 108ms/step - loss: 0.3156 - categorical_accuracy: 0.9414 - val_loss: 0.9103 - val_categorical_accuracy: 0.8223
+Epoch 12/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.2912 - categorical_accuracy: 0.9470   
+Epoch 00012: saving model to checkpoints/model-12.hdf5
+10000/10000 [==============================] - 1079s 108ms/step - loss: 0.2912 - categorical_accuracy: 0.9470 - val_loss: 0.8747 - val_categorical_accuracy: 0.8291
+Epoch 13/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.2699 - categorical_accuracy: 0.9521   
+Epoch 00013: saving model to checkpoints/model-13.hdf5
+10000/10000 [==============================] - 1076s 108ms/step - loss: 0.2699 - categorical_accuracy: 0.9521 - val_loss: 0.8397 - val_categorical_accuracy: 0.8336
+Epoch 14/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.2499 - categorical_accuracy: 0.9541   
+Epoch 00014: saving model to checkpoints/model-14.hdf5
+10000/10000 [==============================] - 1083s 108ms/step - loss: 0.2499 - categorical_accuracy: 0.9541 - val_loss: 0.8054 - val_categorical_accuracy: 0.8366
+Epoch 15/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.2310 - categorical_accuracy: 0.9558   
+Epoch 00015: saving model to checkpoints/model-15.hdf5
+10000/10000 [==============================] - 1084s 108ms/step - loss: 0.2310 - categorical_accuracy: 0.9558 - val_loss: 0.7719 - val_categorical_accuracy: 0.8479
+Epoch 16/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.2130 - categorical_accuracy: 0.9589   
+Epoch 00016: saving model to checkpoints/model-16.hdf5
+10000/10000 [==============================] - 1093s 109ms/step - loss: 0.2130 - categorical_accuracy: 0.9589 - val_loss: 0.7351 - val_categorical_accuracy: 0.8547
+Epoch 17/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.1958 - categorical_accuracy: 0.9645   
+Epoch 00017: saving model to checkpoints/model-17.hdf5
+10000/10000 [==============================] - 1082s 108ms/step - loss: 0.1958 - categorical_accuracy: 0.9645 - val_loss: 0.6987 - val_categorical_accuracy: 0.8660
+Epoch 18/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.1816 - categorical_accuracy: 0.9690   
+Epoch 00018: saving model to checkpoints/model-18.hdf5
+10000/10000 [==============================] - 1071s 107ms/step - loss: 0.1816 - categorical_accuracy: 0.9690 - val_loss: 0.6702 - val_categorical_accuracy: 0.8675
+Epoch 19/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.1705 - categorical_accuracy: 0.9711   
+Epoch 00019: saving model to checkpoints/model-19.hdf5
+10000/10000 [==============================] - 1069s 107ms/step - loss: 0.1705 - categorical_accuracy: 0.9711 - val_loss: 0.6464 - val_categorical_accuracy: 0.8720
+Epoch 20/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.1610 - categorical_accuracy: 0.9729   
+Epoch 00020: saving model to checkpoints/model-20.hdf5
+10000/10000 [==============================] - 1069s 107ms/step - loss: 0.1610 - categorical_accuracy: 0.9729 - val_loss: 0.6255 - val_categorical_accuracy: 0.8765
+Epoch 21/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.1528 - categorical_accuracy: 0.9757   
+Epoch 00021: saving model to checkpoints/model-21.hdf5
+10000/10000 [==============================] - 1067s 107ms/step - loss: 0.1528 - categorical_accuracy: 0.9757 - val_loss: 0.6069 - val_categorical_accuracy: 0.8810
+Epoch 22/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.1453 - categorical_accuracy: 0.9772   
+Epoch 00022: saving model to checkpoints/model-22.hdf5
+10000/10000 [==============================] - 1070s 107ms/step - loss: 0.1453 - categorical_accuracy: 0.9772 - val_loss: 0.5901 - val_categorical_accuracy: 0.8840
+Epoch 23/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.1386 - categorical_accuracy: 0.9774   
+Epoch 00023: saving model to checkpoints/model-23.hdf5
+10000/10000 [==============================] - 1070s 107ms/step - loss: 0.1386 - categorical_accuracy: 0.9774 - val_loss: 0.5748 - val_categorical_accuracy: 0.8863
+Epoch 24/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.1325 - categorical_accuracy: 0.9795   
+Epoch 00024: saving model to checkpoints/model-24.hdf5
+10000/10000 [==============================] - 1069s 107ms/step - loss: 0.1325 - categorical_accuracy: 0.9795 - val_loss: 0.5608 - val_categorical_accuracy: 0.8931
+Epoch 25/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.1268 - categorical_accuracy: 0.9813   
+Epoch 00025: saving model to checkpoints/model-25.hdf5
+10000/10000 [==============================] - 1069s 107ms/step - loss: 0.1268 - categorical_accuracy: 0.9813 - val_loss: 0.5479 - val_categorical_accuracy: 0.8998
+Epoch 26/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.1216 - categorical_accuracy: 0.9842   
+Epoch 00026: saving model to checkpoints/model-26.hdf5
+10000/10000 [==============================] - 1066s 107ms/step - loss: 0.1216 - categorical_accuracy: 0.9842 - val_loss: 0.5358 - val_categorical_accuracy: 0.9066
+Epoch 27/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.1167 - categorical_accuracy: 0.9850   
+Epoch 00027: saving model to checkpoints/model-27.hdf5
+10000/10000 [==============================] - 1068s 107ms/step - loss: 0.1167 - categorical_accuracy: 0.9850 - val_loss: 0.5244 - val_categorical_accuracy: 0.9089
+Epoch 28/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.1121 - categorical_accuracy: 0.9855   
+Epoch 00028: saving model to checkpoints/model-28.hdf5
+10000/10000 [==============================] - 1073s 107ms/step - loss: 0.1121 - categorical_accuracy: 0.9855 - val_loss: 0.5135 - val_categorical_accuracy: 0.9111
+Epoch 29/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.1076 - categorical_accuracy: 0.9868   
+Epoch 00029: saving model to checkpoints/model-29.hdf5
+10000/10000 [==============================] - 1082s 108ms/step - loss: 0.1076 - categorical_accuracy: 0.9868 - val_loss: 0.5027 - val_categorical_accuracy: 0.9142
+Epoch 30/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.1032 - categorical_accuracy: 0.9881   
+Epoch 00030: saving model to checkpoints/model-30.hdf5
+10000/10000 [==============================] - 1079s 108ms/step - loss: 0.1032 - categorical_accuracy: 0.9881 - val_loss: 0.4924 - val_categorical_accuracy: 0.9255
+Epoch 31/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0990 - categorical_accuracy: 0.9883   
+Epoch 00031: saving model to checkpoints/model-31.hdf5
+10000/10000 [==============================] - 1076s 108ms/step - loss: 0.0990 - categorical_accuracy: 0.9883 - val_loss: 0.4828 - val_categorical_accuracy: 0.9292
+Epoch 32/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0949 - categorical_accuracy: 0.9883   
+Epoch 00032: saving model to checkpoints/model-32.hdf5
+10000/10000 [==============================] - 1071s 107ms/step - loss: 0.0949 - categorical_accuracy: 0.9883 - val_loss: 0.4739 - val_categorical_accuracy: 0.9322
+Epoch 33/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0911 - categorical_accuracy: 0.9896   
+Epoch 00033: saving model to checkpoints/model-33.hdf5
+10000/10000 [==============================] - 1084s 108ms/step - loss: 0.0911 - categorical_accuracy: 0.9896 - val_loss: 0.4654 - val_categorical_accuracy: 0.9352
+Epoch 34/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0875 - categorical_accuracy: 0.9902   
+Epoch 00034: saving model to checkpoints/model-34.hdf5
+10000/10000 [==============================] - 1084s 108ms/step - loss: 0.0875 - categorical_accuracy: 0.9902 - val_loss: 0.4573 - val_categorical_accuracy: 0.9450
+Epoch 35/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0841 - categorical_accuracy: 0.9905   
+Epoch 00035: saving model to checkpoints/model-35.hdf5
+10000/10000 [==============================] - 1088s 109ms/step - loss: 0.0841 - categorical_accuracy: 0.9905 - val_loss: 0.4496 - val_categorical_accuracy: 0.9473
+Epoch 36/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0809 - categorical_accuracy: 0.9905   
+Epoch 00036: saving model to checkpoints/model-36.hdf5
+10000/10000 [==============================] - 1085s 108ms/step - loss: 0.0809 - categorical_accuracy: 0.9905 - val_loss: 0.4423 - val_categorical_accuracy: 0.9503
+Epoch 37/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0778 - categorical_accuracy: 0.9910   
+Epoch 00037: saving model to checkpoints/model-37.hdf5
+10000/10000 [==============================] - 1088s 109ms/step - loss: 0.0778 - categorical_accuracy: 0.9910 - val_loss: 0.4353 - val_categorical_accuracy: 0.9503
+Epoch 38/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0749 - categorical_accuracy: 0.9923   
+Epoch 00038: saving model to checkpoints/model-38.hdf5
+10000/10000 [==============================] - 1095s 110ms/step - loss: 0.0749 - categorical_accuracy: 0.9923 - val_loss: 0.4286 - val_categorical_accuracy: 0.9503
+Epoch 39/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0722 - categorical_accuracy: 0.9927   
+Epoch 00039: saving model to checkpoints/model-39.hdf5
+10000/10000 [==============================] - 1095s 109ms/step - loss: 0.0722 - categorical_accuracy: 0.9927 - val_loss: 0.4222 - val_categorical_accuracy: 0.9503
+Epoch 40/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0696 - categorical_accuracy: 0.9927   
+Epoch 00040: saving model to checkpoints/model-40.hdf5
+10000/10000 [==============================] - 1096s 110ms/step - loss: 0.0696 - categorical_accuracy: 0.9927 - val_loss: 0.4163 - val_categorical_accuracy: 0.9503
+Epoch 41/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0671 - categorical_accuracy: 0.9927   
+Epoch 00041: saving model to checkpoints/model-41.hdf5
+10000/10000 [==============================] - 1096s 110ms/step - loss: 0.0671 - categorical_accuracy: 0.9927 - val_loss: 0.4107 - val_categorical_accuracy: 0.9495
+Epoch 42/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0648 - categorical_accuracy: 0.9927   
+Epoch 00042: saving model to checkpoints/model-42.hdf5
+10000/10000 [==============================] - 1097s 110ms/step - loss: 0.0648 - categorical_accuracy: 0.9927 - val_loss: 0.4055 - val_categorical_accuracy: 0.9503
+Epoch 43/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0626 - categorical_accuracy: 0.9932   
+Epoch 00043: saving model to checkpoints/model-43.hdf5
+10000/10000 [==============================] - 1098s 110ms/step - loss: 0.0626 - categorical_accuracy: 0.9932 - val_loss: 0.4006 - val_categorical_accuracy: 0.9511
+Epoch 44/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0606 - categorical_accuracy: 0.9954   
+Epoch 00044: saving model to checkpoints/model-44.hdf5
+10000/10000 [==============================] - 1102s 110ms/step - loss: 0.0606 - categorical_accuracy: 0.9954 - val_loss: 0.3958 - val_categorical_accuracy: 0.9533
+Epoch 45/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0586 - categorical_accuracy: 0.9960   
+Epoch 00045: saving model to checkpoints/model-45.hdf5
+10000/10000 [==============================] - 1102s 110ms/step - loss: 0.0586 - categorical_accuracy: 0.9960 - val_loss: 0.3912 - val_categorical_accuracy: 0.9533
+Epoch 46/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0567 - categorical_accuracy: 0.9960   
+Epoch 00046: saving model to checkpoints/model-46.hdf5
+10000/10000 [==============================] - 1103s 110ms/step - loss: 0.0567 - categorical_accuracy: 0.9960 - val_loss: 0.3866 - val_categorical_accuracy: 0.9533
+Epoch 47/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0549 - categorical_accuracy: 0.9960   
+Epoch 00047: saving model to checkpoints/model-47.hdf5
+10000/10000 [==============================] - 1104s 110ms/step - loss: 0.0549 - categorical_accuracy: 0.9960 - val_loss: 0.3823 - val_categorical_accuracy: 0.9533
+Epoch 48/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0531 - categorical_accuracy: 0.9960   
+Epoch 00048: saving model to checkpoints/model-48.hdf5
+10000/10000 [==============================] - 1106s 111ms/step - loss: 0.0531 - categorical_accuracy: 0.9960 - val_loss: 0.3782 - val_categorical_accuracy: 0.9541
+Epoch 49/200
+ 9999/10000 [============================>.] - ETA: 0s - loss: 0.0513 - categorical_accuracy: 0.9960   
+Epoch 00049: saving model to checkpoints/model-49.hdf5
+10000/10000 [==============================] - 1149s 115ms/step - loss: 0.0513 - categorical_accuracy: 0.9960 - val_loss: 0.3742 - val_categorical_accuracy: 0.9548
+removed EarlyStop
+
+
+
+
