@@ -32,7 +32,7 @@ parser.add_argument('--add_history', dest='add_history', action='store_true')
 parser.add_argument('--RNN_type', dest='RNN_type',  type=str, default='GRU')
 parser.add_argument('--gpu_mem', dest='gpu_mem',  type=float, default=1)
 parser.add_argument('--fill_vars_with_atoms', dest='fill_vars_with_atoms', action='store_true')
-parser.add_argument('--rand_atoms', dest='rand_atoms', action='store_true')
+parser.add_argument('--rand_files', dest='rand_files', action='store_true')
 parser.add_argument('--float_type', dest='float_type',  type=str, default='float32')
 parser.add_argument('--load_weights_name', dest='load_weights_name',  type=str, default=None)
 
@@ -84,27 +84,31 @@ def load_dataset(file_names):
             count_files +=1
         try:
             py_program = read_file(filename.strip())
-            program_lines = []
+            #program_lines = []
             for t2 in py_program:
-                program_chars = []
+                #program_chars = []
                 for t3 in t2:
                     if ord(t3) not in used_ords:
                         used_ords[ord(t3)] = num_ord[0]
                         num_ord[0] += 1
-                    program_chars.append(used_ords[ord(t3)])
-                program_lines.append(program_chars)
+                    #program_chars.append(used_ords[ord(t3)])
+                #program_lines.append(program_chars)
             data_set.append(filename)
         except UnicodeDecodeError as e:
             print(filename + '\n  wrong encoding ' + str(e))
     return data_set
 
-train_data_set = load_dataset(read_file('python100k_train.txt'))    
+if args.rand_files:
+    file_append="_random"
+else:
+    file_append=""
+train_data_set = load_dataset(read_file('python100k_train.txt'+file_append))    
 
 print(len(train_data_set))
 print(len(used_ords))
 print(num_ord[0])
 
-test_data_set = load_dataset(read_file('python50k_eval.txt'))    
+test_data_set = load_dataset(read_file('python50k_eval.txt'+file_append))    
 
 print(len(test_data_set))
 print(len(used_ords))
@@ -122,24 +126,15 @@ class KerasBatchGenerator(object):
         while True:
             for python_file in self.data_set:
                 py_program = read_file(python_file.strip())
-                program_lines = []
-                len_of_file = 0
-                for t2 in py_program:
-                    program_chars = []
-                    for t3 in t2:
-                        if ord(t3) not in used_ords:
-                            used_ords[ord(t3)] = num_ord[0]
-                            num_ord[0] += 1
-                        program_chars.append(used_ords[ord(t3)])
-                    program_lines.append(program_chars)
-                    len_of_file += len(program_chars)
                 full_python_file_string = []
-                for python_line in program_lines:
-                    full_python_file_string.extend(python_line)
+                for pgm_line in py_program:
+                    program_line = [used_ords[ord(char_in_line)] for char_in_line in pgm_line]
+                    full_python_file_string.extend(program_line)
                     full_python_file_string.append(0)
                 position=0
                 model.reset_states()
-                # maybe good idea not to look line wise before, but character wise, 50 bevor 100 before?
+                if args.debug:
+                    print("\nnext file used "+ python_file.strip())
                 while position * args.max_length < len(full_python_file_string):
                     tmp_x = np.array([full_python_file_string[position*args.max_length:(position+1)*args.max_length]], dtype=int)
                     tmp_y = np.array([full_python_file_string[position*args.max_length:(position+1)*args.max_length]], dtype=int)
