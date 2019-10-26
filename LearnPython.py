@@ -42,6 +42,7 @@ parser.add_argument('--max_length', dest='max_length',  type=int, default=20000)
 parser.add_argument('--tensorboard_logdir', dest='tensorboard_logdir',  type=str, default='./logs')
 parser.add_argument('--EarlyStop', dest='EarlyStop',  type=str, default='EarlyStop')
 parser.add_argument('--embeddings_trainable', dest='embeddings_trainable', action='store_true')
+parser.add_argument('--embed_len', dest='embed_len',  type=int, default=None)
 args = parser.parse_args()
 
 RNN_type = {}
@@ -138,9 +139,11 @@ class KerasBatchGenerator(object):
                     full_python_file_string.append(0)
                 position=0
                 model.reset_states()
+                # maybe good idea not to look line wise before, but character wise, 50 bevor 100 before?
                 while position * args.max_length < len(full_python_file_string):
                     tmp_x = np.array([full_python_file_string[position*args.max_length:(position+1)*args.max_length]], dtype=int)
                     tmp_y = np.array([full_python_file_string[position*args.max_length:(position+1)*args.max_length]], dtype=int)
+                    position += 1
                     yield tmp_x, to_categorical(tmp_y, num_classes=max_output)
 
 train_data_generator = KerasBatchGenerator(train_data_set)
@@ -159,12 +162,17 @@ def attentions_layer(x):
 # at the moment loaded models seem not to support cudnn
 # https://github.com/tensorflow/tensorflow/issues/33601
 # you can use load_weights_name to load the weights into the model
+  
+if args.embed_len is not None:
+    embed_len = args.embed_len
+else:
+    embed_len = len(used_ords)
 if args.pretrained_name is not None:
   from tensorflow.keras.models import load_model
   model = load_model(args.pretrained_name)
 else:
   inputs = Input(batch_shape=(1,None,))
-  embeds = Embedding(len(used_ords), len(used_ords), embeddings_initializer='identity', trainable=args.embeddings_trainable)(inputs)
+  embeds = Embedding(len(used_ords), embed_len, embeddings_initializer='identity', trainable=args.embeddings_trainable)(inputs)
   lstm1 = LSTM_use(args.hidden_size, return_sequences=True, stateful = True)(embeds)
   if args.attention:
     lstm1b = Lambda(attentions_layer)(lstm1)
