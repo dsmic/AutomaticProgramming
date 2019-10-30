@@ -70,7 +70,7 @@ def read_file(file_name):
     return [line.strip('\n') for line in txt_file]
     
 used_ords = {}
-used_ords['\n']=0
+used_ords[ord('\n')]=0 
 num_ord = [1] # starting the translation table 0 reserved to seperate lines which are striped here
 
 def load_dataset(file_names):
@@ -207,6 +207,18 @@ if os.path.exists(args.EarlyStop) and os.path.getsize(args.EarlyStop)==0:
 model.save(args.final_name+'.hdf5')
 model.save_weights(args.final_name+'-weights.hdf5')
 
+def save_dict_to_file(dic, file_name):
+    f = open(file_name+'.dict','w')
+    f.write(str(dic))
+    f.close()
+
+def load_dict_from_file(file_name):
+    f = open(file_name+'.dict','r')
+    data=f.read()
+    f.close()
+    return eval(data)
+
+save_dict_to_file(used_ords,args.final_name)
 
 
 
