@@ -135,9 +135,12 @@ class KerasBatchGenerator(object):
                 model.reset_states()
                 if args.debug:
                     print("\nnext file used "+ python_file.strip())
-                while position * args.max_length < len(full_python_file_string):
-                    tmp_x = np.array([full_python_file_string[position*args.max_length:(position+1)*args.max_length]], dtype=int)
-                    tmp_y = np.array([full_python_file_string[position*args.max_length:(position+1)*args.max_length]], dtype=int)
+                while position * args.max_length < len(full_python_file_string)-1:
+                    end_is = (position+1)*args.max_length
+                    if end_is >= len(full_python_file_string)-1:
+                        end_is = len(full_python_file_string)-1
+                    tmp_x = np.array([full_python_file_string[position*args.max_length:end_is]], dtype=int)
+                    tmp_y = np.array([full_python_file_string[position*args.max_length+1:end_is+1]], dtype=int)
                     position += 1
                     yield tmp_x, to_categorical(tmp_y, num_classes=max_output)
 

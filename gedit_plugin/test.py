@@ -59,10 +59,6 @@ for pgm_line in pgm_lines:
     full_python_file_string.extend(program_line)
     full_python_file_string.append(0)
 
-full_python_file_string.append(0)
-full_python_file_string.append(4)
-full_python_file_string.append(5)
-
 inn = np.array([full_python_file_string], dtype=int)
 prediction = model.predict(inn)[0]
 print(prediction)
