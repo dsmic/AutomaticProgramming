@@ -43,6 +43,8 @@ parser.add_argument('--tensorboard_logdir', dest='tensorboard_logdir',  type=str
 parser.add_argument('--EarlyStop', dest='EarlyStop',  type=str, default='EarlyStop')
 parser.add_argument('--embeddings_trainable', dest='embeddings_trainable', action='store_true')
 parser.add_argument('--embed_len', dest='embed_len',  type=int, default=None)
+parser.add_argument('--two_LSTM', dest='two_LSTM', action='store_true')
+
 args = parser.parse_args()
 
 RNN_type = {}
@@ -176,7 +178,10 @@ else:
     lstm1b = Lambda(attentions_layer)(lstm1)
   else:
     lstm1b = lstm1
-  lstm4 = LSTM_use(args.hidden_size, return_sequences=True, stateful = True)(lstm1b)
+  if args.two_LSTM:
+      lstm4 = LSTM_use(args.hidden_size, return_sequences=True, stateful = True)(lstm1b)
+  else:
+      lstm4 = lstm1b
 
   x = Dense(max_output)(lstm4)
   predictions = Activation('softmax')(x)
