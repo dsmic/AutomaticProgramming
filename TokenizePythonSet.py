@@ -58,7 +58,7 @@ def load_dataset(file_names):
                 print(py_token)
                 token_number = translator.translate(py_token)
                 print("---",token_number, '- ' + translator.get_string(token_number)+' -')
-
+            data_set.append(file_names)
         except UnicodeDecodeError as e:
             print(file_name + '\n  wrong encoding ' + str(e))
     return data_set
