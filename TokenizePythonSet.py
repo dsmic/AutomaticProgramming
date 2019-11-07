@@ -12,10 +12,11 @@ class Token_translate:
     def __init__(self, num_free):
         self.data = {}
         self.used = {}
+        self.back = {}
         self.free_numbers = [i for i in range(num_free)] 
     
     def translate(self,token):
-        used_part = (token[0],token[1])
+        used_part = (token[0],token[1]) # (type , string ) of the tokenizer
         for all in self.used:
             self.used[all] *= 0.99
         self.used[used_part] = 1
@@ -25,12 +26,17 @@ class Token_translate:
                 self.free_numbers.append(self.data[oldest])
                 del(self.used[oldest])
                 del(self.data[oldest])
-            next_num = self.free_numbers[0]
+            next_num_of_token = self.free_numbers[0]
             self.free_numbers=self.free_numbers[1:]
-            self.data[used_part] = next_num
+            self.data[used_part] = next_num_of_token
+            self.back[next_num_of_token] = used_part[1] # string of used part
         
         print(len(self.data), len(self.used), len(self.free_numbers))
         return self.data[used_part]
+
+    def get_string(self, num_of_token):
+        return self.back[num_of_token]
+
             
 translator = Token_translate(1000)            
             
@@ -50,7 +56,8 @@ def load_dataset(file_names):
             #program_lines = []
             for py_token in py_program:
                 print(py_token)
-                print("---",translator.translate(py_token))
+                token_number = translator.translate(py_token)
+                print("---",token_number, '- ' + translator.get_string(token_number)+' -')
 
         except UnicodeDecodeError as e:
             print(file_name + '\n  wrong encoding ' + str(e))
