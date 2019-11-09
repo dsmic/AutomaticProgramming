@@ -15,6 +15,9 @@ from tensorflow.keras.layers import SimpleRNN, GRU, LSTM
 from tensorflow.keras.utils import to_categorical
 import numpy as np
 import tokenize
+from collections import OrderedDict
+from threading import Lock
+
 #import os
 #os.environ["TF_CPP_MIN_LOG_LEVEL"]="2" # remove some optimization warnings for tensorflow
 
@@ -45,11 +48,12 @@ parser.add_argument('--EarlyStop', dest='EarlyStop',  type=str, default='EarlySt
 parser.add_argument('--embeddings_trainable', dest='embeddings_trainable', action='store_true')
 parser.add_argument('--embed_len', dest='embed_len',  type=int, default=None)
 parser.add_argument('--two_LSTM', dest='two_LSTM', action='store_true')
+parser.add_argument('--token_number', dest='token_number',  type=int, default=1000)
 
 args = parser.parse_args()
 
 
-max_output = 1000
+max_output = args.token_number
 
 RNN_type = {}
 RNN_type['LSTM'] = LSTM
@@ -75,28 +79,31 @@ if gpus:
 class Token_translate:
     def __init__(self, num_free):
         self.data = {}
-        self.used = {}
+        self.used = OrderedDict([])
         self.back = {}
         self.free_numbers = [i for i in range(num_free)] 
-    
-    def translate(self,token):
-        used_part = (token[0],token[1]) # (type , string ) of the tokenizer
-        for all in self.used:
-            self.used[all] *= 0.99
-        self.used[used_part] = 1
-        if used_part not in self.data:
-            if len(self.free_numbers) == 0:
-                oldest = min(self.used,key=self.used.get)
-                self.free_numbers.append(self.data[oldest])
-                del(self.used[oldest])
-                del(self.data[oldest])
-            next_num_of_token = self.free_numbers[0]
-            self.free_numbers=self.free_numbers[1:]
-            self.data[used_part] = next_num_of_token
-            self.back[next_num_of_token] = used_part[1] # string of used part
+        self.lock = Lock()
         
-        #print(len(self.data), len(self.used), len(self.free_numbers))
-        return self.data[used_part]
+    def translate(self,token):
+        # seems to be called by different threads?!
+        with self.lock:
+            used_part = (token[0],token[1]) # (type , string ) of the tokenizer
+            for aa in self.used:
+                self.used[aa] *= 0.99
+            self.used[used_part] = 1
+            if used_part not in self.data:
+                if len(self.free_numbers) == 0:
+                    oldest = min(self.used,key=self.used.get)
+                    self.free_numbers.append(self.data[oldest])
+                    del(self.used[oldest])
+                    del(self.data[oldest])
+                next_num_of_token = self.free_numbers[0]
+                self.free_numbers=self.free_numbers[1:]
+                self.data[used_part] = next_num_of_token
+                self.back[next_num_of_token] = used_part[1] # string of used part
+            
+            #print(len(self.data), len(self.used), len(self.free_numbers))
+            return self.data[used_part]
 
     def get_string(self, num_of_token):
         return self.back[num_of_token]
@@ -222,7 +229,9 @@ tensorboard = TensorBoard(log_dir = args.tensorboard_logdir)
 checkpointer = ModelCheckpoint(filepath='checkpoints/model-{epoch:02d}.hdf5', verbose=1)
 
 model.compile(loss='categorical_crossentropy', optimizer = 'SGD', metrics=['categorical_accuracy'])
-model.fit_generator(train_data_generator.generate(), args.epoch_size, args.epochs, validation_data=test_data_generator.generate(), validation_steps=args.epoch_size / 10, callbacks=[checkpointer, tensorboard, terminate_on_key])
+model.fit_generator(train_data_generator.generate(), args.epoch_size, args.epochs, 
+                    validation_data=test_data_generator.generate(), validation_steps=args.epoch_size / 10, 
+                    callbacks=[checkpointer, tensorboard, terminate_on_key])
 
 if os.path.exists(args.EarlyStop) and os.path.getsize(args.EarlyStop)==0:
     os.remove(args.EarlyStop)
@@ -242,7 +251,7 @@ def load_dict_from_file(file_name):
     f.close()
     return eval(data)
 
-save_dict_to_file(used_ords,args.final_name)
+#save_dict_to_file(used_ords,args.final_name)
 
 
 
