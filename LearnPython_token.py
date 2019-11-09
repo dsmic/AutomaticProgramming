@@ -121,7 +121,8 @@ def load_dataset(file_names):
     for file_name in file_names:
         try:
             python_file = open(file_name)
-            tokenize.generate_tokens(python_file.readline) # just check if no errors accure
+            py_program = tokenize.generate_tokens(python_file.readline) # just check if no errors accure
+            [x for x in py_program]
             #program_lines = []
             #for py_token in py_program:
                 #print(py_token)
@@ -130,6 +131,9 @@ def load_dataset(file_names):
             data_set.append(file_name)
         except UnicodeDecodeError as e:
             print(file_name + '\n  wrong encoding ' + str(e))
+        except tokenize.TokenError as e:
+            print(file_name + '\n  token error ' + str(e))
+            
     return data_set
 
 if args.rand_files:
