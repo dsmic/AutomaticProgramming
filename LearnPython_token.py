@@ -83,25 +83,36 @@ class Token_translate:
         self.back = {}
         self.free_numbers = [i for i in range(num_free)] 
         self.lock = Lock()
+        self.found = 0
+        self.calls = 0
         
     def translate(self,token):
         # seems to be called by different threads?!
         with self.lock:
             used_part = (token[0],token[1]) # (type , string ) of the tokenizer
             for aa in self.used:
-                self.used[aa] *= 0.99
-            self.used[used_part] = 1
+                self.used[aa] *= 1 - 1.0 / args.token_number
+            if used_part in self.used:
+                self.used[used_part] += 1
+            else:
+                self.used[used_part] = 1
+            if self.used[used_part] > args.token_number / 10:
+                self.used[used_part] = args.token_number / 10
+            self.calls += 1
             if used_part not in self.data:
                 if len(self.free_numbers) == 0:
                     oldest = min(self.used,key=self.used.get)
                     self.free_numbers.append(self.data[oldest])
+                    if args.debug:
+                        print('deleted', oldest, self.used[oldest])
                     del(self.used[oldest])
                     del(self.data[oldest])
                 next_num_of_token = self.free_numbers[0]
                 self.free_numbers=self.free_numbers[1:]
                 self.data[used_part] = next_num_of_token
                 self.back[next_num_of_token] = used_part[1] # string of used part
-            
+            else:
+                self.found += 1
             #print(len(self.data), len(self.used), len(self.free_numbers))
             return self.data[used_part]
 
@@ -118,7 +129,11 @@ def read_file(file_name):
 def load_dataset(file_names):
     global num_ord
     data_set = []
+    count = 0
     for file_name in file_names:
+        count += 1
+        if args.limit_files >0 and count > args.limit_files:
+            break
         try:
             python_file = open(file_name)
             py_program = tokenize.generate_tokens(python_file.readline) # just check if no errors accure
@@ -255,6 +270,7 @@ def load_dict_from_file(file_name):
     f.close()
     return eval(data)
 
+print(translator.found / translator.calls, translator.calls)
 #save_dict_to_file(used_ords,args.final_name)
 
 
