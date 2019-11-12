@@ -90,7 +90,7 @@ class Token_translate:
     def translate(self,token):
         # seems to be called by different threads?!
         with self.lock:
-            if args.only_token_types:
+            if args.only_token_type:
                 used_part = (token[0]) # (type , string ) of the tokenizer
             else:
                 used_part = (token[0],token[1]) # (type , string ) of the tokenizer
