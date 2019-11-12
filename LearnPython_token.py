@@ -49,6 +49,7 @@ parser.add_argument('--embeddings_trainable', dest='embeddings_trainable', actio
 parser.add_argument('--embed_len', dest='embed_len',  type=int, default=None)
 parser.add_argument('--two_LSTM', dest='two_LSTM', action='store_true')
 parser.add_argument('--token_number', dest='token_number',  type=int, default=1000)
+parser.add_argument('--only_token_type', dest='only_token_type', action='store_true')
 
 args = parser.parse_args()
 
@@ -89,7 +90,10 @@ class Token_translate:
     def translate(self,token):
         # seems to be called by different threads?!
         with self.lock:
-            used_part = (token[0],token[1]) # (type , string ) of the tokenizer
+            if args.only_token_types:
+                used_part = (token[0]) # (type , string ) of the tokenizer
+            else:
+                used_part = (token[0],token[1]) # (type , string ) of the tokenizer
             for aa in self.used:
                 self.used[aa] *= 1 - 1.0 / args.token_number
             if used_part in self.used:
