@@ -275,6 +275,7 @@ def load_dict_from_file(file_name):
     f.close()
     return eval(data)
 
+print(len(translator.free_numbers))
 print(translator.found / translator.calls, translator.calls)
 #save_dict_to_file(used_ords,args.final_name)
 
