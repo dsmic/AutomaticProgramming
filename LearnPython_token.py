@@ -50,6 +50,7 @@ parser.add_argument('--embed_len', dest='embed_len',  type=int, default=None)
 parser.add_argument('--two_LSTM', dest='two_LSTM', action='store_true')
 parser.add_argument('--token_number', dest='token_number',  type=int, default=1000)
 parser.add_argument('--only_token_type', dest='only_token_type', action='store_true')
+parser.add_argument('--remove_comments', dest='remove_comments', action='store_true')
 
 args = parser.parse_args()
 
@@ -90,6 +91,9 @@ class Token_translate:
     def translate(self,token):
         # seems to be called by different threads?!
         with self.lock:
+            if args.remove_comments and token[0] == tokenize.COMMENT:
+                #print('comment removed')
+                return None
             if args.only_token_type:
                 used_part = (token[0]) # (type , string ) of the tokenizer
             else:
@@ -179,7 +183,13 @@ class KerasBatchGenerator(object):
             for python_file in self.data_set:
                 #print(python_file)
                 py_program = tokenize.generate_tokens(open(python_file.strip()).readline)
-                full_python_file_string = [translator.translate(x) for x in py_program]
+                full_python_file_string = []
+                for x in py_program:
+                    transl = translator.translate(x)
+                    if transl is not None:
+                        full_python_file_string.append(transl)
+                    #else:
+                    #    print('and not used')
                 position=0
                 model.reset_states()
                 if args.debug:
