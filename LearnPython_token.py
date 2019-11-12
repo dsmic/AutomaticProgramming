@@ -114,7 +114,8 @@ class Token_translate:
                 next_num_of_token = self.free_numbers[0]
                 self.free_numbers=self.free_numbers[1:]
                 self.data[used_part] = next_num_of_token
-                self.back[next_num_of_token] = used_part[1] # string of used part
+                if not args.only_token_type:
+                    self.back[next_num_of_token] = used_part[1] # string of used part
             else:
                 self.found += 1
             #print(len(self.data), len(self.used), len(self.free_numbers))
