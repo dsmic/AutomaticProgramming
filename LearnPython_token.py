@@ -51,6 +51,7 @@ parser.add_argument('--two_LSTM', dest='two_LSTM', action='store_true')
 parser.add_argument('--token_number', dest='token_number',  type=int, default=1000)
 parser.add_argument('--only_token_type', dest='only_token_type', action='store_true')
 parser.add_argument('--remove_comments', dest='remove_comments', action='store_true')
+parser.add_argument('--only_token_detail', dest='only_token_detail', action='store_true')
 
 args = parser.parse_args()
 
@@ -91,13 +92,14 @@ class Token_translate:
     def translate(self,token):
         # seems to be called by different threads?!
         with self.lock:
-            if args.remove_comments and token[0] == tokenize.COMMENT:
+            if args.remove_comments and (token[0] == tokenize.COMMENT or token[0] == tokenize.NL):
                 #print('comment removed')
                 return None
-            if args.only_token_type:
+            if args.only_token_type or (args.only_token_detail and token[0] != tokenize.OP):
                 used_part = (token[0]) # (type , string ) of the tokenizer
             else:
                 used_part = (token[0],token[1]) # (type , string ) of the tokenizer
+            #print(used_part)
             for aa in self.used:
                 self.used[aa] *= 1 - 1.0 / args.token_number
             if used_part in self.used:
@@ -118,7 +120,7 @@ class Token_translate:
                 next_num_of_token = self.free_numbers[0]
                 self.free_numbers=self.free_numbers[1:]
                 self.data[used_part] = next_num_of_token
-                if not args.only_token_type:
+                if not (args.only_token_type or args.only_token_detail):
                     self.back[next_num_of_token] = used_part[1] # string of used part
             else:
                 self.found += 1
