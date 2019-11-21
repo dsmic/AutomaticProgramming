@@ -17,6 +17,7 @@ import numpy as np
 import tokenize
 from collections import OrderedDict
 from threading import Lock
+#from sortedcontainers import SortedList
 
 #import os
 #os.environ["TF_CPP_MIN_LOG_LEVEL"]="2" # remove some optimization warnings for tensorflow
@@ -52,6 +53,7 @@ parser.add_argument('--token_number', dest='token_number',  type=int, default=10
 parser.add_argument('--only_token_type', dest='only_token_type', action='store_true')
 parser.add_argument('--remove_comments', dest='remove_comments', action='store_true')
 parser.add_argument('--only_token_detail', dest='only_token_detail', action='store_true')
+parser.add_argument('--only_token_detail_name', dest='only_token_detail_name', action='store_true')
 
 args = parser.parse_args()
 
@@ -79,10 +81,46 @@ if gpus:
     print(e)
 
 
+class token_sort:
+    def __init__(self, used_dict):
+        
+        self.np_sorted=[]
+        self.used_dict = used_dict
+        
+    def add(self, entry):
+        value = self.used_dict[entry]
+        up_bound = len(self.np_sorted)
+        low_bound = 0
+        while (up_bound - low_bound > 1):
+            pos = int((up_bound+low_bound) / 2)
+            if self.used_dict[self.np_sorted[pos]] > value:
+                up_bound = pos
+            else:
+                low_bound = pos
+        if up_bound-low_bound > 0 and self.used_dict[self.np_sorted[low_bound]] > value:
+            up_bound = low_bound
+        print('1',self.np_sorted,up_bound,entry)
+        self.np_sorted.insert(up_bound,entry)
+        print('2',self.np_sorted,up_bound,entry)
+        
+test2 = {}
+test1 = token_sort(test2)
+
+from random import random
+for kk in range(50):
+    test2[kk] = random()
+    test1.add(kk)
+
+print(test1.np_sorted)
+for i in test1.np_sorted:
+    print(i,test2[i])
+print('ok')
+
 class Token_translate:
     def __init__(self, num_free):
         self.data = {}
         self.used = OrderedDict([])
+        #self.used_sorted = SortedList(key=lambda x: self.used[x])
         self.back = {}
         self.free_numbers = [i for i in range(num_free)] 
         self.lock = Lock()
@@ -92,36 +130,45 @@ class Token_translate:
     def translate(self,token):
         # seems to be called by different threads?!
         with self.lock:
+            backok = False
             if args.remove_comments and (token[0] == tokenize.COMMENT or token[0] == tokenize.NL):
                 #print('comment removed')
                 return None
-            if args.only_token_type or (args.only_token_detail and token[0] != tokenize.OP):
+            if args.only_token_type or (args.only_token_detail and token[0] != tokenize.OP) or (args.only_token_detail_name and token[0] != tokenize.OP and token[0] != tokenize.NAME):
                 used_part = (token[0]) # (type , string ) of the tokenizer
             else:
                 used_part = (token[0],token[1]) # (type , string ) of the tokenizer
+                backok =True
             #print(used_part)
             for aa in self.used:
                 self.used[aa] *= 1 - 1.0 / args.token_number
             if used_part in self.used:
                 self.used[used_part] += 1
+                #print('remove',used_part)
+                #self.used_sorted.remove(used_part)
+                if self.used[used_part] > args.token_number / 10:
+                    self.used[used_part] = args.token_number / 10
             else:
                 self.used[used_part] = 1
-            if self.used[used_part] > args.token_number / 10:
-                self.used[used_part] = args.token_number / 10
+            #self.used_sorted.add(used_part)
+            print('add',used_part)
             self.calls += 1
             if used_part not in self.data:
                 if len(self.free_numbers) == 0:
                     oldest = min(self.used,key=self.used.get)
-                    self.free_numbers.append(self.data[oldest])
+                    self.free_numbers = [self.data[oldest]]
                     if args.debug:
                         print('deleted', oldest, self.used[oldest])
                     del(self.used[oldest])
+                    #self.used_sorted.remove(oldest)
                     del(self.data[oldest])
                 next_num_of_token = self.free_numbers[0]
                 self.free_numbers=self.free_numbers[1:]
                 self.data[used_part] = next_num_of_token
-                if not (args.only_token_type or args.only_token_detail):
+                if backok:
                     self.back[next_num_of_token] = used_part[1] # string of used part
+                else:
+                    self.back[next_num_of_token] = "???"
             else:
                 self.found += 1
             #print(len(self.data), len(self.used), len(self.free_numbers))
