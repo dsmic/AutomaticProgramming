@@ -115,10 +115,30 @@ class token_sort:
         up_bound -= 1
         while (self.used_dict[self.np_sorted[up_bound]] == value):
             if self.np_sorted[up_bound] == entry:
-                print("remove")
+                #print("remove", entry)
                 self.np_sorted.pop(up_bound)
                 return
             up_bound -= 1
+        raise NameError('should not happen ',entry,'not found')
+        
+    def pop_first(self):
+        return self.np_sorted.pop(0)
+    
+    def display(self):
+        print('***************************')
+        for i in self.np_sorted:
+            print(i, self.used_dict[i])
+        print('---------------------------')
+            
+    def check_order(self):
+        p = 0
+        for i in self.np_sorted:
+            if self.used_dict[i] < p:
+                self.display()
+                return False
+            p= self.used_dict[i]
+        return True
+            
         
 test2 = {}
 test1 = token_sort(test2)
@@ -128,8 +148,8 @@ for kk in range(50):
     test2[kk] = random()
     test1.add(kk)
 
-for kk in range(50,60):
-    test2[kk] = 0.5
+for kk in range(50,52):
+    test2[kk] = 1.1
     test1.add(kk)
 
 print(test1.np_sorted)
@@ -141,8 +161,8 @@ print('ok')
 class Token_translate:
     def __init__(self, num_free):
         self.data = {}
-        self.used = OrderedDict([])
-        #self.used_sorted = SortedList(key=lambda x: self.used[x])
+        self.used = {} #OrderedDict([])
+        self.used_sorted = token_sort(self.used)
         self.back = {}
         self.free_numbers = [i for i in range(num_free)] 
         self.lock = Lock()
@@ -165,24 +185,25 @@ class Token_translate:
             for aa in self.used:
                 self.used[aa] *= 1 - 1.0 / args.token_number
             if used_part in self.used:
+                self.used_sorted.delete(used_part)
                 self.used[used_part] += 1
-                #print('remove',used_part)
-                #self.used_sorted.remove(used_part)
                 if self.used[used_part] > args.token_number / 10:
                     self.used[used_part] = args.token_number / 10
+                #assert(self.used_sorted.check_order())
             else:
                 self.used[used_part] = 1
-            #self.used_sorted.add(used_part)
-            print('add',used_part)
+            self.used_sorted.add(used_part)
             self.calls += 1
             if used_part not in self.data:
                 if len(self.free_numbers) == 0:
-                    oldest = min(self.used,key=self.used.get)
+                    #oldest_old = min(self.used,key=self.used.get)
+                    oldest = self.used_sorted.pop_first()
+                    #assert(oldest == oldest_old)
                     self.free_numbers = [self.data[oldest]]
                     if args.debug:
                         print('deleted', oldest, self.used[oldest])
+                    #self.used_sorted.delete(oldest) already deleted with pop
                     del(self.used[oldest])
-                    #self.used_sorted.remove(oldest)
                     del(self.data[oldest])
                 next_num_of_token = self.free_numbers[0]
                 self.free_numbers=self.free_numbers[1:]
@@ -193,7 +214,6 @@ class Token_translate:
                     self.back[next_num_of_token] = "???"
             else:
                 self.found += 1
-            #print(len(self.data), len(self.used), len(self.free_numbers))
             return self.data[used_part]
 
     def get_string(self, num_of_token):
@@ -217,7 +237,7 @@ def load_dataset(file_names):
         try:
             python_file = open(file_name)
             py_program = tokenize.generate_tokens(python_file.readline) # just check if no errors accure
-            [x for x in py_program]
+            [x for x in py_program] #force tokenizing to check for errors
             #program_lines = []
             #for py_token in py_program:
                 #print(py_token)
