@@ -83,7 +83,6 @@ if gpus:
 
 class token_sort:
     def __init__(self, used_dict):
-        
         self.np_sorted=[]
         self.used_dict = used_dict
         
@@ -99,9 +98,27 @@ class token_sort:
                 low_bound = pos
         if up_bound-low_bound > 0 and self.used_dict[self.np_sorted[low_bound]] > value:
             up_bound = low_bound
-        print('1',self.np_sorted,up_bound,entry)
         self.np_sorted.insert(up_bound,entry)
-        print('2',self.np_sorted,up_bound,entry)
+        
+    def delete(self, entry):
+        value = self.used_dict[entry]
+        up_bound = len(self.np_sorted)
+        low_bound = 0
+        while (up_bound - low_bound > 1):
+            pos = int((up_bound+low_bound) / 2)
+            if self.used_dict[self.np_sorted[pos]] > value:
+                up_bound = pos
+            else:
+                low_bound = pos
+        if up_bound-low_bound > 0 and self.used_dict[self.np_sorted[low_bound]] > value:
+            up_bound = low_bound
+        up_bound -= 1
+        while (self.used_dict[self.np_sorted[up_bound]] == value):
+            if self.np_sorted[up_bound] == entry:
+                print("remove")
+                self.np_sorted.pop(up_bound)
+                return
+            up_bound -= 1
         
 test2 = {}
 test1 = token_sort(test2)
@@ -111,7 +128,12 @@ for kk in range(50):
     test2[kk] = random()
     test1.add(kk)
 
+for kk in range(50,60):
+    test2[kk] = 0.5
+    test1.add(kk)
+
 print(test1.np_sorted)
+test1.delete(51)
 for i in test1.np_sorted:
     print(i,test2[i])
 print('ok')
