@@ -15,7 +15,7 @@ from tensorflow.keras.layers import SimpleRNN, GRU, LSTM
 from tensorflow.keras.utils import to_categorical
 import numpy as np
 import tokenize
-from collections import OrderedDict
+#from collections import OrderedDict
 from threading import Lock
 #from sortedcontainers import SortedList
 
@@ -55,6 +55,8 @@ parser.add_argument('--remove_comments', dest='remove_comments', action='store_t
 parser.add_argument('--only_token_detail', dest='only_token_detail', action='store_true')
 parser.add_argument('--only_token_detail_name', dest='only_token_detail_name', action='store_true')
 
+parser.add_argument('--benchmark_parsing', dest='benchmark_parsing',   type=int, default=0)
+
 args = parser.parse_args()
 
 
@@ -92,11 +94,11 @@ class token_sort:
         low_bound = 0
         while (up_bound - low_bound > 1):
             pos = int((up_bound+low_bound) / 2)
-            if self.used_dict[self.np_sorted[pos]] > value:
+            if self.used_dict[self.np_sorted[pos]] < value:
                 up_bound = pos
             else:
                 low_bound = pos
-        if up_bound-low_bound > 0 and self.used_dict[self.np_sorted[low_bound]] > value:
+        if up_bound-low_bound > 0 and self.used_dict[self.np_sorted[low_bound]] < value:
             up_bound = low_bound
         self.np_sorted.insert(up_bound,entry)
         
@@ -106,11 +108,11 @@ class token_sort:
         low_bound = 0
         while (up_bound - low_bound > 1):
             pos = int((up_bound+low_bound) / 2)
-            if self.used_dict[self.np_sorted[pos]] > value:
+            if self.used_dict[self.np_sorted[pos]] < value:
                 up_bound = pos
             else:
                 low_bound = pos
-        if up_bound-low_bound > 0 and self.used_dict[self.np_sorted[low_bound]] > value:
+        if up_bound-low_bound > 0 and self.used_dict[self.np_sorted[low_bound]] < value:
             up_bound = low_bound
         up_bound -= 1
         while (self.used_dict[self.np_sorted[up_bound]] == value):
@@ -121,8 +123,8 @@ class token_sort:
             up_bound -= 1
         raise NameError('should not happen ',entry,'not found')
         
-    def pop_first(self):
-        return self.np_sorted.pop(0)
+    def pop_lowest(self):
+        return self.np_sorted.pop()
     
     def display(self):
         print('***************************')
@@ -148,7 +150,7 @@ for kk in range(50):
     test2[kk] = random()
     test1.add(kk)
 
-for kk in range(50,52):
+for kk in range(50,57):
     test2[kk] = 1.1
     test1.add(kk)
 
@@ -182,8 +184,10 @@ class Token_translate:
                 used_part = (token[0],token[1]) # (type , string ) of the tokenizer
                 backok =True
             #print(used_part)
+            f = 1 - 1.0 / args.token_number
             for aa in self.used:
-                self.used[aa] *= 1 - 1.0 / args.token_number
+                self.used[aa] *= f
+            #self.used.update((k, v * f) for k,v in self.used.items())
             if used_part in self.used:
                 self.used_sorted.delete(used_part)
                 self.used[used_part] += 1
@@ -197,7 +201,7 @@ class Token_translate:
             if used_part not in self.data:
                 if len(self.free_numbers) == 0:
                     #oldest_old = min(self.used,key=self.used.get)
-                    oldest = self.used_sorted.pop_first()
+                    oldest = self.used_sorted.pop_lowest()
                     #assert(oldest == oldest_old)
                     self.free_numbers = [self.data[oldest]]
                     if args.debug:
@@ -339,6 +343,14 @@ print(model.summary())
 if args.load_weights_name:
     model.load_weights(args.load_weights_name, by_name=True)
     print('weights loaded')
+
+if args.benchmark_parsing > 0:
+    performance_test = train_data_generator.generate()
+    for i in range(args.benchmark_parsing):
+        next(performance_test)
+        print(i)
+    import sys
+    sys.exit()
 
 print("starting",args)
 import os
