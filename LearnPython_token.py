@@ -142,24 +142,6 @@ class token_sort:
         return True
             
         
-test2 = {}
-test1 = token_sort(test2)
-
-from random import random
-for kk in range(50):
-    test2[kk] = random()
-    test1.add(kk)
-
-for kk in range(50,57):
-    test2[kk] = 1.1
-    test1.add(kk)
-
-print(test1.np_sorted)
-test1.delete(51)
-for i in test1.np_sorted:
-    print(i,test2[i])
-print('ok')
-
 class Token_translate:
     def __init__(self, num_free):
         self.data = {}
@@ -390,7 +372,10 @@ def load_dict_from_file(file_name):
 
 print(len(translator.free_numbers))
 print(translator.found / translator.calls, translator.calls)
-#save_dict_to_file(used_ords,args.final_name)
+save_dict_to_file(translator.back, args.final_name+'_back')
+save_dict_to_file(translator.used, args.final_name+'_used')
+save_dict_to_file(translator.data, args.final_name+'_data')
+save_dict_to_file(translator.free_numbers, args.final_name+'_free_numbers')
 
 
 
