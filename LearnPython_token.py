@@ -197,7 +197,10 @@ class Token_translate:
                 if backok:
                     self.back[next_num_of_token] = used_part[1] # string of used part
                 else:
-                    self.back[next_num_of_token] = "???"
+                    if token.type == tokenize.NEWLINE:
+                        self.back[next_num_of_token] = '\n'
+                    else:
+                        self.back[next_num_of_token] = "???"
             else:
                 self.found += 1
             return self.data[used_part]

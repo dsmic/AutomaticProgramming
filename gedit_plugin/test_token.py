@@ -163,7 +163,10 @@ class Token_translate:
                 if backok:
                     self.back[next_num_of_token] = used_part[1] # string of used part
                 else:
-                    self.back[next_num_of_token] = "???"
+                    if token == tokenize.NEWLINE:
+                        self.back[next_num_of_token] = '\n'
+                    else:
+                        self.back[next_num_of_token] = "???"
             else:
                 self.found += 1
             return self.data[used_part]
@@ -179,9 +182,22 @@ translator.free_numbers = load_dict_from_file('/home/detlef/AutomaticProgramming
 
 tokens = tokenize.generate_tokens(string_file.readline)
 
-#print([t for t in tokens])
+tokenlist = []
+for t in tokens:
+    if t.type != tokenize.ENDMARKER and (t.end[0] < current_line or (t.end[0] == current_line and t.end[1] < current_offset)):
+        print(t,t.end[0],current_line,current_offset)
+        tokenlist.append(t)
 
-full_python_file_string = [translator.translate(x) for x in tokens]
+for t in tokenlist:
+    print(t)
+print('----------------------')
+
+full_python_file_string = []
+for x in tokenlist:
+    transl = translator.translate(x)
+    if transl is not None:
+        full_python_file_string.append(transl)
+        
 # for pgm_line in pgm_lines:
 #     program_line = [tr_char(char_in_line) for char_in_line in pgm_line.strip('\n')]
 #     full_python_file_string.extend(program_line)
