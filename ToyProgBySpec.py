@@ -21,9 +21,9 @@ def click(event):
 
 
 def key(event):
-    w.create_text(20, 30, anchor=W, font="Purisa",
+    c = w.create_text(20, 30, anchor=W, font=("Times New Roman", int(25), "bold"),
             text=event.char)
-    print('key pressed',event)
+    print('key pressed',event, 'bounding', w.bbox(c))
     
     
 w.bind('<Button-1>', click)
