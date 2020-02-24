@@ -24,23 +24,30 @@ def between(ll, compare):
     return ret
 
 
-# This is the main documented class, later classes are not documented for future syntax
-class Character():
+
+class BaseRules():
     def __init__(self):
-        self.priority = ['top', 'left', 'height', 'width', 'right', 'bottom'] #Later this should be syntactically improved
-    
-        #fixed content not changed by other variables
-        self.TheCharacter = None
-    
         #manageing variables (not used in later syntax)
         self.TheVars = {} #contains the variables from priority
         self.TheChanges = {} #contains the variables to be changed in priority during a reassignement
-    
+
     def getVar(self, name):
         return self.TheVars[name]
     
     def setVar(self, name, value):
         self.TheVars[name]=value
+
+    def takeToMuch(self, _):
+        raise ValueError('Can not take Elements from before.')
+
+# This is the main documented class, later classes are not documented for future syntax
+class Character(BaseRules):
+    def __init__(self):
+        self.priority = ['top', 'left', 'height', 'width', 'right', 'bottom'] #Later this should be syntactically improved
+    
+        #fixed content not changed by other variables
+        self.TheCharacter = None
+        BaseRules.__init__(self)
     
     def restictions(self):
         # becomes zero for the correct values, uses priority to determine which to optimize
@@ -48,17 +55,14 @@ class Character():
         # top-bottom = height
         # right-left = width
         return [self.getVar('top')-self.getVar('bottom')-self.getVar('height'), 
-                self.getVar('right')-self.getVar('left')-self.getVar('width')]
+                self.getVar('right')-self.getVar('left')-self.getVar('width')], None
     
-class Word():
+class Word(BaseRules):
     def __init__(self):
         self.priority = ['top', 'left', 'height', 'width', 'right', 'bottom'] #Later this should be syntactically improved
     
         self.WordCharacters = []
-
-        #manageing variables (not used in later syntax)
-        self.TheVars = {} #contains the variables from priority
-        self.TheChanges = {} #contains the variables to be changed in priority during a reassignement
+        BaseRules.__init__(self)
 
     def restrictions(self):
         ret = []
@@ -69,53 +73,58 @@ class Word():
             ll=self.WordCharacters
             ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right'))
             ret.append(self.WordCharacters[len(self.WordCharacters)-1].getVar('right')-self.TheVars('right'))
-        return ret
+        return ret, None
 
 class Line():
     def __init__(self):
         self.priority = ['top', 'left', 'height', 'width', 'right', 'bottom'] #Later this should be syntactically improved
     
         self.LineWords = []
+        BaseRules.__init__(self)
 
-        #manageing variables (not used in later syntax)
-        self.TheVars = {} #contains the variables from priority
-        self.TheChanges = {} #contains the variables to be changed in priority during a reassignement
+    def takeToMuch(self, ToMuch):
+        self.LineWords.insert[0,ToMuch]
 
     def restrictions(self):
         ret = []
-        
+        ToLong = None
         # this must get good syntax later !!!!
         if (self.WordCharacters.len>0):
             ret.append(self.LineWords[0].getVar('left')-self.getVar('left'))
             ll=self.LineWords
             ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right'))
-            ret.append(self.LineWords[len(self.WordCharacters)-1].getVar('right')-self.TheVars('right')) #too long must be managed here as allowed operation
-        return ret
+            if self.LineWords[len(self.WordCharacters)-1].getVar('right')>self.TheVars('right'):
+                #too long must be managed here as allowed operation
+                ToLong = self.lineWords.pop()
+        return ret, ToLong
 
 class Page():
     def __init__(self):
         self.priority = ['top', 'left', 'height', 'width', 'right', 'bottom'] #Later this should be syntactically improved
     
         self.PageLines = []
-
-        #manageing variables (not used in later syntax)
-        self.TheVars = {} #contains the variables from priority
-        self.TheChanges = {} #contains the variables to be changed in priority during a reassignement
-
+        BaseRules.__init__(self)
+    
+    def takeToMuch(self, ToMuch):
+        self.PageLines.insert[0,ToMuch]
+        
     def restrictions(self):
         ret = []
-        
+        ToLong = None
         # this must get good syntax later !!!!
         if (self.WordCharacters.len>0):
             ret.append(self.LineWords[0].getVar('top')-self.getVar('top'))
             ll=self.PageLines
             ret += between(ll, lambda a: ll[a].getVar('top')-ll[a-1].getVar('bottom'))
-            ret.append(self.PageLines[len(self.WordCharacters)-1].getVar('bottom')-self.TheVars('bottom')) #too long must be managed here as allowed operation
-        return ret
+            if self.PageLines[len(self.WordCharacters)-1].getVar('bottom') > self.TheVars('bottom'):
+                #too long must be managed here as allowed operation
+                ToLong = self.PageLines.pop()
+        return ret, ToLong
 
 
 
-#define operations between objects ?????????
+# define operations between objects ?????????
+# takeToMuch can take from before, restrictions can return ToLong
 
 
 
@@ -137,7 +146,7 @@ ll=[a,b,c]
 between(ll,lambda a:ll[a].getVar('left')-ll[a-1].getVar('right'))
 
 
-
+#a.takeToMuch(None)
 
 
 
