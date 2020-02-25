@@ -7,8 +7,8 @@ Created on Sun Feb 23 18:53:25 2020
 """
 
 from tkinter import Tk, Canvas, mainloop, W
-
-
+#import numpy as np
+import operator
 
 def getVariable(name):
     return name.getVar            
@@ -29,6 +29,9 @@ class BaseRules():
     def __init__(self):
         #manageing variables (not used in later syntax)
         self.TheVars = {} #contains the variables from priority
+        for l in self.priority:
+            self.setVar(l,0)
+            
         self.TheChanges = {} #contains the variables to be changed in priority during a reassignement
         self.childs = []
         
@@ -40,17 +43,40 @@ class BaseRules():
 
     def takeToMuch(self, _):
         raise ValueError('Can not take Elements from before.')
-
+        
+    def optimize(self):
+        opt_vars = self.priority
+        opt_vars.reverse()
+        for vv in opt_vars:
+            before = self.restrictions()
+            print(self.TheVars)
+            self.setVar(vv, self.getVar(vv)+1)
+            after = self.restrictions()
+            print(self.TheVars)
+            diff = list(map(operator.sub, after[0], before[0]))
+            correct = -1
+            bb = before[0][:]
+            for l in diff:
+                dd = bb.pop(0)
+                if l != 0:
+                    correct=-1-dd/l
+                    print("##", l, dd, correct)
+                    
+            print(vv, before[0], after[0], diff, correct)
+            self.setVar(vv, self.getVar(vv)+correct)
+            now = self.restrictions()
+            print(vv, before[0], after[0], now[0], correct)
+            
 # This is the main documented class, later classes are not documented for future syntax
 class Character(BaseRules):
     def __init__(self, ch):
-        BaseRules.__init__(self)
         self.priority = ['top', 'left', 'height', 'width', 'right', 'bottom'] #Later this should be syntactically improved
     
         #fixed content not changed by other variables
         self.TheCharacter = ch
-    
-    def restictions(self):
+        BaseRules.__init__(self)
+        
+    def restrictions(self):
         # becomes zero for the correct values, uses priority to determine which to optimize
         # planed syntax would be:
         # top-bottom = height
@@ -60,14 +86,15 @@ class Character(BaseRules):
     
 class Word(BaseRules):
     def __init__(self):
-        BaseRules.__init__(self)
         self.priority = ['top', 'left', 'height', 'width', 'right', 'bottom'] #Later this should be syntactically improved
     
+        BaseRules.__init__(self)
         self.WordCharacters = self.childs
-
+        
     def addCharacter(self, ch):
         l=Character(ch)
         self.WordCharacters.append(l)
+        return l
 
     def restrictions(self):
         ret = []
@@ -82,11 +109,11 @@ class Word(BaseRules):
 
 class Line(BaseRules):
     def __init__(self):
-        BaseRules.__init__(self)
         self.priority = ['top', 'left', 'height', 'width', 'right', 'bottom'] #Later this should be syntactically improved
     
+        BaseRules.__init__(self)
         self.LineWords = self.childs
-
+        
     def takeToMuch(self, ToMuch):
         self.LineWords.insert[0,ToMuch]
 
@@ -113,11 +140,11 @@ class Line(BaseRules):
 
 class Page(BaseRules):
     def __init__(self):
-        BaseRules.__init__(self)
         self.priority = ['top', 'left', 'height', 'width', 'right', 'bottom'] #Later this should be syntactically improved
     
+        BaseRules.__init__(self)
         self.PageLines = self.childs
-    
+        
     def takeToMuch(self, ToMuch):
         self.PageLines.insert[0,ToMuch]
     
@@ -208,7 +235,13 @@ def key(event):
     if ch== ' ':
         actualWord = actualLine.addWord()
     else:
-        actualWord.addCharacter(ch)
+        l = actualWord.addCharacter(ch)
+        (left,top,right,bottom) = w.bbox(c)
+        l.setVar('left', left)
+        l.setVar('width', right-left)
+        l.setVar('top', top)
+        l.setVar('height', bottom-top)
+        l.optimize()
         
 w.bind('<Button-1>', click)
 master.bind('<Key>',key)
