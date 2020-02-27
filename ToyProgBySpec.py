@@ -211,7 +211,7 @@ class Line(BaseRules):
         ToLong = None
         ll=self.LineWords
         if (len(ll)>0):
-            if ll[len(ll)-1].getVar('bottom') > self.getVar('bottom'):
+            if ll[len(ll)-1].getVar('right') > self.getVar('right'):
                 #too long must be managed here as allowed operation
                 ToLong = ll.pop()
         return ToLong
@@ -237,13 +237,24 @@ class Page(BaseRules):
         ll=self.PageLines
         if (len(ll)>0):
             ret.append(self.PageLines[0].getVar('top')-self.getVar('top'))
-            ret.append(self.PageLines[0].getVar('left')-self.getVar('left'))
-            ret.append(self.PageLines[0].getVar('right')-self.getVar('right'))
-            
+            #ret.append(self.PageLines[0].getVar('left')-self.getVar('left'))
+            #ret.append(self.PageLines[0].getVar('right')-self.getVar('right'))
+            ret += for_all(ll, lambda a: ll[a].getVar('left')-self.getVar('left'))
+            ret += for_all(ll, lambda a: ll[a].getVar('right')-self.getVar('right'))
             ret += between(ll, lambda a: ll[a].getVar('top')-ll[a-1].getVar('bottom'))
         return ret
 
     def check_to_long(self):
+        global actualLine
+        add = None
+        for l in self.PageLines:
+            if add is not None:
+                l.LineWords.insert(0,add)
+            add = l.check_to_long()
+        if add is not None:
+            actualLine = self.addLine()
+            actualLine.LineWords.append(add)
+            add = None
         ToLong = None
         ll=self.PageLines
         if (len(ll)>0):
@@ -258,7 +269,7 @@ class Page(BaseRules):
 testpage = Page()
 testpage.setVar('left',0)
 testpage.setVar('top',20)
-testpage.setVar('right',800)
+testpage.setVar('right',400)
 testpage.setVar('bottom',400)
 
 actualLine = testpage.addLine()
@@ -281,12 +292,13 @@ def key(event):
     print('key pressed',event, 'bounding', w.bbox(c))
     ch=event.char
     if ch== ' ':
+        testpage.check_to_long()
         actualWord = actualLine.addWord()
-        # for _ in range(500):
-        #     testpage.optimize()
-        # w.delete("all")
-        # for d in testpage.get_all_self_and_childs():
-        #     d.draw()
+        for _ in range(1):
+            testpage.optimize()
+        w.delete("all")
+        for d in testpage.get_all_self_and_childs():
+            d.draw()
         
     else:
         l = actualWord.addCharacter(ch)
