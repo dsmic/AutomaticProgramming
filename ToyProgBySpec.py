@@ -84,7 +84,7 @@ class BaseRules():
         f_x = np.array(before)
         JK = np.array(jakobi_list)
         JK_t = JK.transpose()
-        JK_t_i = np.linalg.pinv(JK_t)
+        JK_t_i = np.linalg.pinv(JK_t, rcond=0.0001)
         delta = np.dot(JK_t_i, f_x)
         print(delta)
         i=0
@@ -295,7 +295,7 @@ def key(event):
         l.setVar('width', right-left)
         l.setVar('top', top)
         l.setVar('height', bottom-top)
-        for _ in range(10):
+        for _ in range(1):
             testpage.optimize()
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
