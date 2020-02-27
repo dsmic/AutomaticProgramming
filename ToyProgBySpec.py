@@ -7,7 +7,7 @@ Created on Sun Feb 23 18:53:25 2020
 """
 
 from tkinter import Tk, Canvas, mainloop, W
-#import numpy as np
+import numpy as np
 import operator
 
 def getVariable(name):
@@ -54,7 +54,8 @@ class BaseRules():
         raise ValueError('Can not take Elements from before.')
     
     def full_restrictions(self, debug = 0):
-        ret = self.restrictions()[0]
+        ret = self.restrictions()
+        #print('r',ret)
         for c in self.childs:
             ret += c.full_restrictions(debug=debug)
         if debug:
@@ -67,7 +68,38 @@ class BaseRules():
             ret += c.get_all_self_and_childs()
         return ret
         
+    def optimize_jakobi(self):
+        jakobi_list = []
+        before = self.full_restrictions()
+        all_objects = self.get_all_self_and_childs()
+        for obj in all_objects:
+            opt_vars = obj.priority
+            for vv in opt_vars:
+                tmp = obj.getVar(vv)
+                obj.setVar(vv, tmp + 1)
+                after = self.full_restrictions()
+                diff = list(map(operator.sub, after, before))
+                obj.setVar(vv, tmp)
+                jakobi_list.append(diff)
+        f_x = np.array(before)
+        JK = np.array(jakobi_list)
+        JK_t = JK.transpose()
+        JK_t_i = np.linalg.pinv(JK_t)
+        delta = np.dot(JK_t_i, f_x)
+        print(delta)
+        i=0
+        for obj in all_objects:
+            opt_vars = obj.priority
+            for vv in opt_vars:
+                print(vv, round(obj.getVar(vv)), round(delta[i]), round(obj.getVar(vv) - delta[i]))
+                obj.setVar(vv, obj.getVar(vv) - delta[i])
+                i += 1
+                
+        
     def optimize(self):
+        self.optimize_jakobi()
+        return
+        #replace with multi dim newton !! Jakobi and invert
         all_objects = self.get_all_self_and_childs()
         for obj in all_objects:
             opt_vars = obj.priority
@@ -85,11 +117,16 @@ class BaseRules():
                     if l != 0:
                         num_correct += 1
                         correct +=-dd/l
-                if num_correct > 0: correct /= num_correct 
+                
+                if num_correct > 0: correct /= num_correct
+                #correct *= 0.9
                 correct -= 1        
                 obj.setVar(vv, obj.getVar(vv)+correct)
                 #if correct != -1:
                 #    print(obj, vv, self.full_restrictions(), correct + 1)
+
+        
+                
                 
 # This is the main documented class, later classes are not documented for future syntax
 class Character(BaseRules):
@@ -111,8 +148,8 @@ class Character(BaseRules):
         # planed syntax would be:
         # top-bottom = height
         # right-left = width
-        return [self.getVar('top')-self.getVar('bottom')-self.getVar('height'), 
-                self.getVar('right')-self.getVar('left')-self.getVar('width')], None
+        return [self.getVar('bottom')-self.getVar('top')-self.getVar('height'), 
+                self.getVar('right')-self.getVar('left')-self.getVar('width')]
     
 class Word(BaseRules):
     def __init__(self):
@@ -138,7 +175,7 @@ class Word(BaseRules):
             ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right'))
             ret.append(self.WordCharacters[len(self.WordCharacters)-1].getVar('right')-self.getVar('right'))
             
-        return ret, None
+        return ret
 
 class Line(BaseRules):
     def __init__(self):
@@ -157,19 +194,27 @@ class Line(BaseRules):
 
     def restrictions(self):
         ret = []
-        ToLong = None
         # this must get good syntax later !!!!
-        if (self.WordCharacters.len>0):
+        ll=self.LineWords
+        #print('vor', ll)
+        if (len(ll)>0):
             ret.append(self.LineWords[0].getVar('left')-self.getVar('left'))
-            ll=self.LineWords
-            ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right'))
-            if self.LineWords[len(self.WordCharacters)-1].getVar('right')>self.getVar('right'):
-                #too long must be managed here as allowed operation
-                ToLong = self.lineWords.pop()
+            ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right')-5)
+            #print('ll', ll)
             ret.append(min([l.getVar('top') for l in ll])-self.getVar('top'))
-            ret.append(max([l.getVar('bottom') for l in ll])-self.getVar('bottom'))
+            dd = [(l.getVar('bottom') -self.getVar('bottom')) for l in ll]
+            ret += dd
             
-        return ret, ToLong
+        return ret
+
+    def check_to_long(self):
+        ToLong = None
+        ll=self.LineWords
+        if (len(ll)>0):
+            if ll[len(ll)-1].getVar('bottom') > self.getVar('bottom'):
+                #too long must be managed here as allowed operation
+                ToLong = ll.pop()
+        return ToLong
 
 class Page(BaseRules):
     def __init__(self):
@@ -188,27 +233,31 @@ class Page(BaseRules):
         
     def restrictions(self):
         ret = []
-        ToLong = None
         # this must get good syntax later !!!!
-        if (self.WordCharacters.len>0):
+        ll=self.PageLines
+        if (len(ll)>0):
             ret.append(self.PageLines[0].getVar('top')-self.getVar('top'))
             ret.append(self.PageLines[0].getVar('left')-self.getVar('left'))
             ret.append(self.PageLines[0].getVar('right')-self.getVar('right'))
             
-            ll=self.PageLines
             ret += between(ll, lambda a: ll[a].getVar('top')-ll[a-1].getVar('bottom'))
-            if self.PageLines[len(self.WordCharacters)-1].getVar('bottom') > self.getVar('bottom'):
-                #too long must be managed here as allowed operation
-                ToLong = self.PageLines.pop()
-        return ret, ToLong
+        return ret
 
+    def check_to_long(self):
+        ToLong = None
+        ll=self.PageLines
+        if (len(ll)>0):
+            if ll[len(ll)-1].getVar('bottom') > self.getVar('bottom'):
+                #too long must be managed here as allowed operation
+                ToLong = ll.pop()
+        return ToLong
 
 
 # takeToMuch can take from before, restrictions can return ToLong
 
 testpage = Page()
 testpage.setVar('left',0)
-testpage.setVar('top',0)
+testpage.setVar('top',20)
 testpage.setVar('right',800)
 testpage.setVar('bottom',400)
 
@@ -233,6 +282,12 @@ def key(event):
     ch=event.char
     if ch== ' ':
         actualWord = actualLine.addWord()
+        # for _ in range(500):
+        #     testpage.optimize()
+        # w.delete("all")
+        # for d in testpage.get_all_self_and_childs():
+        #     d.draw()
+        
     else:
         l = actualWord.addCharacter(ch)
         (left,top,right,bottom) = w.bbox(c)
@@ -240,12 +295,13 @@ def key(event):
         l.setVar('width', right-left)
         l.setVar('top', top)
         l.setVar('height', bottom-top)
-        for _ in range(100):
-            actualWord.optimize()
+        for _ in range(10):
+            testpage.optimize()
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
             d.draw()
-        actualWord.full_restrictions(debug=1)
+        testpage.full_restrictions(debug=1)
+        testpage.optimize_jakobi()
         
 w.bind('<Button-1>', click)
 master.bind('<Key>',key)
