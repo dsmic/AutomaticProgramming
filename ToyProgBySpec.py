@@ -27,11 +27,9 @@ def between(ll, compare):
         ret.append(compare(i))
     return ret
 
-
-
 class BaseRules():
     def draw(self):
-        print(self, 'char nodraw', round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
+        #print(self, 'char nodraw', round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
         pass
     
     def __init__(self):
@@ -39,10 +37,7 @@ class BaseRules():
         self.TheVars = {} #contains the variables from priority
         for l in self.priority:
             self.setVar(l,0)
-            
-        self.TheChanges = {} #contains the variables to be changed in priority during a reassignement
         self.childs = []
-        self.not_optimizing = None
             
     def getVar(self, name):
         return self.TheVars[name]
@@ -68,7 +63,7 @@ class BaseRules():
             ret += c.get_all_self_and_childs()
         return ret
         
-    def optimize_jakobi(self):
+    def optimize(self):
         jakobi_list = []
         before = self.full_restrictions()
         all_objects = self.get_all_self_and_childs()
@@ -86,20 +81,15 @@ class BaseRules():
         JK_t = JK.transpose()
         JK_t_i = np.linalg.pinv(JK_t, rcond=0.0001)
         delta = np.dot(JK_t_i, f_x)
-        print(delta)
         i=0
         for obj in all_objects:
             opt_vars = obj.priority
             for vv in opt_vars:
-                print(vv, round(obj.getVar(vv)), round(delta[i]), round(obj.getVar(vv) - delta[i]))
                 obj.setVar(vv, obj.getVar(vv) - delta[i])
                 i += 1
                 
         
-    def optimize(self):
-        self.optimize_jakobi()
-        return
-        #replace with multi dim newton !! Jakobi and invert
+    def optimize_nonjakobi(self):
         all_objects = self.get_all_self_and_childs()
         for obj in all_objects:
             opt_vars = obj.priority
@@ -119,25 +109,17 @@ class BaseRules():
                         correct +=-dd/l
                 
                 if num_correct > 0: correct /= num_correct
-                #correct *= 0.9
                 correct -= 1        
                 obj.setVar(vv, obj.getVar(vv)+correct)
-                #if correct != -1:
-                #    print(obj, vv, self.full_restrictions(), correct + 1)
 
-        
-                
-                
-# This is the main documented class, later classes are not documented for future syntax
 class Character(BaseRules):
     def draw(self):
-            print(self, 'char draw', self.TheCharacter, round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
+            #print(self, 'char draw', self.TheCharacter, round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
             w.create_text(self.getVar('left'), self.getVar('top'), anchor=W, font=("Times New Roman", int(25), "bold"),
             text=self.TheCharacter)
 
     def __init__(self, ch):
         self.priority = ['top', 'left', 'right', 'bottom'] #Later this should be syntactically improved
-        self.not_optimizing = ['height', 'width']
         
         #fixed content not changed by other variables
         self.TheCharacter = ch
@@ -156,24 +138,21 @@ class Word(BaseRules):
         self.priority = ['top', 'left', 'height', 'width', 'right', 'bottom'] #Later this should be syntactically improved
     
         BaseRules.__init__(self)
-        self.WordCharacters = self.childs
         
     def addCharacter(self, ch):
         l=Character(ch)
-        self.WordCharacters.append(l)
+        self.childs.append(l)
         return l
 
     def restrictions(self):
         ret = []
-        
-        # this must get good syntax later !!!!
-        if (len(self.WordCharacters)>0):
-            ret.append(self.WordCharacters[0].getVar('left')-self.getVar('left'))
-            ll=self.WordCharacters
+        if (len(self.childs)>0):
+            ret.append(self.childs[0].getVar('left')-self.getVar('left'))
+            ll=self.childs
             ret += for_all(ll, lambda a: ll[a].getVar('top')-self.getVar('top'))
             ret += for_all(ll, lambda a: ll[a].getVar('bottom')-self.getVar('bottom'))
             ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right'))
-            ret.append(self.WordCharacters[len(self.WordCharacters)-1].getVar('right')-self.getVar('right'))
+            ret.append(self.childs[len(self.childs)-1].getVar('right')-self.getVar('right'))
             
         return ret
 
@@ -182,23 +161,20 @@ class Line(BaseRules):
         self.priority = ['top', 'left', 'height', 'width', 'right', 'bottom'] #Later this should be syntactically improved
     
         BaseRules.__init__(self)
-        self.LineWords = self.childs
         
     def takeToMuch(self, ToMuch):
-        self.LineWords.insert[0,ToMuch]
+        self.childs.insert[0,ToMuch]
 
     def addWord(self):
         l=Word()
-        self.LineWords.append(l)
+        self.childs.append(l)
         return l
 
     def restrictions(self):
         ret = []
-        # this must get good syntax later !!!!
-        ll=self.LineWords
-        #print('vor', ll)
+        ll=self.childs
         if (len(ll)>0):
-            ret.append(self.LineWords[0].getVar('left')-self.getVar('left'))
+            ret.append(self.childs[0].getVar('left')-self.getVar('left'))
             ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right')-5)
             #print('ll', ll)
             ret.append(min([l.getVar('top') for l in ll])-self.getVar('top'))
@@ -209,36 +185,31 @@ class Line(BaseRules):
 
     def check_to_long(self):
         ToLong = None
-        ll=self.LineWords
+        ll=self.childs
         if (len(ll)>0):
             if ll[len(ll)-1].getVar('right') > self.getVar('right'):
-                #too long must be managed here as allowed operation
                 ToLong = ll.pop()
         return ToLong
 
 class Page(BaseRules):
     def __init__(self):
         self.priority = [] #Later this should be syntactically improved
-        self.not_optimizing = ['top', 'left', 'right', 'bottom']
         BaseRules.__init__(self)
-        self.PageLines = self.childs
         
     def takeToMuch(self, ToMuch):
-        self.PageLines.insert[0,ToMuch]
+        self.childs.insert[0,ToMuch]
     
     def addLine(self):
         l=Line()
-        self.PageLines.append(l)
+        self.childs.append(l)
         return l
         
     def restrictions(self):
         ret = []
         # this must get good syntax later !!!!
-        ll=self.PageLines
+        ll=self.childs
         if (len(ll)>0):
-            ret.append(self.PageLines[0].getVar('top')-self.getVar('top'))
-            #ret.append(self.PageLines[0].getVar('left')-self.getVar('left'))
-            #ret.append(self.PageLines[0].getVar('right')-self.getVar('right'))
+            ret.append(self.childs[0].getVar('top')-self.getVar('top'))
             ret += for_all(ll, lambda a: ll[a].getVar('left')-self.getVar('left'))
             ret += for_all(ll, lambda a: ll[a].getVar('right')-self.getVar('right'))
             ret += between(ll, lambda a: ll[a].getVar('top')-ll[a-1].getVar('bottom'))
@@ -247,24 +218,21 @@ class Page(BaseRules):
     def check_to_long(self):
         global actualLine
         add = None
-        for l in self.PageLines:
+        for l in self.childs:
             if add is not None:
-                l.LineWords.insert(0,add)
+                l.childs.insert(0,add)
             add = l.check_to_long()
         if add is not None:
             actualLine = self.addLine()
-            actualLine.LineWords.append(add)
+            actualLine.childs.append(add)
             add = None
         ToLong = None
-        ll=self.PageLines
+        ll=self.childs
         if (len(ll)>0):
             if ll[len(ll)-1].getVar('bottom') > self.getVar('bottom'):
-                #too long must be managed here as allowed operation
                 ToLong = ll.pop()
         return ToLong
 
-
-# takeToMuch can take from before, restrictions can return ToLong
 
 testpage = Page()
 testpage.setVar('left',0)
@@ -312,8 +280,8 @@ def key(event):
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
             d.draw()
-        testpage.full_restrictions(debug=1)
-        testpage.optimize_jakobi()
+        testpage.full_restrictions(debug=0)
+        testpage.optimize()
         
 w.bind('<Button-1>', click)
 master.bind('<Key>',key)
