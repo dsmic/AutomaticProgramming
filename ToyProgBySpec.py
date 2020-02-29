@@ -17,6 +17,14 @@ def getVariable(name):
 
 # takes a lambda function at the moment to compare two elements
     # e.g. between(ll,lambda a:ll[a].getVar('left')-ll[a-1].getVar('right'))
+def min_all(ll, compare):
+    ret=None
+    for i in range(0,len(ll)):
+        t=compare(i)
+        if ret == None or t<ret:
+            ret = t
+    return [ret]
+
 def for_all(ll, compare):
     ret=[]
     for i in range(0,len(ll)):
@@ -81,7 +89,7 @@ class BaseRules():
         f_x = np.array(before)
         JK = np.array(jakobi_list)
         JK_t = JK.transpose()
-        JK_t_i = np.linalg.pinv(JK_t, rcond=0.0001)
+        JK_t_i = np.linalg.pinv(JK_t, rcond=0.001)
         delta = np.dot(JK_t_i, f_x)
         i=0
         for obj in all_objects:
@@ -124,44 +132,77 @@ class BaseRules():
             for ll3 in ll2:
                 ll4 = ll3.split('.')
                 if len(ll4) == 1:
-                    ret+="self.getVar('"+ll4[0]+"')"
+                        if ll4[0][0].isdigit():
+                            ret +=ll4[0]
+                        else:
+                            ret += "self.getVar('"+ll4[0]+"')"
                 else:
-                    assert(ll4[0]=='childfirst')
-                    ret+="self.childs[0].getVar('"+ll4[1]+"')"
+                    if  ll4[0]=='firstchild':
+                        ret+="self.childs[0].getVar('"+ll4[1]+"')"
+                    elif  ll4[0]=='lastchild':
+                        ret+="self.childs[-1].getVar('"+ll4[1]+"')"
+                    else:
+                        raise ValueError('not firstchild or lastchild')
                 ret+='-'
             ret=ret[:-1]+']'
         else:
-            if ll[0] == 'allchild':
+            if ll[0] == 'for_all':
                 ret +='for_all(self.childs, lambda a: '
                 ll2=ll[1].split('-')
                 for ll3 in ll2:
                     ll4 = ll3.split('.')
                     #print(ll4)
                     if len(ll4) == 1:
-                        ret += "self.getVar('"+ll4[0]+"')"
+                        if ll4[0][0].isdigit():
+                            ret +=ll4[0]
+                        else:
+                            ret += "self.getVar('"+ll4[0]+"')"
                     else:
                         assert(ll4[0]=='child')
                         ret += "self.childs[a].getVar('"+ll4[1]+"')"
                     ret+='-'
                 ret=ret[:-1]+')'
-            if ll[0] == 'betweenchild':
+            elif ll[0] == 'min_all':
+                ret +='min_all(self.childs, lambda a: '
+                ll2=ll[1].split('-')
+                for ll3 in ll2:
+                    ll4 = ll3.split('.')
+                    #print(ll4)
+                    if len(ll4) == 1:
+                        if ll4[0][0].isdigit():
+                            ret +=ll4[0]
+                        else:
+                            ret += "self.getVar('"+ll4[0]+"')"
+                    else:
+                        assert(ll4[0]=='child')
+                        ret += "self.childs[a].getVar('"+ll4[1]+"')"
+                    ret+='-'
+                ret=ret[:-1]+')'
+            elif ll[0] == 'between':
                 ret +='between(self.childs, lambda a: '
                 ll2=ll[1].split('-')
                 for ll3 in ll2:
                     ll4 = ll3.split('.')
                     #print(ll4)
                     if len(ll4) == 1:
-                        ret += "self.getVar('"+ll4[0]+"')"
+                        if ll4[0][0].isdigit():
+                            ret +=ll4[0]
+                        else:
+                            ret += "self.getVar('"+ll4[0]+"')"
                     else:
                         if ll4[0]=='child':
                             ret += "self.childs[a].getVar('"+ll4[1]+"')"
-                        if ll4[0]=='leftchild':
+                        elif ll4[0]=='leftchild':
                             ret += "self.childs[a-1].getVar('"+ll4[1]+"')"
-                        if ll4[0]=='rightchild':
+                        elif ll4[0]=='rightchild':
                             ret += "self.childs[a].getVar('"+ll4[1]+"')"
+                        else:
+                            raise ValueError('not child, leftchild or rightchild')
                     ret+='-'
                 ret=ret[:-1]+')'
-        return eval(ret,dict(self=self,for_all=for_all, between=between))
+            else: raise ValueError('rule wrong',string)
+        #print('rrr',ret)
+        return eval(ret,dict(self=self, for_all=for_all, min_all=min_all, between=between))
 
 
 class Character(BaseRules):
@@ -182,8 +223,9 @@ class Character(BaseRules):
         # planed syntax would be:
         # top-bottom = height
         # right-left = width
-        return [self.getVar('bottom')-self.getVar('top')-self.getVar('height'), 
-                self.getVar('right')-self.getVar('left')-self.getVar('width')]
+        return self.rule('bottom-top-height') + self.rule('right-left-width')
+        #return [self.getVar('bottom')-self.getVar('top')-self.getVar('height'), 
+        #        self.getVar('right')-self.getVar('left')-self.getVar('width')]
     
 class Word(BaseRules):
     def __init__(self):
@@ -199,13 +241,18 @@ class Word(BaseRules):
     def restrictions(self):
         ret = []
         if (len(self.childs)>0):
-            ret.append(self.childs[0].getVar('left')-self.getVar('left'))
-            ll=self.childs
-            ret += for_all(ll, lambda a: ll[a].getVar('top')-self.getVar('top'))
-            ret += for_all(ll, lambda a: ll[a].getVar('bottom')-self.getVar('bottom'))
-            ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right'))
+            ret += self.rule('firstchild.left-left')
+            #ret.append(self.childs[0].getVar('left')-self.getVar('left'))
+            #ll=self.childs
+            ret += self.rule('for_all: child.top-top')
+            #ret += for_all(ll, lambda a: ll[a].getVar('top')-self.getVar('top'))
+            ret += self.rule('for_all: child.bottom-bottom')
+            #ret += for_all(ll, lambda a: ll[a].getVar('bottom')-self.getVar('bottom'))
+            ret += self.rule('between: rightchild.left-leftchild.right')
+            #ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right'))
+            ret += self.rule('lastchild.right-right')
             ret.append(self.childs[len(self.childs)-1].getVar('right')-self.getVar('right'))
-            
+            #
         return ret
     
 class Line(BaseRules):
@@ -227,11 +274,16 @@ class Line(BaseRules):
         ll=self.childs
         if (len(ll)>0):
             ret.append(self.childs[0].getVar('left')-self.getVar('left'))
-            ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right')-5)
+            ret += self.rule('between: rightchild.left-leftchild.right-5')
+            #ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right')-5)
             #print('ll', ll)
-            ret.append(min([l.getVar('top') for l in ll])-self.getVar('top'))
-            dd = [(l.getVar('bottom') -self.getVar('bottom')) for l in ll]
-            ret += dd
+            #ret.append(min([l.getVar('top') for l in ll])-self.getVar('top')) #transform to min_for_all function ????
+            ret += self.rule('min_all: child.top - top')
+            #ret += min_all(ll, lambda a:ll[a].getVar('top') - self.getVar('top'))
+            #dd = [(l.getVar('bottom') -self.getVar('bottom')) for l in ll]
+            #dd = for_all(ll, lambda a: ll[a].getVar('bottom') -self.getVar('bottom'))
+            ret += self.rule('for_all: child.bottom-bottom')
+            #ret += for_all(ll, lambda a: ll[a].getVar('bottom') -self.getVar('bottom'))
             
         return ret
 
@@ -263,13 +315,13 @@ class Page(BaseRules):
         # this must get good syntax later !!!!
         ll=self.childs
         if (len(ll)>0):
-            ret += self.rule('childfirst.top-top')
+            ret += self.rule('firstchild.top-top')
             #ret.append(self.childs[0].getVar('top')-self.getVar('top'))
-            ret += self.rule('allchild: child.left-left')
+            ret += self.rule('for_all: child.left-left')
             #ret += for_all(ll, lambda a: ll[a].getVar('left')-self.getVar('left'))
-            ret += self.rule('allchild: child.right-right')
+            ret += self.rule('for_all: child.right-right')
             #ret += for_all(ll, lambda a: ll[a].getVar('right')-self.getVar('right'))
-            ret += self.rule('betweenchild: rightchild.top - leftchild.bottom')
+            ret += self.rule('between: rightchild.top - leftchild.bottom')
             #ret += between(ll, lambda a: ll[a].getVar('top')-ll[a-1].getVar('bottom'))
         return ret
 
