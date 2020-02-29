@@ -10,6 +10,8 @@ from tkinter import Tk, Canvas, mainloop, W
 import numpy as np
 import operator
 
+
+                
 def getVariable(name):
     return name.getVar            
 
@@ -112,6 +114,56 @@ class BaseRules():
                 correct -= 1        
                 obj.setVar(vv, obj.getVar(vv)+correct)
 
+    def rule(self, string):
+        string=string.replace(" ", "")
+        ret=''
+        ll=string.split(':')
+        if len(ll) == 1:
+            ret+='['
+            ll2=ll[0].split('-')
+            for ll3 in ll2:
+                ll4 = ll3.split('.')
+                if len(ll4) == 1:
+                    ret+="self.getVar('"+ll4[0]+"')"
+                else:
+                    assert(ll4[0]=='childfirst')
+                    ret+="self.childs[0].getVar('"+ll4[1]+"')"
+                ret+='-'
+            ret=ret[:-1]+']'
+        else:
+            if ll[0] == 'allchild':
+                ret +='for_all(self.childs, lambda a: '
+                ll2=ll[1].split('-')
+                for ll3 in ll2:
+                    ll4 = ll3.split('.')
+                    #print(ll4)
+                    if len(ll4) == 1:
+                        ret += "self.getVar('"+ll4[0]+"')"
+                    else:
+                        assert(ll4[0]=='child')
+                        ret += "self.childs[a].getVar('"+ll4[1]+"')"
+                    ret+='-'
+                ret=ret[:-1]+')'
+            if ll[0] == 'betweenchild':
+                ret +='between(self.childs, lambda a: '
+                ll2=ll[1].split('-')
+                for ll3 in ll2:
+                    ll4 = ll3.split('.')
+                    #print(ll4)
+                    if len(ll4) == 1:
+                        ret += "self.getVar('"+ll4[0]+"')"
+                    else:
+                        if ll4[0]=='child':
+                            ret += "self.childs[a].getVar('"+ll4[1]+"')"
+                        if ll4[0]=='leftchild':
+                            ret += "self.childs[a-1].getVar('"+ll4[1]+"')"
+                        if ll4[0]=='rightchild':
+                            ret += "self.childs[a].getVar('"+ll4[1]+"')"
+                    ret+='-'
+                ret=ret[:-1]+')'
+        return eval(ret,dict(self=self,for_all=for_all, between=between))
+
+
 class Character(BaseRules):
     def draw(self):
             #print(self, 'char draw', self.TheCharacter, round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
@@ -155,7 +207,7 @@ class Word(BaseRules):
             ret.append(self.childs[len(self.childs)-1].getVar('right')-self.getVar('right'))
             
         return ret
-
+    
 class Line(BaseRules):
     def __init__(self):
         self.priority = ['top', 'left', 'height', 'width', 'right', 'bottom'] #Later this should be syntactically improved
@@ -191,6 +243,8 @@ class Line(BaseRules):
                 ToLong = ll.pop()
         return ToLong
 
+
+
 class Page(BaseRules):
     def __init__(self):
         self.priority = [] #Later this should be syntactically improved
@@ -209,10 +263,14 @@ class Page(BaseRules):
         # this must get good syntax later !!!!
         ll=self.childs
         if (len(ll)>0):
-            ret.append(self.childs[0].getVar('top')-self.getVar('top'))
-            ret += for_all(ll, lambda a: ll[a].getVar('left')-self.getVar('left'))
-            ret += for_all(ll, lambda a: ll[a].getVar('right')-self.getVar('right'))
-            ret += between(ll, lambda a: ll[a].getVar('top')-ll[a-1].getVar('bottom'))
+            ret += self.rule('childfirst.top-top')
+            #ret.append(self.childs[0].getVar('top')-self.getVar('top'))
+            ret += self.rule('allchild: child.left-left')
+            #ret += for_all(ll, lambda a: ll[a].getVar('left')-self.getVar('left'))
+            ret += self.rule('allchild: child.right-right')
+            #ret += for_all(ll, lambda a: ll[a].getVar('right')-self.getVar('right'))
+            ret += self.rule('betweenchild: rightchild.top - leftchild.bottom')
+            #ret += between(ll, lambda a: ll[a].getVar('top')-ll[a-1].getVar('bottom'))
         return ret
 
     def check_to_long(self):
