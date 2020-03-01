@@ -9,7 +9,7 @@ Created on Sun Feb 23 18:53:25 2020
 from tkinter import Tk, Canvas, mainloop, W
 import numpy as np
 import operator
-
+import types
 
                 
 def getVariable(name):
@@ -37,6 +37,8 @@ def between(ll, compare):
         ret.append(compare(i))
     return ret
 
+all_vars_used = {}
+
 class BaseRules():
     def draw(self):
         #print(self, 'char nodraw', round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
@@ -50,7 +52,12 @@ class BaseRules():
         self.childs = []
             
     def getVar(self, name):
-        return self.TheVars[name]
+        global all_vars_used
+        if isinstance(name, types.CodeType):
+            return eval(name)
+        else:
+            all_vars_used[(self,name)] = 1
+            return self.TheVars[name]
     
     def setVar(self, name, value):
         self.TheVars[name]=value
@@ -405,3 +412,23 @@ def key(event):
 w.bind('<Button-1>', click)
 master.bind('<Key>',key)
 mainloop()
+
+# some tests
+x=5
+class test():
+    def cc(self,name):
+        self.c = compile(name,'<stdin>', 'eval')
+        print(self.c,type(self.c),isinstance(self.c, types.CodeType), eval(self.c))
+        
+    def get(self, name):
+        self.x = 42
+        print(eval(self.c))
+        
+f=test()        
+f.cc("x*3")
+
+x=66
+f.get('')
+
+
+
