@@ -11,6 +11,7 @@ import numpy as np
 import operator
 import types
 
+no_references = True
                 
 def getVariable(name):
     return name.getVar            
@@ -141,24 +142,34 @@ class BaseRules():
         if len(ll) == 1:
             ll[0] = ll[0].split('=')[0] # allows =0 at the end, just to keep syntax like equation solver
         
+        
             ret+='['
             ll2=ll[0].split('-')
-            for ll3 in ll2:
-                ll4 = ll3.split('.')
-                if len(ll4) == 1:
-                        if ll4[0][0].isdigit():
-                            ret +=ll4[0]
-                        else:
-                            ret += "self.getVar('"+ll4[0]+"')"
-                else:
-                    if  ll4[0]=='firstchild':
-                        ret+="self.childs[0].getVar('"+ll4[1]+"')"
-                    elif  ll4[0]=='lastchild':
-                        ret+="self.childs[-1].getVar('"+ll4[1]+"')"
+            # we start here to test if it can be done by a reference
+            # ll2[0] is what has to be set to the rest of ll2 as sum to be compiled
+            # ret must be an empty list than
+            if no_references:
+                for ll3 in ll2:
+                    ll4 = ll3.split('.')
+                    if len(ll4) == 1:
+                            if ll4[0][0].isdigit():
+                                ret +=ll4[0]
+                            else:
+                                ret += "self.getVar('"+ll4[0]+"')"
                     else:
-                        raise ValueError('not firstchild or lastchild')
-                ret+='-'
+                        if  ll4[0]=='firstchild':
+                            ret+="self.childs[0].getVar('"+ll4[1]+"')"
+                        elif  ll4[0]=='lastchild':
+                            ret+="self.childs[-1].getVar('"+ll4[1]+"')"
+                        else:
+                            raise ValueError('not firstchild or lastchild')
+                    ret+='-'
+            else:
+                raise ValueError('not yet implemented')
+                f
             ret=ret[:-1]+']'
+            #test = compile(ret, '<stdin>', 'eval')
+            #print(eval(test,dict(self=self, for_all=for_all, min_all=min_all, between=between)))
         else:
             ll[1] = ll[1].split('=')[0] # allows =0 at the end, just to keep syntax like equation solver
             if ll[0] == 'for_all':
