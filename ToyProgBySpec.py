@@ -97,7 +97,12 @@ class BaseRules():
             for vv in opt_vars:
                 obj.setVar(vv, obj.getVar(vv) - delta[i])
                 i += 1
-                
+        check = self.full_restrictions()
+        i=0
+        for d in check:
+            if abs(d)>3:
+                print(i,d)
+            i+=1
         
     def optimize_nonjakobi(self):
         all_objects = self.get_all_self_and_childs()
@@ -127,6 +132,8 @@ class BaseRules():
         ret=''
         ll=string.split(':')
         if len(ll) == 1:
+            ll[0] = ll[0].split('=')[0] # allows =0 at the end, just to keep syntax like equation solver
+        
             ret+='['
             ll2=ll[0].split('-')
             for ll3 in ll2:
@@ -146,6 +153,7 @@ class BaseRules():
                 ret+='-'
             ret=ret[:-1]+']'
         else:
+            ll[1] = ll[1].split('=')[0] # allows =0 at the end, just to keep syntax like equation solver
             if ll[0] == 'for_all':
                 ret +='for_all(self.childs, lambda a: '
                 ll2=ll[1].split('-')
@@ -223,7 +231,7 @@ class Character(BaseRules):
         # planed syntax would be:
         # top-bottom = height
         # right-left = width
-        return self.rule('bottom-top-height') + self.rule('right-left-width')
+        return self.rule('bottom-top-height=0') + self.rule('right-left-width=0')
         #return [self.getVar('bottom')-self.getVar('top')-self.getVar('height'), 
         #        self.getVar('right')-self.getVar('left')-self.getVar('width')]
     
@@ -241,17 +249,17 @@ class Word(BaseRules):
     def restrictions(self):
         ret = []
         if (len(self.childs)>0):
-            ret += self.rule('firstchild.left-left')
+            ret += self.rule('firstchild.left-left=0')
             #ret.append(self.childs[0].getVar('left')-self.getVar('left'))
             #ll=self.childs
-            ret += self.rule('for_all: child.top-top')
+            ret += self.rule('for_all: child.top-top=0')
             #ret += for_all(ll, lambda a: ll[a].getVar('top')-self.getVar('top'))
-            ret += self.rule('for_all: child.bottom-bottom')
+            ret += self.rule('for_all: child.bottom-bottom=0')
             #ret += for_all(ll, lambda a: ll[a].getVar('bottom')-self.getVar('bottom'))
-            ret += self.rule('between: rightchild.left-leftchild.right')
+            ret += self.rule('between: rightchild.left-leftchild.right=0')
             #ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right'))
-            ret += self.rule('lastchild.right-right')
-            ret.append(self.childs[len(self.childs)-1].getVar('right')-self.getVar('right'))
+            ret += self.rule('lastchild.right-right=0')
+            #ret.append(self.childs[len(self.childs)-1].getVar('right')-self.getVar('right'))
             #
         return ret
     
@@ -273,16 +281,17 @@ class Line(BaseRules):
         ret = []
         ll=self.childs
         if (len(ll)>0):
-            ret.append(self.childs[0].getVar('left')-self.getVar('left'))
-            ret += self.rule('between: rightchild.left-leftchild.right-5')
+            ret += self.rule('firstchild.left-left=0')
+            #ret.append(self.childs[0].getVar('left')-self.getVar('left'))
+            ret += self.rule('between: rightchild.left-leftchild.right-5=0')
             #ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right')-5)
             #print('ll', ll)
             #ret.append(min([l.getVar('top') for l in ll])-self.getVar('top')) #transform to min_for_all function ????
-            ret += self.rule('min_all: child.top - top')
+            ret += self.rule('min_all: child.top - top=0')
             #ret += min_all(ll, lambda a:ll[a].getVar('top') - self.getVar('top'))
             #dd = [(l.getVar('bottom') -self.getVar('bottom')) for l in ll]
             #dd = for_all(ll, lambda a: ll[a].getVar('bottom') -self.getVar('bottom'))
-            ret += self.rule('for_all: child.bottom-bottom')
+            ret += self.rule('for_all: child.bottom-bottom=0')
             #ret += for_all(ll, lambda a: ll[a].getVar('bottom') -self.getVar('bottom'))
             
         return ret
@@ -315,13 +324,13 @@ class Page(BaseRules):
         # this must get good syntax later !!!!
         ll=self.childs
         if (len(ll)>0):
-            ret += self.rule('firstchild.top-top')
+            ret += self.rule('firstchild.top-top=0')
             #ret.append(self.childs[0].getVar('top')-self.getVar('top'))
-            ret += self.rule('for_all: child.left-left')
+            ret += self.rule('for_all: child.left-left=0')
             #ret += for_all(ll, lambda a: ll[a].getVar('left')-self.getVar('left'))
-            ret += self.rule('for_all: child.right-right')
+            ret += self.rule('for_all: child.right-right=0')
             #ret += for_all(ll, lambda a: ll[a].getVar('right')-self.getVar('right'))
-            ret += self.rule('between: rightchild.top - leftchild.bottom')
+            ret += self.rule('between: rightchild.top - leftchild.bottom=0')
             #ret += between(ll, lambda a: ll[a].getVar('top')-ll[a-1].getVar('bottom'))
         return ret
 
