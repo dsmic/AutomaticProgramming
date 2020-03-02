@@ -11,7 +11,7 @@ import numpy as np
 import operator
 import types
 
-no_references = True
+no_references = False
                 
 def getVariable(name):
     return name.getVar            
@@ -54,11 +54,13 @@ class BaseRules():
             
     def getVar(self, name):
         global all_vars_used
-        if isinstance(name, types.CodeType):
-            return eval(name)
+        val = self.TheVars[name]
+        #print('getVar val',val)
+        if isinstance(val, types.CodeType):
+            return eval(val)
         else:
             all_vars_used[(self,name)] = 1
-            return self.TheVars[name]
+            return val
     
     def setVar(self, name, value):
         self.TheVars[name]=value
@@ -141,14 +143,13 @@ class BaseRules():
         ll=string.split(':')
         if len(ll) == 1:
             ll[0] = ll[0].split('=')[0] # allows =0 at the end, just to keep syntax like equation solver
-        
-        
             ret+='['
-            ll2=ll[0].split('-')
+        
             # we start here to test if it can be done by a reference
             # ll2[0] is what has to be set to the rest of ll2 as sum to be compiled
             # ret must be an empty list than
             if no_references:
+                ll2=ll[0].split('-')
                 for ll3 in ll2:
                     ll4 = ll3.split('.')
                     if len(ll4) == 1:
@@ -164,10 +165,35 @@ class BaseRules():
                         else:
                             raise ValueError('not firstchild or lastchild')
                     ret+='-'
+                ret=ret[:-1]+']'
             else:
-                raise ValueError('not yet implemented')
-                f
-            ret=ret[:-1]+']'
+                thecode = ''
+                ll2=ll[0].split('-')
+                firstis = ll2.pop(0)
+                for ll3 in ll2:
+                    ll4 = ll3.split('.')
+                    if len(ll4) == 1:
+                            if ll4[0][0].isdigit():
+                                thecode +=ll4[0]
+                            else:
+                                thecode += "self.getVar('"+ll4[0]+"')"
+                    else:
+                        if  ll4[0]=='firstchild':
+                            thecode+="self.childs[0].getVar('"+ll4[1]+"')"
+                        elif  ll4[0]=='lastchild':
+                            thecode+="self.childs[-1].getVar('"+ll4[1]+"')"
+                        else:
+                            raise ValueError('not firstchild or lastchild')
+                    thecode+='+'
+                thecode = thecode[:-1]
+                ll4 = firstis.split('.')
+                if len(ll4) == 1 and not ll4[0][0].isdigit():
+                    #print('thecode - ', thecode)
+                    ref_code = compile(thecode,'<stdin>','eval')
+                    self.setVar(ll4[0],ref_code)
+                else:
+                    raise ValueError('first in simple rule must be from self at the moment')
+                ret='[]'
             #test = compile(ret, '<stdin>', 'eval')
             #print(eval(test,dict(self=self, for_all=for_all, min_all=min_all, between=between)))
         else:
@@ -267,7 +293,7 @@ class Word(BaseRules):
     def restrictions(self):
         ret = []
         if (len(self.childs)>0):
-            ret += self.rule('firstchild.left-left=0')
+            ret += self.rule('left-firstchild.left=0')
             #ret.append(self.childs[0].getVar('left')-self.getVar('left'))
             #ll=self.childs
             ret += self.rule('for_all: child.top-top=0')
@@ -276,7 +302,7 @@ class Word(BaseRules):
             #ret += for_all(ll, lambda a: ll[a].getVar('bottom')-self.getVar('bottom'))
             ret += self.rule('between: rightchild.left-leftchild.right=0')
             #ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right'))
-            ret += self.rule('lastchild.right-right=0')
+            ret += self.rule('right-lastchild.right=0')
             #ret.append(self.childs[len(self.childs)-1].getVar('right')-self.getVar('right'))
             #
         return ret
@@ -299,7 +325,7 @@ class Line(BaseRules):
         ret = []
         ll=self.childs
         if (len(ll)>0):
-            ret += self.rule('firstchild.left-left=0')
+            ret += self.rule('left-firstchild.left=0')
             #ret.append(self.childs[0].getVar('left')-self.getVar('left'))
             ret += self.rule('between: rightchild.left-leftchild.right-5=0')
             #ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right')-5)
@@ -342,7 +368,7 @@ class Page(BaseRules):
         # this must get good syntax later !!!!
         ll=self.childs
         if (len(ll)>0):
-            ret += self.rule('firstchild.top-top=0')
+            ret += self.rule('top-firstchild.top=0')
             #ret.append(self.childs[0].getVar('top')-self.getVar('top'))
             ret += self.rule('for_all: child.left-left=0')
             #ret += for_all(ll, lambda a: ll[a].getVar('left')-self.getVar('left'))
