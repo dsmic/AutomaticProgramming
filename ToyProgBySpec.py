@@ -59,7 +59,8 @@ class BaseRules():
         if isinstance(val, types.CodeType):
             return eval(val)
         else:
-            all_vars_used[(self,name)] = 1
+            if name in self.priority:
+                all_vars_used[(self,name)] = 1
             return val
     
     def setVar(self, name, value):
@@ -84,12 +85,21 @@ class BaseRules():
         return ret
         
     def optimize(self):
+        global all_vars_used
         jakobi_list = []
+        all_vars_used.clear()
         before = self.full_restrictions()
-        all_objects = self.get_all_self_and_childs()
-        for obj in all_objects:
-            opt_vars = obj.priority
-            for vv in opt_vars:
+        all_vars_opt = [l for l in all_vars_used.keys()]
+        #print(all_vars_opt)
+        #all_objects = self.get_all_self_and_childs()
+        # for (obj,vv) in all_vars_opt:
+        #     if obj not in all_objects:
+        #         opt_vars = obj.priority
+        #         if vv not in opt_vars:
+        #             print('missing',obj,vv)
+                    
+        for (obj,vv) in all_vars_opt:
+        
                 tmp = obj.getVar(vv)
                 obj.setVar(vv, tmp + 1)
                 after = self.full_restrictions()
@@ -102,9 +112,11 @@ class BaseRules():
         JK_t_i = np.linalg.pinv(JK_t, rcond=0.001)
         delta = np.dot(JK_t_i, f_x)
         i=0
-        for obj in all_objects:
-            opt_vars = obj.priority
-            for vv in opt_vars:
+        # for obj in all_objects:
+        #     opt_vars = obj.priority
+        #     for vv in opt_vars:
+        
+        for (obj,vv) in all_vars_opt:
                 obj.setVar(vv, obj.getVar(vv) - delta[i])
                 i += 1
         check = self.full_restrictions()
@@ -281,7 +293,7 @@ class Character(BaseRules):
     
 class Word(BaseRules):
     def __init__(self):
-        self.priority = ['top', 'left', 'height', 'width', 'right', 'bottom'] #Later this should be syntactically improved
+        self.priority = ['top', 'left', 'right', 'bottom'] #Later this should be syntactically improved
     
         BaseRules.__init__(self)
         
@@ -309,7 +321,7 @@ class Word(BaseRules):
     
 class Line(BaseRules):
     def __init__(self):
-        self.priority = ['top', 'left', 'height', 'width', 'right', 'bottom'] #Later this should be syntactically improved
+        self.priority = ['top', 'left', 'right', 'bottom'] #Later this should be syntactically improved
     
         BaseRules.__init__(self)
         
@@ -398,6 +410,10 @@ class Page(BaseRules):
 
 
 testpage = Page()
+
+# this may not be possilbe to set this variables. Set variables are not in priority,
+# this may be used for rule creation?!
+
 testpage.setVar('left',0)
 testpage.setVar('top',20)
 testpage.setVar('right',400)
@@ -425,7 +441,7 @@ def key(event):
     if ch== ' ':
         testpage.check_to_long()
         actualWord = actualLine.addWord()
-        for _ in range(1):
+        for _ in range(5):
             testpage.optimize()
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
@@ -438,7 +454,7 @@ def key(event):
         l.setVar('width', right-left)
         l.setVar('top', top)
         l.setVar('height', bottom-top)
-        for _ in range(1):
+        for _ in range(5):
             testpage.optimize()
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
