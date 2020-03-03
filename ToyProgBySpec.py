@@ -11,7 +11,7 @@ import numpy as np
 import operator
 import types
 
-no_references = False
+no_references = True
                 
 def getVariable(name):
     return name.getVar            
@@ -55,7 +55,7 @@ class BaseRules():
     def getVar(self, name):
         global all_vars_used
         val = self.TheVars[name]
-        #print('getVar val',val)
+        #print('getVar val',val, type(val))
         if isinstance(val, types.CodeType):
             return eval(val)
         else:
@@ -64,6 +64,8 @@ class BaseRules():
             return val
     
     def setVar(self, name, value):
+        if name in self.TheVars and isinstance(self.TheVars[name],types.CodeType):
+            raise ValueError('resetting calculation ln existing var')
         self.TheVars[name]=value
 
     def takeToMuch(self, _):
@@ -179,6 +181,7 @@ class BaseRules():
                     ret+='-'
                 ret=ret[:-1]+']'
             else:
+                ret = '['
                 thecode = ''
                 ll2=ll[0].split('-')
                 firstis = ll2.pop(0)
@@ -198,14 +201,18 @@ class BaseRules():
                             raise ValueError('not firstchild or lastchild')
                     thecode+='+'
                 thecode = thecode[:-1]
+                #print("setting",thecode)
                 ll4 = firstis.split('.')
+                ref_code = compile(thecode,'<stdin>','eval')
                 if len(ll4) == 1 and not ll4[0][0].isdigit():
-                    #print('thecode - ', thecode)
-                    ref_code = compile(thecode,'<stdin>','eval')
-                    self.setVar(ll4[0],ref_code)
+                    if ll4 in self.priority:
+                        self.setVar(ll4[0],ref_code)
+                    else:
+                        ret += "self.getVar('"+ll4[0]+"')-("+thecode+")"
+                        #print('nor setable',ret)
                 else:
-                    raise ValueError('first in simple rule must be from self at the moment')
-                ret='[]'
+                    raise ValueError('first in simple rule not availible')
+                ret +=']'
             #test = compile(ret, '<stdin>', 'eval')
             #print(eval(test,dict(self=self, for_all=for_all, min_all=min_all, between=between)))
         else:
@@ -337,7 +344,7 @@ class Line(BaseRules):
         ret = []
         ll=self.childs
         if (len(ll)>0):
-            ret += self.rule('left-firstchild.left=0')
+            ret += self.rule('left - firstchild.left=0')
             #ret.append(self.childs[0].getVar('left')-self.getVar('left'))
             ret += self.rule('between: rightchild.left-leftchild.right-5=0')
             #ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right')-5)
@@ -380,7 +387,7 @@ class Page(BaseRules):
         # this must get good syntax later !!!!
         ll=self.childs
         if (len(ll)>0):
-            ret += self.rule('top-firstchild.top=0')
+            ret += self.rule('top - firstchild.top =0')
             #ret.append(self.childs[0].getVar('top')-self.getVar('top'))
             ret += self.rule('for_all: child.left-left=0')
             #ret += for_all(ll, lambda a: ll[a].getVar('left')-self.getVar('left'))
