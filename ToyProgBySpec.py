@@ -11,7 +11,7 @@ import numpy as np
 import operator
 import types
 
-no_references = False
+no_references = True
                 
 def getVariable(name):
     return name.getVar            
@@ -58,7 +58,7 @@ class BaseRules():
         #print('getVar val',val, type(val))
         if isinstance(val, tuple):
             obj, code = val
-            return eval(code,self=obj)
+            return eval(code,{'self': obj})
         else:
             if name in self.priority:
                 all_vars_used[(self,name)] = 1
@@ -193,11 +193,11 @@ class BaseRules():
                 ll4 = firstis.split('.')
 #                ref_code = compile(thecode,'<stdin>','eval')
                 if len(ll4) == 1 and not ll4[0][0].isdigit():
-                    if ll4 in self.priority:
+                    if ll4[0] in self.priority:
                         self.setVar(ll4[0],(self,thecode))
                     else:
                         ret += "self.getVar('"+ll4[0]+"')-("+thecode+")"
-                        #print('nor setable',ret)
+                        #print('not setable',ret, ll4, self.priority, ll4 in self.priority)
                 else:
                     raise ValueError('first in simple rule not availible')
                 ret +=']'
