@@ -56,8 +56,9 @@ class BaseRules():
         global all_vars_used
         val = self.TheVars[name]
         #print('getVar val',val, type(val))
-        if isinstance(val, types.CodeType):
-            return eval(val)
+        if isinstance(val, tuple):
+            obj, code = val
+            return eval(code,self=obj)
         else:
             if name in self.priority:
                 all_vars_used[(self,name)] = 1
@@ -93,7 +94,6 @@ class BaseRules():
         before = self.full_restrictions()
         all_vars_opt = [l for l in all_vars_used.keys()]
         for (obj,vv) in all_vars_opt:
-        
                 tmp = obj.getVar(vv)
                 obj.setVar(vv, tmp + 1)
                 after = self.full_restrictions()
@@ -191,10 +191,10 @@ class BaseRules():
                 thecode = thecode[:-1]
                 #print("setting",thecode)
                 ll4 = firstis.split('.')
-                ref_code = compile(thecode,'<stdin>','eval')
+#                ref_code = compile(thecode,'<stdin>','eval')
                 if len(ll4) == 1 and not ll4[0][0].isdigit():
                     if ll4 in self.priority:
-                        self.setVar(ll4[0],ref_code)
+                        self.setVar(ll4[0],(self,thecode))
                     else:
                         ret += "self.getVar('"+ll4[0]+"')-("+thecode+")"
                         #print('nor setable',ret)
