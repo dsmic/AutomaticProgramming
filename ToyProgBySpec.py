@@ -11,7 +11,7 @@ import numpy as np
 import operator
 import types
 
-no_references = True
+no_references = False
                 
 def getVariable(name):
     return name.getVar            
@@ -92,14 +92,6 @@ class BaseRules():
         all_vars_used.clear()
         before = self.full_restrictions()
         all_vars_opt = [l for l in all_vars_used.keys()]
-        #print(all_vars_opt)
-        #all_objects = self.get_all_self_and_childs()
-        # for (obj,vv) in all_vars_opt:
-        #     if obj not in all_objects:
-        #         opt_vars = obj.priority
-        #         if vv not in opt_vars:
-        #             print('missing',obj,vv)
-                    
         for (obj,vv) in all_vars_opt:
         
                 tmp = obj.getVar(vv)
@@ -114,10 +106,6 @@ class BaseRules():
         JK_t_i = np.linalg.pinv(JK_t, rcond=0.001)
         delta = np.dot(JK_t_i, f_x)
         i=0
-        # for obj in all_objects:
-        #     opt_vars = obj.priority
-        #     for vv in opt_vars:
-        
         for (obj,vv) in all_vars_opt:
                 obj.setVar(vv, obj.getVar(vv) - delta[i])
                 i += 1
@@ -213,8 +201,6 @@ class BaseRules():
                 else:
                     raise ValueError('first in simple rule not availible')
                 ret +=']'
-            #test = compile(ret, '<stdin>', 'eval')
-            #print(eval(test,dict(self=self, for_all=for_all, min_all=min_all, between=between)))
         else:
             ll[1] = ll[1].split('=')[0] # allows =0 at the end, just to keep syntax like equation solver
             if ll[0] == 'for_all':
@@ -448,7 +434,7 @@ def key(event):
     if ch== ' ':
         testpage.check_to_long()
         actualWord = actualLine.addWord()
-        for _ in range(5):
+        for _ in range(1):
             testpage.optimize()
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
@@ -461,7 +447,7 @@ def key(event):
         l.setVar('width', right-left)
         l.setVar('top', top)
         l.setVar('height', bottom-top)
-        for _ in range(5):
+        for _ in range(1):
             testpage.optimize()
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
