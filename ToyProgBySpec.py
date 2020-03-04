@@ -11,7 +11,7 @@ import numpy as np
 import operator
 import types
 
-no_references = True
+no_references = False
                 
 def getVariable(name):
     return name.getVar            
@@ -199,7 +199,18 @@ class BaseRules():
                         ret += "self.getVar('"+ll4[0]+"')-("+thecode+")"
                         #print('not setable',ret, ll4, self.priority, ll4 in self.priority)
                 else:
-                    raise ValueError('first in simple rule not availible')
+                    if  ll4[0]=='firstchild':
+                        if ll4[1] in self.childs[0].priority:
+                            self.childs[0].setVar(ll4[1],(self,thecode))
+                        else:
+                            ret += "self.childs[0].getVar('"+ll4[1]+"')-("+thecode+")"
+                    elif  ll4[0]=='lastchild':
+                        if ll4[1] in self.childs[-1].priority:
+                            self.childs[-1].setVar(ll4[1],(self,thecode))
+                        else:
+                            ret += "self.childs[-1].getVar('"+ll4[1]+"')-("+thecode+")"
+                    else:
+                        raise ValueError('not firstchild or lastchild')
                 ret +=']'
         else:
             ll[1] = ll[1].split('=')[0] # allows =0 at the end, just to keep syntax like equation solver
@@ -298,7 +309,7 @@ class Word(BaseRules):
     def restrictions(self):
         ret = []
         if (len(self.childs)>0):
-            ret += self.rule('left-firstchild.left=0')
+            ret += self.rule('firstchild.left-left=0')
             #ret.append(self.childs[0].getVar('left')-self.getVar('left'))
             #ll=self.childs
             ret += self.rule('for_all: child.top-top=0')
