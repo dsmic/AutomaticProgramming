@@ -18,13 +18,31 @@ def getVariable(name):
 
 # takes a lambda function at the moment to compare two elements
     # e.g. between(ll,lambda a:ll[a].getVar('left')-ll[a-1].getVar('right'))
-def min_all(ll, compare):
+def min_all_old(ll, compare):
     ret=None
     for i in range(0,len(ll)):
         t=compare(i)
+        print('in min',i,t)
         if ret == None or t<ret:
             ret = t
+    print('min_all',ll,ret)
     return [ret]
+
+def min_all(ll, compare):
+    #this is not really min, it must be possible to solve equation system with gradient
+    ret=None
+    sum_neg=0
+    for i in range(0,len(ll)):
+        t=compare(i)
+        print('in min',i,t)
+        if ret == None or t<ret:
+            ret = t
+        if t<0:
+            sum_neg+=t
+    if sum_neg < 0:
+        return [sum_neg]
+    else:
+        return [ret]
 
 def for_all(ll, compare):
     ret=[]
@@ -47,10 +65,14 @@ class BaseRules():
     
     def __init__(self):
         #manageing variables (not used in later syntax)
+        self.clean()
+        self.childs = []
+        
+    def clean(self):
         self.TheVars = {} #contains the variables from priority
         for l in self.priority:
             self.setVar(l,0)
-        self.childs = []
+        
             
     def getVar(self, name):
         global all_vars_used
@@ -58,6 +80,7 @@ class BaseRules():
         #print('getVar val',val, type(val))
         if isinstance(val, tuple):
             obj, code = val
+            #print(len(obj.childs),code)
             return eval(code,{'self': obj})
         else:
             if name in self.priority:
@@ -65,9 +88,12 @@ class BaseRules():
             return val
     
     def setVar(self, name, value):
-        if name in self.TheVars and isinstance(self.TheVars[name],types.CodeType):
-            raise ValueError('resetting calculation ln existing var')
+        if name in self.TheVars and isinstance(self.TheVars[name],tuple):
+            if self.TheVars[name] != value:
+                #raise ValueError('resetting calculation ln existing var '+str( self)+' '+str(type(self).__name__)+" "+ name + str( value)+ ' was ' +str(self.TheVars[name]))
+                return False
         self.TheVars[name]=value
+        return True
 
     def takeToMuch(self, _):
         raise ValueError('Can not take Elements from before.')
@@ -93,10 +119,13 @@ class BaseRules():
         all_vars_used.clear()
         before = self.full_restrictions()
         all_vars_opt = [l for l in all_vars_used.keys()]
+        print('vars_to_opt',all_vars_opt)
+        print('before',before)
         for (obj,vv) in all_vars_opt:
                 tmp = obj.getVar(vv)
                 obj.setVar(vv, tmp + 1)
                 after = self.full_restrictions()
+                #print('###',before,after)
                 diff = list(map(operator.sub, after, before))
                 obj.setVar(vv, tmp)
                 jakobi_list.append(diff)
@@ -113,7 +142,7 @@ class BaseRules():
         i=0
         for d in check:
             if abs(d)>3:
-                print(i,d)
+                print('-opt-',i,d)
             i+=1
         
     def optimize_nonjakobi(self):
@@ -141,11 +170,11 @@ class BaseRules():
 
     def try_set(self, where, name, thecode):
         if name in eval(where).priority:
-            eval(where).setVar(name,(self,thecode))
-            return ''
-        else:
-            print('not setable',where, name, thecode,  eval(where).priority, name in eval(where).priority)
-            return where+".getVar('"+name+"')-("+thecode+")"
+            if eval(where).setVar(name,(self,thecode)):
+                return ''
+        #print('not setable',type(self).__name__, where, name, thecode,  eval(where).priority, name in eval(where).priority)
+        return where+".getVar('"+name+"')-("+thecode+")"
+
 
     def rule(self, string):
         string=string.replace(" ", "")
@@ -202,6 +231,7 @@ class BaseRules():
 #                ref_code = compile(thecode,'<stdin>','eval')
                 if len(ll4) == 1 and not ll4[0][0].isdigit():
                     ret += self.try_set('self', ll4[0], thecode)
+                    #print('thecode',ret,thecode,self.getVar('bottom'),self.getVar('top'))
 #                    if ll4[0] in self.priority:
 #                        self.setVar(ll4[0],(self,thecode))
 #                    else:
@@ -243,6 +273,7 @@ class BaseRules():
                         ret+='-'
                     ret=ret[:-1]+')'
                 else:
+                    ret = '['
                     for i in range(len(self.childs)):
                         ll2=ll[1].split('-')
                         firstis = ll2.pop(0)
@@ -265,12 +296,14 @@ class BaseRules():
                             assert(ll4[0]=='child')
                             tmp = self.try_set('self.childs['+str(i)+']', ll4[1], thecode)
                             if len(tmp)>0:
-                                raise ValueError('tryset failed '+thecode)
+                                ret +=  "self.childs["+str(i)+"].getVar('"+ll4[1]+"') - ("+thecode+')'
+                                #raise ValueError('tryset failed '+thecode)
                         else:
                             raise ValueError('for all with first child parameter forced')
-                    return ''
+                    ret +=']'
                     
             elif ll[0] == 'min_all':
+                print('minall',ret)
                 ret +='min_all(self.childs, lambda a: '
                 ll2=ll[1].split('-')
                 for ll3 in ll2:
@@ -286,6 +319,7 @@ class BaseRules():
                         ret += "self.childs[a].getVar('"+ll4[1]+"')"
                     ret+='-'
                 ret=ret[:-1]+')'
+                print('min_all____',ret)
             elif ll[0] == 'between':
                 if no_references:
                     ret +='between(self.childs, lambda a: '
@@ -310,6 +344,7 @@ class BaseRules():
                         ret+='-'
                     ret=ret[:-1]+')'
                 else:
+                    ret = '['
                     for i in range(1,len(self.childs)):
                         ll2=ll[1].split('-')
                         firstis = ll2.pop(0)
@@ -332,10 +367,11 @@ class BaseRules():
                             assert(ll4[0]=='rightchild')
                             tmp = self.try_set('self.childs['+str(i)+']', ll4[1], thecode)
                             if len(tmp)>0:
-                                raise ValueError('tryset failed '+thecode)
+                                ret +=  "self.childs["+str(i)+"].getVar('"+ll4[1]+"') - ("+thecode+')'
+                                #raise ValueError('tryset failed '+thecode)
                         else:
                             raise ValueError('for all with first child parameter forced')
-                    return ''
+                    ret += ']'
                     
             else: raise ValueError('rule wrong',string)
         #print('rrr',ret)
@@ -360,6 +396,7 @@ class Character(BaseRules):
         # planed syntax would be:
         # top-bottom = height
         # right-left = width
+        #print('rule',self.rule('bottom-top-height=0'))
         return self.rule('bottom-top-height=0') + self.rule('right-left-width=0')
         #return [self.getVar('bottom')-self.getVar('top')-self.getVar('height'), 
         #        self.getVar('right')-self.getVar('left')-self.getVar('width')]
@@ -410,7 +447,7 @@ class Line(BaseRules):
         ret = []
         ll=self.childs
         if (len(ll)>0):
-            ret += self.rule('left - firstchild.left=0')
+            ret += self.rule('firstchild.left - left=0')
             #ret.append(self.childs[0].getVar('left')-self.getVar('left'))
             ret += self.rule('between: rightchild.left-leftchild.right-5=0')
             #ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right')-5)
@@ -453,7 +490,7 @@ class Page(BaseRules):
         # this must get good syntax later !!!!
         ll=self.childs
         if (len(ll)>0):
-            ret += self.rule('top - firstchild.top =0')
+            ret += self.rule('firstchild.top - top =0')
             #ret.append(self.childs[0].getVar('top')-self.getVar('top'))
             ret += self.rule('for_all: child.left-left=0')
             #ret += for_all(ll, lambda a: ll[a].getVar('left')-self.getVar('left'))
@@ -471,6 +508,7 @@ class Page(BaseRules):
                 l.childs.insert(0,add)
             add = l.check_to_long()
         if add is not None:
+            add.clean()
             actualLine = self.addLine()
             actualLine.childs.append(add)
             add = None
@@ -488,7 +526,7 @@ testpage = Page()
 # this may be used for rule creation?!
 
 testpage.setVar('left',0)
-testpage.setVar('top',20)
+testpage.setVar('top',200)
 testpage.setVar('right',400)
 testpage.setVar('bottom',400)
 
@@ -505,6 +543,26 @@ w.pack()
 def click(event):
     print('button clicked',event)
 
+def printinfos():
+    print('Page')
+    for k,v in testpage.TheVars.items():
+        print('  ',k,v, testpage.getVar(k))
+    for l in testpage.childs:
+        print('Line')
+        for k,v in l.TheVars.items():
+            print('     ',k,v, l.getVar(k))
+        for w in l.childs:
+            print('Word')
+            for k,v in w.TheVars.items():
+                print('        ',k,v,w.getVar(k))
+            for c in w.childs:
+                print('Char')
+                for k,v in c.TheVars.items():
+                    print('            ',k,v, c.getVar(k))
+                    
+                    
+            
+
 def key(event):
     global actualWord
     c = w.create_text(200, 300, anchor=W, font=("Times New Roman", int(25), "bold"),
@@ -514,12 +572,12 @@ def key(event):
     if ch== ' ':
         testpage.check_to_long()
         actualWord = actualLine.addWord()
-        for _ in range(1):
+        for _ in range(5):
             testpage.optimize()
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
             d.draw()
-        
+        printinfos()
     else:
         l = actualWord.addCharacter(ch)
         (left,top,right,bottom) = w.bbox(c)
@@ -534,6 +592,8 @@ def key(event):
             d.draw()
         testpage.full_restrictions(debug=0)
         testpage.optimize()
+#        for lines in testpage.childs:
+#            print(lines.TheVars)
         
 w.bind('<Button-1>', click)
 master.bind('<Key>',key)
@@ -555,6 +615,4 @@ f.cc("x*3")
 
 x=66
 f.get('')
-
-
 
