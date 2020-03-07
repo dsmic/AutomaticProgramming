@@ -18,23 +18,13 @@ def getVariable(name):
 
 # takes a lambda function at the moment to compare two elements
     # e.g. between(ll,lambda a:ll[a].getVar('left')-ll[a-1].getVar('right'))
-def min_all_old(ll, compare):
-    ret=None
-    for i in range(0,len(ll)):
-        t=compare(i)
-        print('in min',i,t)
-        if ret == None or t<ret:
-            ret = t
-    print('min_all',ll,ret)
-    return [ret]
-
 def min_all(ll, compare):
     #this is not really min, it must be possible to solve equation system with gradient
     ret=None
     sum_neg=0
     for i in range(0,len(ll)):
         t=compare(i)
-        print('in min',i,t)
+        #print('in min',i,t)
         if ret == None or t<ret:
             ret = t
         if t<0:
@@ -113,14 +103,15 @@ class BaseRules():
             ret += c.get_all_self_and_childs()
         return ret
         
-    def optimize(self):
+    def optimize(self, debug=False):
         global all_vars_used
         jakobi_list = []
         all_vars_used.clear()
         before = self.full_restrictions()
         all_vars_opt = [l for l in all_vars_used.keys()]
-        print('vars_to_opt',all_vars_opt)
-        print('before',before)
+        if debug:
+            print('vars_to_opt',all_vars_opt)
+            print('before',before)
         for (obj,vv) in all_vars_opt:
                 tmp = obj.getVar(vv)
                 obj.setVar(vv, tmp + 1)
@@ -146,6 +137,7 @@ class BaseRules():
             i+=1
         
     def optimize_nonjakobi(self):
+        #old version, does not handle references
         all_objects = self.get_all_self_and_childs()
         for obj in all_objects:
             opt_vars = obj.priority
@@ -228,15 +220,9 @@ class BaseRules():
                 thecode = thecode[:-1]
                 #print("setting",thecode)
                 ll4 = firstis.split('.')
-#                ref_code = compile(thecode,'<stdin>','eval')
                 if len(ll4) == 1 and not ll4[0][0].isdigit():
                     ret += self.try_set('self', ll4[0], thecode)
                     #print('thecode',ret,thecode,self.getVar('bottom'),self.getVar('top'))
-#                    if ll4[0] in self.priority:
-#                        self.setVar(ll4[0],(self,thecode))
-#                    else:
-#                        ret += "self.getVar('"+ll4[0]+"')-("+thecode+")"
-                        #print('not setable',ret, ll4, self.priority, ll4 in self.priority)
                 else:
                     if  ll4[0]=='firstchild':
                         ret += self.try_set('self.childs[0]', ll4[1], thecode)
@@ -303,7 +289,7 @@ class BaseRules():
                     ret +=']'
                     
             elif ll[0] == 'min_all':
-                print('minall',ret)
+                #print('minall',ret)
                 ret +='min_all(self.childs, lambda a: '
                 ll2=ll[1].split('-')
                 for ll3 in ll2:
@@ -319,7 +305,7 @@ class BaseRules():
                         ret += "self.childs[a].getVar('"+ll4[1]+"')"
                     ret+='-'
                 ret=ret[:-1]+')'
-                print('min_all____',ret)
+                #print('min_all____',ret)
             elif ll[0] == 'between':
                 if no_references:
                     ret +='between(self.childs, lambda a: '
@@ -398,8 +384,6 @@ class Character(BaseRules):
         # right-left = width
         #print('rule',self.rule('bottom-top-height=0'))
         return self.rule('bottom-top-height=0') + self.rule('right-left-width=0')
-        #return [self.getVar('bottom')-self.getVar('top')-self.getVar('height'), 
-        #        self.getVar('right')-self.getVar('left')-self.getVar('width')]
     
 class Word(BaseRules):
     def __init__(self):
@@ -416,17 +400,10 @@ class Word(BaseRules):
         ret = []
         if (len(self.childs)>0):
             ret += self.rule('firstchild.left-left=0')
-            #ret.append(self.childs[0].getVar('left')-self.getVar('left'))
-            #ll=self.childs
             ret += self.rule('for_all: child.top-top=0')
-            #ret += for_all(ll, lambda a: ll[a].getVar('top')-self.getVar('top'))
             ret += self.rule('for_all: child.bottom-bottom=0')
-            #ret += for_all(ll, lambda a: ll[a].getVar('bottom')-self.getVar('bottom'))
             ret += self.rule('between: rightchild.left-leftchild.right=0')
-            #ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right'))
             ret += self.rule('right-lastchild.right=0')
-            #ret.append(self.childs[len(self.childs)-1].getVar('right')-self.getVar('right'))
-            #
         return ret
     
 class Line(BaseRules):
@@ -448,17 +425,9 @@ class Line(BaseRules):
         ll=self.childs
         if (len(ll)>0):
             ret += self.rule('firstchild.left - left=0')
-            #ret.append(self.childs[0].getVar('left')-self.getVar('left'))
             ret += self.rule('between: rightchild.left-leftchild.right-5=0')
-            #ret += between(ll, lambda a: ll[a].getVar('left')-ll[a-1].getVar('right')-5)
-            #print('ll', ll)
-            #ret.append(min([l.getVar('top') for l in ll])-self.getVar('top')) #transform to min_for_all function ????
             ret += self.rule('min_all: child.top - top=0')
-            #ret += min_all(ll, lambda a:ll[a].getVar('top') - self.getVar('top'))
-            #dd = [(l.getVar('bottom') -self.getVar('bottom')) for l in ll]
-            #dd = for_all(ll, lambda a: ll[a].getVar('bottom') -self.getVar('bottom'))
             ret += self.rule('for_all: child.bottom-bottom=0')
-            #ret += for_all(ll, lambda a: ll[a].getVar('bottom') -self.getVar('bottom'))
             
         return ret
 
@@ -491,13 +460,9 @@ class Page(BaseRules):
         ll=self.childs
         if (len(ll)>0):
             ret += self.rule('firstchild.top - top =0')
-            #ret.append(self.childs[0].getVar('top')-self.getVar('top'))
             ret += self.rule('for_all: child.left-left=0')
-            #ret += for_all(ll, lambda a: ll[a].getVar('left')-self.getVar('left'))
             ret += self.rule('for_all: child.right-right=0')
-            #ret += for_all(ll, lambda a: ll[a].getVar('right')-self.getVar('right'))
             ret += self.rule('between: rightchild.top - leftchild.bottom=0')
-            #ret += between(ll, lambda a: ll[a].getVar('top')-ll[a-1].getVar('bottom'))
         return ret
 
     def check_to_long(self):
@@ -521,9 +486,6 @@ class Page(BaseRules):
 
 
 testpage = Page()
-
-# this may not be possilbe to set this variables. Set variables are not in priority,
-# this may be used for rule creation?!
 
 testpage.setVar('left',0)
 testpage.setVar('top',200)
@@ -572,12 +534,16 @@ def key(event):
     if ch== ' ':
         testpage.check_to_long()
         actualWord = actualLine.addWord()
-        for _ in range(5):
+        for pos in range(5):
+            print('-----',pos,'---')
             testpage.optimize()
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
             d.draw()
-        printinfos()
+        full=testpage.full_restrictions(debug=0)
+        #testpage.optimize()
+        print('full',full)
+        #printinfos()
     else:
         l = actualWord.addCharacter(ch)
         (left,top,right,bottom) = w.bbox(c)
