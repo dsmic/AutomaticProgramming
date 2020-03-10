@@ -46,9 +46,10 @@ def between(ll, compare):
         ret.append(compare(i))
     return ret
 
-all_vars_used = {}
+
 
 class BaseRules():
+    all_vars_used = {}
     def draw(self):
         #print(self, 'char nodraw', round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
         pass
@@ -65,7 +66,7 @@ class BaseRules():
         
             
     def getVar(self, name):
-        global all_vars_used
+        #global all_vars_used
         val = self.TheVars[name]
         #print('getVar val',val, type(val))
         if isinstance(val, tuple):
@@ -74,7 +75,7 @@ class BaseRules():
             return eval(code,{'self': obj})
         else:
             if name in self.priority:
-                all_vars_used[(self,name)] = 1
+                self.all_vars_used[(self,name)] = 1
             return val
     
     def setVar(self, name, value):
@@ -104,11 +105,11 @@ class BaseRules():
         return ret
         
     def optimize(self, debug=False):
-        global all_vars_used
+        #global all_vars_used
         jakobi_list = []
-        all_vars_used.clear()
+        self.all_vars_used.clear()
         before = self.full_restrictions()
-        all_vars_opt = [l for l in all_vars_used.keys()]
+        all_vars_opt = [l for l in self.all_vars_used.keys()]
         if debug:
             print('vars_to_opt',all_vars_opt)
             print('before',before)
