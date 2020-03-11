@@ -169,7 +169,7 @@ class BaseRules():
         return where+".getVar('"+name+"')-("+thecode+")"
 
 
-    def rule(self, string):
+    def rule(self, string, child_name='self.childs'):
         string=string.replace(" ", "")
         ret=''
         ll=string.split(':')
@@ -180,118 +180,74 @@ class BaseRules():
             # we start here to test if it can be done by a reference
             # ll2[0] is what has to be set to the rest of ll2 as sum to be compiled
             # ret must be an empty list than
-            if no_references:
-                ll2=ll[0].split('-')
-                for ll3 in ll2:
-                    ll4 = ll3.split('.')
-                    if len(ll4) == 1:
-                            if ll4[0][0].isdigit():
-                                ret +=ll4[0]
-                            else:
-                                ret += "self.getVar('"+ll4[0]+"')"
-                    else:
-                        if  ll4[0]=='firstchild':
-                            ret+="self.childs[0].getVar('"+ll4[1]+"')"
-                        elif  ll4[0]=='lastchild':
-                            ret+="self.childs[-1].getVar('"+ll4[1]+"')"
+            ret = '['
+            thecode = ''
+            ll2=ll[0].split('-')
+            firstis = ll2.pop(0)
+            for ll3 in ll2:
+                ll4 = ll3.split('.')
+                if len(ll4) == 1:
+                        if ll4[0][0].isdigit():
+                            thecode +=ll4[0]
                         else:
-                            raise ValueError('not firstchild or lastchild')
-                    ret+='-'
-                ret=ret[:-1]+']'
-            else:
-                ret = '['
-                thecode = ''
-                ll2=ll[0].split('-')
-                firstis = ll2.pop(0)
-                for ll3 in ll2:
-                    ll4 = ll3.split('.')
-                    if len(ll4) == 1:
-                            if ll4[0][0].isdigit():
-                                thecode +=ll4[0]
-                            else:
-                                thecode += "self.getVar('"+ll4[0]+"')"
-                    else:
-                        if  ll4[0]=='firstchild':
-                            thecode+="self.childs[0].getVar('"+ll4[1]+"')"
-                        elif  ll4[0]=='lastchild':
-                            thecode+="self.childs[-1].getVar('"+ll4[1]+"')"
-                        else:
-                            raise ValueError('not firstchild or lastchild')
-                    thecode+='+'
-                thecode = thecode[:-1]
-                #print("setting",thecode)
-                ll4 = firstis.split('.')
-                if len(ll4) == 1 and not ll4[0][0].isdigit():
-                    ret += self.try_set('self', ll4[0], thecode)
-                    #print('thecode',ret,thecode,self.getVar('bottom'),self.getVar('top'))
+                            thecode += "self.getVar('"+ll4[0]+"')"
                 else:
                     if  ll4[0]=='firstchild':
-                        ret += self.try_set('self.childs[0]', ll4[1], thecode)
-                        # if ll4[1] in self.childs[0].priority:
-                        #     self.childs[0].setVar(ll4[1],(self,thecode))
-                        # else:
-                        #     ret += "self.childs[0].getVar('"+ll4[1]+"')-("+thecode+")"
+                        thecode+=child_name +"[0].getVar('"+ll4[1]+"')"
                     elif  ll4[0]=='lastchild':
-                        ret += self.try_set('self.childs[-1]', ll4[1], thecode)
-                        # if ll4[1] in self.childs[-1].priority:
-                        #     self.childs[-1].setVar(ll4[1],(self,thecode))
-                        # else:
-                        #     ret += "self.childs[-1].getVar('"+ll4[1]+"')-("+thecode+")"
+                        thecode+=child_name +"[-1].getVar('"+ll4[1]+"')"
                     else:
                         raise ValueError('not firstchild or lastchild')
-                ret +=']'
+                thecode+='+'
+            thecode = thecode[:-1]
+            #print("setting",thecode)
+            ll4 = firstis.split('.')
+            if len(ll4) == 1 and not ll4[0][0].isdigit():
+                ret += self.try_set('self', ll4[0], thecode)
+                #print('thecode',ret,thecode,self.getVar('bottom'),self.getVar('top'))
+            else:
+                if  ll4[0]=='firstchild':
+                    ret += self.try_set(child_name +'[0]', ll4[1], thecode)
+                elif  ll4[0]=='lastchild':
+                    ret += self.try_set(child_name +'[-1]', ll4[1], thecode)
+                else:
+                    raise ValueError('not firstchild or lastchild')
+            ret +=']'
         else:
             ll[1] = ll[1].split('=')[0] # allows =0 at the end, just to keep syntax like equation solver
             if ll[0] == 'for_all':
-                if no_references:
-                    ret +='for_all(self.childs, lambda a: '
+                ret = '['
+                for i in range(len(eval(child_name))):
                     ll2=ll[1].split('-')
+                    firstis = ll2.pop(0)
+                    thecode = ''
                     for ll3 in ll2:
                         ll4 = ll3.split('.')
                         #print(ll4)
                         if len(ll4) == 1:
                             if ll4[0][0].isdigit():
-                                ret +=ll4[0]
+                                thecode +=ll4[0]
                             else:
-                                ret += "self.getVar('"+ll4[0]+"')"
+                                thecode += "self.getVar('"+ll4[0]+"')"
                         else:
                             assert(ll4[0]=='child')
-                            ret += "self.childs[a].getVar('"+ll4[1]+"')"
-                        ret+='-'
-                    ret=ret[:-1]+')'
-                else:
-                    ret = '['
-                    for i in range(len(self.childs)):
-                        ll2=ll[1].split('-')
-                        firstis = ll2.pop(0)
-                        thecode = ''
-                        for ll3 in ll2:
-                            ll4 = ll3.split('.')
-                            #print(ll4)
-                            if len(ll4) == 1:
-                                if ll4[0][0].isdigit():
-                                    thecode +=ll4[0]
-                                else:
-                                    thecode += "self.getVar('"+ll4[0]+"')"
-                            else:
-                                assert(ll4[0]=='child')
-                                thecode += "self.childs["+str(i)+"].getVar('"+ll4[1]+"')"
-                            thecode+='+'
-                        thecode=thecode[:-1]
-                        ll4 = firstis.split('.')
-                        if len(ll4) == 2:
-                            assert(ll4[0]=='child')
-                            tmp = self.try_set('self.childs['+str(i)+']', ll4[1], thecode)
-                            if len(tmp)>0:
-                                ret +=  "self.childs["+str(i)+"].getVar('"+ll4[1]+"') - ("+thecode+')'
-                                #raise ValueError('tryset failed '+thecode)
-                        else:
-                            raise ValueError('for all with first child parameter forced')
-                    ret +=']'
+                            thecode += child_name +"["+str(i)+"].getVar('"+ll4[1]+"')"
+                        thecode+='+'
+                    thecode=thecode[:-1]
+                    ll4 = firstis.split('.')
+                    if len(ll4) == 2:
+                        assert(ll4[0]=='child')
+                        tmp = self.try_set(child_name +'['+str(i)+']', ll4[1], thecode)
+                        if len(tmp)>0:
+                            ret +=  child_name +"["+str(i)+"].getVar('"+ll4[1]+"') - ("+thecode+')'
+                            #raise ValueError('tryset failed '+thecode)
+                    else:
+                        raise ValueError('for all with first child parameter forced')
+                ret +=']'
                     
             elif ll[0] == 'min_all':
                 #print('minall',ret)
-                ret +='min_all(self.childs, lambda a: '
+                ret +='min_all('+child_name +', lambda a: '
                 ll2=ll[1].split('-')
                 for ll3 in ll2:
                     ll4 = ll3.split('.')
@@ -303,62 +259,39 @@ class BaseRules():
                             ret += "self.getVar('"+ll4[0]+"')"
                     else:
                         assert(ll4[0]=='child')
-                        ret += "self.childs[a].getVar('"+ll4[1]+"')"
+                        ret += child_name +"[a].getVar('"+ll4[1]+"')"
                     ret+='-'
                 ret=ret[:-1]+')'
                 #print('min_all____',ret)
             elif ll[0] == 'between':
-                if no_references:
-                    ret +='between(self.childs, lambda a: '
+                ret = '['
+                for i in range(1,len(eval(child_name))):
                     ll2=ll[1].split('-')
+                    firstis = ll2.pop(0)
+                    thecode = ''
                     for ll3 in ll2:
                         ll4 = ll3.split('.')
                         #print(ll4)
                         if len(ll4) == 1:
                             if ll4[0][0].isdigit():
-                                ret +=ll4[0]
+                                thecode +=ll4[0]
                             else:
-                                ret += "self.getVar('"+ll4[0]+"')"
+                                thecode += "self.getVar('"+ll4[0]+"')"
                         else:
-                            if ll4[0]=='child':
-                                ret += "self.childs[a].getVar('"+ll4[1]+"')"
-                            elif ll4[0]=='leftchild':
-                                ret += "self.childs[a-1].getVar('"+ll4[1]+"')"
-                            elif ll4[0]=='rightchild':
-                                ret += "self.childs[a].getVar('"+ll4[1]+"')"
-                            else:
-                                raise ValueError('not child, leftchild or rightchild')
-                        ret+='-'
-                    ret=ret[:-1]+')'
-                else:
-                    ret = '['
-                    for i in range(1,len(self.childs)):
-                        ll2=ll[1].split('-')
-                        firstis = ll2.pop(0)
-                        thecode = ''
-                        for ll3 in ll2:
-                            ll4 = ll3.split('.')
-                            #print(ll4)
-                            if len(ll4) == 1:
-                                if ll4[0][0].isdigit():
-                                    thecode +=ll4[0]
-                                else:
-                                    thecode += "self.getVar('"+ll4[0]+"')"
-                            else:
-                                assert(ll4[0]=='leftchild')
-                                thecode += "self.childs["+str(i-1)+"].getVar('"+ll4[1]+"')"
-                            thecode+='+'
-                        thecode=thecode[:-1]
-                        ll4 = firstis.split('.')
-                        if len(ll4) == 2:
-                            assert(ll4[0]=='rightchild')
-                            tmp = self.try_set('self.childs['+str(i)+']', ll4[1], thecode)
-                            if len(tmp)>0:
-                                ret +=  "self.childs["+str(i)+"].getVar('"+ll4[1]+"') - ("+thecode+')'
-                                #raise ValueError('tryset failed '+thecode)
-                        else:
-                            raise ValueError('for all with first child parameter forced')
-                    ret += ']'
+                            assert(ll4[0]=='leftchild')
+                            thecode += child_name +"["+str(i-1)+"].getVar('"+ll4[1]+"')"
+                        thecode+='+'
+                    thecode=thecode[:-1]
+                    ll4 = firstis.split('.')
+                    if len(ll4) == 2:
+                        assert(ll4[0]=='rightchild')
+                        tmp = self.try_set(child_name +'['+str(i)+']', ll4[1], thecode)
+                        if len(tmp)>0:
+                            ret +=  child_name +"["+str(i)+"].getVar('"+ll4[1]+"') - ("+thecode+')'
+                            #raise ValueError('tryset failed '+thecode)
+                    else:
+                        raise ValueError('for all with first child parameter forced')
+                ret += ']'
                     
             else: raise ValueError('rule wrong',string)
         #print('rrr',ret)
