@@ -10,6 +10,8 @@ from tkinter import Tk, Canvas, mainloop, W
 import numpy as np
 import operator
 import types
+from tokenize import tokenize
+from io import BytesIO
 
 no_references = False
                 
@@ -58,7 +60,22 @@ class BaseRules():
         #manageing variables (not used in later syntax)
         self.clean()
         self.childs = []
+        print('starting',type(self).__name__)
         
+        #create the properties
+        for l in self.priority:
+            print(l)
+            s1='def gvar_'+l+'(self): return self.getVar("'+l+'")'
+            s2='def svar_'+l+'(self, x): return self.setVar("'+l+'",x)' # not sure if this can be used later?!
+            s3='BaseRules.' + l +' = property(gvar_'+l+',svar_'+l+')'
+            print(s1)
+            print(s2)
+            print(s3)
+            exec(s1)
+            exec(s2)
+            exec(s3)
+            print('???',eval('self.'+l))
+            
     def clean(self):
         self.TheVars = {} #contains the variables from priority
         for l in self.priority:
@@ -91,7 +108,7 @@ class BaseRules():
     
     def full_restrictions(self, debug = 0):
         ret = self.restrictions()
-        #print('r',ret)
+        print('r',ret)
         for c in self.childs:
             ret += c.full_restrictions(debug=debug)
         if debug:
@@ -117,7 +134,7 @@ class BaseRules():
                 tmp = obj.getVar(vv)
                 obj.setVar(vv, tmp + 1)
                 after = self.full_restrictions()
-                #print('###',before,after)
+                print('###',before,after)
                 diff = list(map(operator.sub, after, before))
                 obj.setVar(vv, tmp)
                 jakobi_list.append(diff)
@@ -168,13 +185,79 @@ class BaseRules():
         #print('not setable',type(self).__name__, where, name, thecode,  eval(where).priority, name in eval(where).priority)
         return where+".getVar('"+name+"')-("+thecode+")"
 
-
     def rule(self, string, child_name='self.childs'):
+        def replace_names(string, child_name, i=0):
+            testtokens = tokenize(BytesIO(string.encode('utf-8')).readline)
+            new_string =''
+            afterdot = False
+            for tt in testtokens:
+                print(tt)
+                if tt.type == 1:
+                    # here string replacement will be possible
+                    ttt = tt.string
+                    if afterdot:
+                        new_string += ttt
+                        afterdot = False
+                    elif ttt == 'firstchild':
+                        new_string += child_name +"[0]"
+                    elif ttt == 'lastchild':
+                        new_string += child_name +"[-1]"
+                    elif ttt =='child' or ttt =='rightchild':
+                        if i == None:
+                            new_string += child_name +"[i]"
+                        else:
+                            new_string += child_name +"["+str(i)+"]"
+                    elif ttt == 'leftchild':
+                        new_string += child_name +"["+str(i-1)+"]"
+                    elif len(ttt)>0 and not ttt[0].isdigit:
+                        assert(False)
+                        new_string += "self."+ttt
+                    else:
+                        new_string += "self."+ttt
+                    afterdot=False
+                elif tt.type !=59:
+                    new_string +=tt.string
+                    if tt.string == '.': afterdot=True
+            print('un',new_string)
+            return new_string
+        
+        ll=string.split(':')
+        if len(ll) == 1:
+            ret = '['+replace_names(ll[0],child_name)+']'
+
+        else:
+            if ll[0] == 'for_all':
+                ret = '['
+                for i in range(len(eval(child_name))):
+                    if i>0: ret +=','
+                    ret += replace_names(ll[1], child_name, i)
+                ret +=']'
+            elif ll[0] =='between':
+                print('inbetween',ll[1],len(eval(child_name)))
+                ret = '['
+                for i in range(1,len(eval(child_name))):
+                    if i>1: ret +=','
+                    ret += replace_names(ll[1], child_name, i)
+                    print('ret',i,ret)
+                ret +=']'
+            elif ll[0] =='min_all':
+                ret = 'min_all('+child_name +', lambda i: '
+                ret += replace_names(ll[1], child_name, None)
+                ret +=')'
+                print('min_all', ret)
+                #raise ValueError('not implemented')
+            print(ll[0])
+            
+        print('##',ret)
+        return eval(ret,dict(self=self, for_all=for_all, min_all=min_all, between=between))
+             
+
+    def rule_old(self, string, child_name='self.childs'):
         string=string.replace(" ", "")
         ret=''
         ll=string.split(':')
         if len(ll) == 1:
-            ll[0] = ll[0].split('=')[0] # allows =0 at the end, just to keep syntax like equation solver
+            #ll[0] = ll[0].split('=')[0] # allows =0 at the end, just to keep syntax like equation solver
             ret+='['
         
             # we start here to test if it can be done by a reference
@@ -182,6 +265,15 @@ class BaseRules():
             # ret must be an empty list than
             ret = '['
             thecode = ''
+            testtokens = tokenize(BytesIO(ll[0].encode('utf-8')).readline)
+            print(ll[0])
+            new_string =''
+            for tt in testtokens:
+                if tt.type != 59:
+                    # here string replacement will be possible
+                    new_string += tt.string
+                print(tt)
+            print('un',new_string)
             ll2=ll[0].split('-')
             firstis = ll2.pop(0)
             for ll3 in ll2:
@@ -239,7 +331,7 @@ class BaseRules():
                         assert(ll4[0]=='child')
                         tmp = self.try_set(child_name +'['+str(i)+']', ll4[1], thecode)
                         if len(tmp)>0:
-                            ret +=  child_name +"["+str(i)+"].getVar('"+ll4[1]+"') - ("+thecode+')'
+                            ret +=  child_name +"["+str(i)+"].getVar('"+ll4[1]+"') - ("+thecode+')' # a comma seems to be missing here?!
                             #raise ValueError('tryset failed '+thecode)
                     else:
                         raise ValueError('for all with first child parameter forced')
@@ -317,7 +409,11 @@ class Character(BaseRules):
         # top-bottom = height
         # right-left = width
         #print('rule',self.rule('bottom-top-height=0'))
-        return self.rule('bottom-top-height=0') + self.rule('right-left-width=0')
+        return self.rule('bottom-top-height') + self.rule('right-left-width')
+    def gvar_height(self): return self.getVar('height')
+    def gvar_width(self): return self.getVar('width')
+    height = property(gvar_height)
+    width = property(gvar_width)
     
 class Word(BaseRules):
     def __init__(self):
@@ -333,11 +429,11 @@ class Word(BaseRules):
     def restrictions(self):
         ret = []
         if (len(self.childs)>0):
-            ret += self.rule('firstchild.left-left=0')
-            ret += self.rule('for_all: child.top-top=0')
-            ret += self.rule('for_all: child.bottom-bottom=0')
-            ret += self.rule('between: rightchild.left-leftchild.right=0')
-            ret += self.rule('right-lastchild.right=0')
+            ret += self.rule('firstchild.left-left')
+            ret += self.rule('for_all: child.top-top')
+            ret += self.rule('for_all: child.bottom-bottom')
+            ret += self.rule('between: rightchild.left-leftchild.right')
+            ret += self.rule('right-lastchild.right')
         return ret
     
 class Line(BaseRules):
@@ -358,10 +454,10 @@ class Line(BaseRules):
         ret = []
         ll=self.childs
         if (len(ll)>0):
-            ret += self.rule('firstchild.left - left=0')
-            ret += self.rule('between: rightchild.left-leftchild.right-5=0')
-            ret += self.rule('min_all: child.top - top=0')
-            ret += self.rule('for_all: child.bottom-bottom=0')
+            ret += self.rule('firstchild.left - left')
+            ret += self.rule('between: rightchild.left-leftchild.right-5')
+            ret += self.rule('min_all: child.top - top')
+            ret += self.rule('for_all: child.bottom-bottom')
             
         return ret
 
@@ -393,10 +489,10 @@ class Page(BaseRules):
         # this must get good syntax later !!!!
         ll=self.childs
         if (len(ll)>0):
-            ret += self.rule('firstchild.top - top =0')
-            ret += self.rule('for_all: child.left-left=0')
-            ret += self.rule('for_all: child.right-right=0')
-            ret += self.rule('between: rightchild.top - leftchild.bottom=0')
+            ret += self.rule('firstchild.top - top ')
+            ret += self.rule('for_all: child.left-left')
+            ret += self.rule('for_all: child.right-right')
+            ret += self.rule('between: rightchild.top - leftchild.bottom')
         return ret
 
     def check_to_long(self):
@@ -516,3 +612,6 @@ f.cc("x*3")
 x=66
 f.get('')
 
+
+
+print(testpage.bottom)
