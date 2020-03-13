@@ -60,21 +60,21 @@ class BaseRules():
         #manageing variables (not used in later syntax)
         self.clean()
         self.childs = []
-        print('starting',type(self).__name__)
+        #print('starting',type(self).__name__)
         
         #create the properties
         for l in self.priority:
-            print(l)
+            #print(l)
             s1='def gvar_'+l+'(self): return self.getVar("'+l+'")'
             s2='def svar_'+l+'(self, x): return self.setVar("'+l+'",x)' # not sure if this can be used later?!
             s3='BaseRules.' + l +' = property(gvar_'+l+',svar_'+l+')'
-            print(s1)
-            print(s2)
-            print(s3)
+            #print(s1)
+            #print(s2)
+            #print(s3)
             exec(s1)
             exec(s2)
             exec(s3)
-            print('???',eval('self.'+l))
+            #print('???',eval('self.'+l))
             
     def clean(self):
         self.TheVars = {} #contains the variables from priority
@@ -97,7 +97,7 @@ class BaseRules():
     
     def setVar(self, name, value):
         if name in self.TheVars and isinstance(self.TheVars[name],tuple):
-            print('name is',name, self.TheVars[name], value)
+            #print('name is',name, self.TheVars[name], value)
             if not isinstance(value,tuple):
                 return False
             if self.TheVars[name] != value:
@@ -111,7 +111,7 @@ class BaseRules():
     
     def full_restrictions(self, debug = 0):
         ret = self.restrictions()
-        print('r',ret)
+        #print('r',ret)
         for c in self.childs:
             ret += c.full_restrictions(debug=debug)
         if debug:
@@ -137,7 +137,7 @@ class BaseRules():
                 tmp = obj.getVar(vv)
                 obj.setVar(vv, tmp + 1)
                 after = self.full_restrictions()
-                print('###',before,after)
+                #print('###',before,after)
                 diff = list(map(operator.sub, after, before))
                 obj.setVar(vv, tmp)
                 jakobi_list.append(diff)
@@ -190,7 +190,7 @@ class BaseRules():
 
     def try_set_new(self, name, thecode):
         old_set = name.rsplit('.',1)
-        print('setting',old_set[0],old_set[1])
+        #print('setting',old_set[0],old_set[1])
         if len(old_set)==0:
             raise ValueError('should not be possible')
         else:
@@ -203,7 +203,7 @@ class BaseRules():
             new_string =''
             afterdot = False
             for tt in testtokens:
-                print(tt)
+                #print(tt)
                 if tt.type == 1:
                     # here string replacement will be possible
                     ttt = tt.string
@@ -230,7 +230,7 @@ class BaseRules():
                 elif tt.type !=59:
                     new_string +=tt.string
                     if tt.string == '.': afterdot=True
-            print('un',new_string)
+            #print('un',new_string)
             return new_string
         
         ll=string.split(':')
@@ -241,7 +241,7 @@ class BaseRules():
             else:
                 right_side = replace_names(lleq[1],child_name)
                 left_side = replace_names(lleq[0],child_name)
-                print('new_set',left_side,right_side)
+                #print('new_set',left_side,right_side)
                 ret = '['+self.try_set_new(left_side, right_side)+']'
         else:
             if ll[0] == 'for_all':
@@ -254,12 +254,12 @@ class BaseRules():
                     else:
                         right_side = replace_names(lleq[1],child_name, i)
                         left_side = replace_names(lleq[0],child_name, i)
-                        print('new_set',left_side,right_side)
+                        #print('new_set',left_side,right_side)
                         ret += self.try_set_new(left_side, right_side)
                         if ret[-1]==',': ret = ret[:-1]
                 ret +=']'
             elif ll[0] =='between':
-                print('inbetween',ll[1],len(eval(child_name)))
+                #print('inbetween',ll[1],len(eval(child_name)))
                 ret = '['
                 for i in range(1,len(eval(child_name))):
                     if i>1: ret +=','
@@ -269,21 +269,20 @@ class BaseRules():
                     else:
                         right_side = replace_names(lleq[1],child_name, i)
                         left_side = replace_names(lleq[0],child_name, i)
-                        print('new_set',left_side,right_side)
+                        #print('new_set',left_side,right_side)
                         ret += self.try_set_new(left_side, right_side)
                         if ret[-1]==',': ret = ret[:-1]
-                        #raise ValueError('not yet implemented')
-                    print('ret',i,ret)
+                    #print('ret',i,ret)
                 ret +=']'
             elif ll[0] =='min_all':
                 ret = 'min_all('+child_name +', lambda i: '
                 ret += replace_names(ll[1], child_name)
                 ret +=')'
-                print('min_all', ret)
+                #print('min_all', ret)
                 #raise ValueError('not implemented')
-            print(ll[0])
+            #print(ll[0])
             
-        print('##',ret)
+        #print('##',ret)
         return eval(ret,dict(self=self, for_all=for_all, min_all=min_all, between=between))
              
 
