@@ -6,9 +6,7 @@ Created on Sun Feb 23 18:53:25 2020
 @author: detlef
 """
 
-
 # pylint: disable=C0301, C0103, C0116, C0321, C0115, R0914, R0912, R0915, R1705, R1720, W0122, W0603, W0123
-
 
 from tkinter import Tk, Canvas, mainloop, W
 import operator
@@ -57,6 +55,15 @@ class BaseRules():
         #print(self, 'char nodraw', round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
         pass
 
+    def add_property(self, l):
+        classname = self.__class__.__name__
+        s1 = 'def gvar_'+l+'(self): return self.getVar("'+l+'")'
+        s2 = 'def svar_'+l+'(self, x): return self.setVar("'+l+'",x)' # not sure if this can be used later?!
+        s3 = classname+'.' + l +' = property(gvar_'+l+',svar_'+l+')'
+        exec(s1)
+        exec(s2)
+        exec(s3)
+
     def __init__(self):
         #manageing variables (not used in later syntax)
         self.clean()
@@ -64,13 +71,7 @@ class BaseRules():
 
         #create the properties
         for l in self.priority:
-            #print(l)
-            s1 = 'def gvar_'+l+'(self): return self.getVar("'+l+'")'
-            s2 = 'def svar_'+l+'(self, x): return self.setVar("'+l+'",x)' # not sure if this can be used later?!
-            s3 = 'BaseRules.' + l +' = property(gvar_'+l+',svar_'+l+')'
-            exec(s1)
-            exec(s2)
-            exec(s3)
+            self.add_property(l)
 
     def clean(self):
         self.TheVars = {} #contains the variables from priority
@@ -277,12 +278,12 @@ class Character(BaseRules):
         self.TheCharacter = ch
         BaseRules.__init__(self)
 
+        #additional properties, not defined in priority
+        self.add_property('height')
+        self.add_property('width')
+
     def restrictions(self):
         return self.rule('bottom=top+height') + self.rule('right=left+width')
-    def gvar_height(self): return self.getVar('height')
-    def gvar_width(self): return self.getVar('width')
-    height = property(gvar_height)
-    width = property(gvar_width)
 
 class Word(BaseRules):
     def __init__(self):
@@ -341,6 +342,12 @@ class Page(BaseRules):
     def __init__(self):
         self.priority = [] #Later this should be syntactically improved
         BaseRules.__init__(self)
+
+        #additional properties, not defined in priority
+        self.add_property('top')
+        self.add_property('bottom')
+        self.add_property('left')
+        self.add_property('right')
 
     def addLine(self):
         l = Line()
