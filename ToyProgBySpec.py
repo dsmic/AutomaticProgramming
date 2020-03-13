@@ -6,13 +6,15 @@ Created on Sun Feb 23 18:53:25 2020
 @author: detlef
 """
 
+
+# pylint: disable=C0301, C0103, C0116, C0321, C0115, R0914, R0912, R0915, R1705, R1720, W0122, W0603, W0123
+
+
 from tkinter import Tk, Canvas, mainloop, W
-import numpy as np
 import operator
 from tokenize import tokenize
 from io import BytesIO
-
-no_references = False
+import numpy as np
 
 def getVariable(name):
     return name.getVar
@@ -25,8 +27,7 @@ def min_all(ll, compare):
     sum_neg = 0
     for i in range(0, len(ll)):
         t = compare(i)
-        #print('in min',i,t)
-        if ret == None or t < ret:
+        if ret is None or t < ret:
             ret = t
         if t < 0:
             sum_neg += t
@@ -50,6 +51,7 @@ def between(ll, compare):
 
 
 class BaseRules():
+    priority = None # has to be overwritten by child
     all_vars_used = {}
     def draw(self):
         #print(self, 'char nodraw', round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
@@ -59,7 +61,6 @@ class BaseRules():
         #manageing variables (not used in later syntax)
         self.clean()
         self.childs = []
-        #print('starting',type(self).__name__)
 
         #create the properties
         for l in self.priority:
@@ -67,13 +68,9 @@ class BaseRules():
             s1 = 'def gvar_'+l+'(self): return self.getVar("'+l+'")'
             s2 = 'def svar_'+l+'(self, x): return self.setVar("'+l+'",x)' # not sure if this can be used later?!
             s3 = 'BaseRules.' + l +' = property(gvar_'+l+',svar_'+l+')'
-            #print(s1)
-            #print(s2)
-            #print(s3)
             exec(s1)
             exec(s2)
             exec(s3)
-            #print('???',eval('self.'+l))
 
     def clean(self):
         self.TheVars = {} #contains the variables from priority
@@ -82,12 +79,9 @@ class BaseRules():
 
 
     def getVar(self, name):
-        #global all_vars_used
         val = self.TheVars[name]
-        #print('getVar val',val, type(val))
         if isinstance(val, tuple):
             obj, code = val
-            #print(len(obj.childs),code)
             return eval(code, {'self': obj})
         else:
             if name in self.priority:
@@ -100,14 +94,12 @@ class BaseRules():
             if not isinstance(value, tuple):
                 return False
             if self.TheVars[name] != value:
-                #raise ValueError('resetting calculation ln existing var '+str( self)+' '+str(type(self).__name__)+" "+ name + str( value)+ ' was ' +str(self.TheVars[name]))
                 return False
         self.TheVars[name] = value
         return True
 
     def full_restrictions(self, debug=0):
         ret = self.restrictions()
-        #print('r',ret)
         for c in self.childs:
             ret += c.full_restrictions(debug=debug)
         if debug:
@@ -121,7 +113,6 @@ class BaseRules():
         return ret
 
     def optimize(self, debug=False):
-        #global all_vars_used
         jakobi_list = []
         self.all_vars_used.clear()
         before = self.full_restrictions()
@@ -154,53 +145,48 @@ class BaseRules():
                 print('-opt-', i, d)
             i += 1
 
-    # def optimize_nonjakobi(self):
-    #     #old version, does not handle references
-    #     all_objects = self.get_all_self_and_childs()
-    #     for obj in all_objects:
-    #         opt_vars = obj.priority
-    #         opt_vars.reverse()
-    #         for vv in opt_vars:
-    #             before = self.full_restrictions()
-    #             obj.setVar(vv, obj.getVar(vv)+1)
-    #             after = self.full_restrictions()
-    #             diff = list(map(operator.sub, after, before))
-    #             correct = 0
-    #             num_correct = 0
-    #             bb = before[:]
-    #             for l in diff:
-    #                 dd = bb.pop(0)
-    #                 if l != 0:
-    #                     num_correct += 1
-    #                     correct +=-dd/l
-
-    #             if num_correct > 0: correct /= num_correct
-    #             correct -= 1
-    #             obj.setVar(vv, obj.getVar(vv)+correct)
-
     def try_set(self, where, name, thecode):
         if name in eval(where).priority:
             if eval(where).setVar(name, (self, thecode)):
                 return ''
-        #print('not setable',type(self).__name__, where, name, thecode,  eval(where).priority, name in eval(where).priority)
         return where+".getVar('"+name+"')-("+thecode+")"
 
     def try_set_new(self, name, thecode):
         old_set = name.rsplit('.', 1)
-        #print('setting',old_set[0],old_set[1])
         if len(old_set) == 0:
             raise ValueError('should not be possible')
         else:
             return self.try_set(old_set[0], old_set[1], thecode)
 
 
-    def rule(self, string, child_name='self.childs'):
+    def rule(self, rulestring, child_name='self.childs'):
+        """
+        Parameters
+        ----------
+        rulestring : TYPE
+            becomes zero for the correct values, if not in equation
+            if equation is used
+            e.g.:  top = bottom - height
+            it tries to create a reference in the top variable
+            supported expressions are:
+                for_all: reference to the child
+                between: reference to leftchild and rightchild
+                min_all: use child, but can not create references
+        child_name : TYPE, optional
+            DESCRIPTION. The default is 'self.childs'. Defines what child, firstchild and rightchild
+            in the rulestring is beeing referenced to.
+
+        Returns
+        -------
+        TYPE
+            List of elements for the optimizer. References are created as side effect
+
+        """
         def replace_names(string, child_name, i=None):
             testtokens = tokenize(BytesIO(string.encode('utf-8')).readline)
             new_string = ' '
             afterdot = False
             for tt in testtokens:
-                #print(tt)
                 if tt.type == 1:
                     # here string replacement will be possible
                     ttt = tt.string
@@ -212,25 +198,21 @@ class BaseRules():
                     elif ttt == 'lastchild':
                         new_string += child_name +"[-1]"
                     elif ttt in ('child', 'rightchild'):
-                        if i == None:
+                        if i is None:
                             new_string += child_name +"[i]"
                         else:
                             new_string += child_name +"["+str(i)+"]"
                     elif ttt == 'leftchild':
                         new_string += child_name +"["+str(i-1)+"]"
-                    elif len(ttt) > 0 and not ttt[0].isdigit:
-                        assert False
-                        new_string += "self."+ttt
                     else:
                         new_string += "self."+ttt
                     afterdot = False
                 elif tt.type != 59:
                     new_string += tt.string
                     if tt.string == '.': afterdot = True
-            #print('un',new_string)
             return new_string
 
-        ll = string.split(':')
+        ll = rulestring.split(':')
         if len(ll) == 1:
             lleq = ll[0].split('=')
             if len(lleq) == 1:
@@ -238,7 +220,6 @@ class BaseRules():
             else:
                 right_side = replace_names(lleq[1], child_name)
                 left_side = replace_names(lleq[0], child_name)
-                #print('new_set',left_side,right_side)
                 ret = '['+self.try_set_new(left_side, right_side)+']'
         else:
             if ll[0] == 'for_all':
@@ -251,12 +232,10 @@ class BaseRules():
                     else:
                         right_side = replace_names(lleq[1], child_name, i)
                         left_side = replace_names(lleq[0], child_name, i)
-                        #print('new_set',left_side,right_side)
                         ret += self.try_set_new(left_side, right_side)
                         if ret[-1] == ',': ret = ret[:-1]
                 ret += ']'
             elif ll[0] == 'between':
-                #print('inbetween',ll[1],len(eval(child_name)))
                 ret = '['
                 for i in range(1, len(eval(child_name))):
                     if i > 1: ret += ','
@@ -266,160 +245,24 @@ class BaseRules():
                     else:
                         right_side = replace_names(lleq[1], child_name, i)
                         left_side = replace_names(lleq[0], child_name, i)
-                        #print('new_set',left_side,right_side)
                         ret += self.try_set_new(left_side, right_side)
                         if ret[-1] == ',': ret = ret[:-1]
-                    #print('ret',i,ret)
                 ret += ']'
             elif ll[0] == 'min_all':
+                # here references are not possible
                 ret = 'min_all('+child_name +', lambda i: '
                 ret += replace_names(ll[1], child_name)
                 ret += ')'
-                #print('min_all', ret)
-                #raise ValueError('not implemented')
-            #print(ll[0])
 
-        #print('##',ret)
         return eval(ret, dict(self=self, for_all=for_all, min_all=min_all, between=between))
 
-
-    # def rule_old(self, string, child_name='self.childs'):
-    #     string=string.replace(" ", "")
-    #     ret=''
-    #     ll=string.split(':')
-    #     if len(ll) == 1:
-    #         #ll[0] = ll[0].split('=')[0] # allows =0 at the end, just to keep syntax like equation solver
-    #         ret+='['
-
-    #         # we start here to test if it can be done by a reference
-    #         # ll2[0] is what has to be set to the rest of ll2 as sum to be compiled
-    #         # ret must be an empty list than
-    #         ret = '['
-    #         thecode = ''
-    #         testtokens = tokenize(BytesIO(ll[0].encode('utf-8')).readline)
-    #         print(ll[0])
-    #         new_string =''
-    #         for tt in testtokens:
-    #             if tt.type != 59:
-    #                 # here string replacement will be possible
-    #                 new_string += tt.string
-    #             print(tt)
-    #         print('un',new_string)
-    #         ll2=ll[0].split('-')
-    #         firstis = ll2.pop(0)
-    #         for ll3 in ll2:
-    #             ll4 = ll3.split('.')
-    #             if len(ll4) == 1:
-    #                 if ll4[0][0].isdigit():
-    #                     thecode +=ll4[0]
-    #                 else:
-    #                     thecode += "self.getVar('"+ll4[0]+"')"
-    #             else:
-    #                 if  ll4[0]=='firstchild':
-    #                     thecode+=child_name +"[0].getVar('"+ll4[1]+"')"
-    #                 elif  ll4[0]=='lastchild':
-    #                     thecode+=child_name +"[-1].getVar('"+ll4[1]+"')"
-    #                 else:
-    #                     raise ValueError('not firstchild or lastchild')
-    #             thecode+='+'
-    #         thecode = thecode[:-1]
-    #         #print("setting",thecode)
-    #         ll4 = firstis.split('.')
-    #         if len(ll4) == 1 and not ll4[0][0].isdigit():
-    #             ret += self.try_set('self', ll4[0], thecode)
-    #             #print('thecode',ret,thecode,self.getVar('bottom'),self.getVar('top'))
-    #         else:
-    #             if  ll4[0]=='firstchild':
-    #                 ret += self.try_set(child_name +'[0]', ll4[1], thecode)
-    #             elif  ll4[0]=='lastchild':
-    #                 ret += self.try_set(child_name +'[-1]', ll4[1], thecode)
-    #             else:
-    #                 raise ValueError('not firstchild or lastchild')
-    #         ret +=']'
-    #     else:
-    #         ll[1] = ll[1].split('=')[0] # allows =0 at the end, just to keep syntax like equation solver
-    #         if ll[0] == 'for_all':
-    #             ret = '['
-    #             for i in range(len(eval(child_name))):
-    #                 ll2=ll[1].split('-')
-    #                 firstis = ll2.pop(0)
-    #                 thecode = ''
-    #                 for ll3 in ll2:
-    #                     ll4 = ll3.split('.')
-    #                     #print(ll4)
-    #                     if len(ll4) == 1:
-    #                         if ll4[0][0].isdigit():
-    #                             thecode +=ll4[0]
-    #                         else:
-    #                             thecode += "self.getVar('"+ll4[0]+"')"
-    #                     else:
-    #                         assert(ll4[0]=='child')
-    #                         thecode += child_name +"["+str(i)+"].getVar('"+ll4[1]+"')"
-    #                     thecode+='+'
-    #                 thecode=thecode[:-1]
-    #                 ll4 = firstis.split('.')
-    #                 if len(ll4) == 2:
-    #                     assert(ll4[0]=='child')
-    #                     tmp = self.try_set(child_name +'['+str(i)+']', ll4[1], thecode)
-    #                     if len(tmp)>0:
-    #                         ret +=  child_name +"["+str(i)+"].getVar('"+ll4[1]+"') - ("+thecode+')' # a comma seems to be missing here?!
-    #                         #raise ValueError('tryset failed '+thecode)
-    #                 else:
-    #                     raise ValueError('for all with first child parameter forced')
-    #             ret +=']'
-
-    #         elif ll[0] == 'min_all':
-    #             #print('minall',ret)
-    #             ret +='min_all('+child_name +', lambda a: '
-    #             ll2=ll[1].split('-')
-    #             for ll3 in ll2:
-    #                 ll4 = ll3.split('.')
-    #                 #print(ll4)
-    #                 if len(ll4) == 1:
-    #                     if ll4[0][0].isdigit():
-    #                         ret +=ll4[0]
-    #                     else:
-    #                         ret += "self.getVar('"+ll4[0]+"')"
-    #                 else:
-    #                     assert(ll4[0]=='child')
-    #                     ret += child_name +"[a].getVar('"+ll4[1]+"')"
-    #                 ret+='-'
-    #             ret=ret[:-1]+')'
-    #             #print('min_all____',ret)
-    #         elif ll[0] == 'between':
-    #             ret = '['
-    #             for i in range(1,len(eval(child_name))):
-    #                 ll2=ll[1].split('-')
-    #                 firstis = ll2.pop(0)
-    #                 thecode = ''
-    #                 for ll3 in ll2:
-    #                     ll4 = ll3.split('.')
-    #                     #print(ll4)
-    #                     if len(ll4) == 1:
-    #                         if ll4[0][0].isdigit():
-    #                             thecode +=ll4[0]
-    #                         else:
-    #                             thecode += "self.getVar('"+ll4[0]+"')"
-    #                     else:
-    #                         assert(ll4[0]=='leftchild')
-    #                         thecode += child_name +"["+str(i-1)+"].getVar('"+ll4[1]+"')"
-    #                     thecode+='+'
-    #                 thecode=thecode[:-1]
-    #                 ll4 = firstis.split('.')
-    #                 if len(ll4) == 2:
-    #                     assert(ll4[0]=='rightchild')
-    #                     tmp = self.try_set(child_name +'['+str(i)+']', ll4[1], thecode)
-    #                     if len(tmp)>0:
-    #                         ret +=  child_name +"["+str(i)+"].getVar('"+ll4[1]+"') - ("+thecode+')'
-    #                         #raise ValueError('tryset failed '+thecode)
-    #                 else:
-    #                     raise ValueError('for all with first child parameter forced')
-    #             ret += ']'
-
-    #         else: raise ValueError('rule wrong',string)
-    #     #print('rrr',ret)
-    #     return eval(ret,dict(self=self, for_all=for_all, min_all=min_all, between=between))
-
+    def restrictions(self):
+        """
+        are created from rules by adding the return value lists
+        """
+        # pylint: disable=R0201, W0101
+        raise ValueError('This has to be overwritten by the child class')
+        return []
 
 class Character(BaseRules):
     def draw(self):
@@ -435,11 +278,6 @@ class Character(BaseRules):
         BaseRules.__init__(self)
 
     def restrictions(self):
-        # becomes zero for the correct values, uses priority to determine which to optimize
-        # planed syntax would be:
-        # top-bottom = height
-        # right-left = width
-        #print('rule',self.rule('bottom-top-height=0'))
         return self.rule('bottom=top+height') + self.rule('right=left+width')
     def gvar_height(self): return self.getVar('height')
     def gvar_width(self): return self.getVar('width')
