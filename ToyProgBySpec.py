@@ -148,6 +148,7 @@ class BaseRules():
             i += 1
         check = self.full_restrictions()
         i = 0
+        print('len of optimizing', len(check))
         for d in check:
             if abs(d) > 3:
                 print('-opt-', i, d)
@@ -439,7 +440,7 @@ class Character(BaseRules):
         # top-bottom = height
         # right-left = width
         #print('rule',self.rule('bottom-top-height=0'))
-        return self.rule('bottom=top+height') + self.rule('right-left-width')
+        return self.rule('bottom=top+height') + self.rule('right=left+width')
     def gvar_height(self): return self.getVar('height')
     def gvar_width(self): return self.getVar('width')
     height = property(gvar_height)
@@ -461,9 +462,9 @@ class Word(BaseRules):
         if len(self.childs) > 0:
             ret += self.rule('firstchild.left=left')
             ret += self.rule('for_all: child.top=top')
-            ret += self.rule('for_all: child.bottom-bottom')
+            ret += self.rule('for_all: child.bottom=bottom')
             ret += self.rule('between: rightchild.left=leftchild.right')
-            ret += self.rule('right-lastchild.right')
+            ret += self.rule('right=lastchild.right')
         return ret
 
 class Line(BaseRules):
@@ -481,10 +482,10 @@ class Line(BaseRules):
         ret = []
         ll = self.childs
         if len(ll) > 0:
-            ret += self.rule('firstchild.left - left')
-            ret += self.rule('between: rightchild.left-leftchild.right-5')
+            ret += self.rule('firstchild.left = left')
+            ret += self.rule('between: rightchild.left=leftchild.right+5')
             ret += self.rule('min_all: child.top - top')
-            ret += self.rule('for_all: child.bottom-bottom')
+            ret += self.rule('for_all: child.bottom=bottom')
 
         return ret
 
@@ -513,10 +514,10 @@ class Page(BaseRules):
         # this must get good syntax later !!!!
         ll = self.childs
         if len(ll) > 0:
-            ret += self.rule('firstchild.top - top ')
-            ret += self.rule('for_all: child.left-left')
-            ret += self.rule('for_all: child.right-right')
-            ret += self.rule('between: rightchild.top - leftchild.bottom')
+            ret += self.rule('firstchild.top = top ')
+            ret += self.rule('for_all: child.left=left')
+            ret += self.rule('for_all: child.right=right')
+            ret += self.rule('between: rightchild.top = leftchild.bottom')
         return ret
 
     def check_to_long(self):
