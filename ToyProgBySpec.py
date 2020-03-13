@@ -97,6 +97,9 @@ class BaseRules():
     
     def setVar(self, name, value):
         if name in self.TheVars and isinstance(self.TheVars[name],tuple):
+            print('name is',name, self.TheVars[name], value)
+            if not isinstance(value,tuple):
+                return False
             if self.TheVars[name] != value:
                 #raise ValueError('resetting calculation ln existing var '+str( self)+' '+str(type(self).__name__)+" "+ name + str( value)+ ' was ' +str(self.TheVars[name]))
                 return False
@@ -185,8 +188,17 @@ class BaseRules():
         #print('not setable',type(self).__name__, where, name, thecode,  eval(where).priority, name in eval(where).priority)
         return where+".getVar('"+name+"')-("+thecode+")"
 
+    def try_set_new(self, name, thecode):
+        old_set = name.rsplit('.',1)
+        print('setting',old_set[0],old_set[1])
+        if len(old_set)==0:
+            raise ValueError('should not be possible')
+        else:
+            return self.try_set(old_set[0],old_set[1],thecode)
+         
+
     def rule(self, string, child_name='self.childs'):
-        def replace_names(string, child_name, i=0):
+        def replace_names(string, child_name, i=None):
             testtokens = tokenize(BytesIO(string.encode('utf-8')).readline)
             new_string =''
             afterdot = False
@@ -223,26 +235,49 @@ class BaseRules():
         
         ll=string.split(':')
         if len(ll) == 1:
-            ret = '['+replace_names(ll[0],child_name)+']'
-
+            lleq = ll[0].split('=')
+            if len(lleq) == 1:
+                ret = '['+replace_names(ll[0],child_name)+']'
+            else:
+                right_side = replace_names(lleq[1],child_name)
+                left_side = replace_names(lleq[0],child_name)
+                print('new_set',left_side,right_side)
+                ret = '['+self.try_set_new(left_side, right_side)+']'
         else:
             if ll[0] == 'for_all':
                 ret = '['
                 for i in range(len(eval(child_name))):
                     if i>0: ret +=','
-                    ret += replace_names(ll[1], child_name, i)
+                    lleq = ll[1].split('=')
+                    if len(lleq) == 1:
+                        ret += replace_names(ll[1], child_name, i)
+                    else:
+                        right_side = replace_names(lleq[1],child_name, i)
+                        left_side = replace_names(lleq[0],child_name, i)
+                        print('new_set',left_side,right_side)
+                        ret += self.try_set_new(left_side, right_side)
+                        if ret[-1]==',': ret = ret[:-1]
                 ret +=']'
             elif ll[0] =='between':
                 print('inbetween',ll[1],len(eval(child_name)))
                 ret = '['
                 for i in range(1,len(eval(child_name))):
                     if i>1: ret +=','
-                    ret += replace_names(ll[1], child_name, i)
+                    lleq = ll[1].split('=')
+                    if len(lleq) == 1:
+                        ret += replace_names(ll[1], child_name, i)
+                    else:
+                        right_side = replace_names(lleq[1],child_name, i)
+                        left_side = replace_names(lleq[0],child_name, i)
+                        print('new_set',left_side,right_side)
+                        ret += self.try_set_new(left_side, right_side)
+                        if ret[-1]==',': ret = ret[:-1]
+                        #raise ValueError('not yet implemented')
                     print('ret',i,ret)
                 ret +=']'
             elif ll[0] =='min_all':
                 ret = 'min_all('+child_name +', lambda i: '
-                ret += replace_names(ll[1], child_name, None)
+                ret += replace_names(ll[1], child_name)
                 ret +=')'
                 print('min_all', ret)
                 #raise ValueError('not implemented')
@@ -409,7 +444,7 @@ class Character(BaseRules):
         # top-bottom = height
         # right-left = width
         #print('rule',self.rule('bottom-top-height=0'))
-        return self.rule('bottom-top-height') + self.rule('right-left-width')
+        return self.rule('bottom=top+height') + self.rule('right-left-width')
     def gvar_height(self): return self.getVar('height')
     def gvar_width(self): return self.getVar('width')
     height = property(gvar_height)
@@ -429,10 +464,10 @@ class Word(BaseRules):
     def restrictions(self):
         ret = []
         if (len(self.childs)>0):
-            ret += self.rule('firstchild.left-left')
-            ret += self.rule('for_all: child.top-top')
+            ret += self.rule('firstchild.left=left')
+            ret += self.rule('for_all: child.top=top')
             ret += self.rule('for_all: child.bottom-bottom')
-            ret += self.rule('between: rightchild.left-leftchild.right')
+            ret += self.rule('between: rightchild.left=leftchild.right')
             ret += self.rule('right-lastchild.right')
         return ret
     
