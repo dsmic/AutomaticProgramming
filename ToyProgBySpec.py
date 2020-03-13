@@ -8,7 +8,7 @@ Created on Sun Feb 23 18:53:25 2020
 
 # pylint: disable=C0301, C0103, C0116, C0321, C0115, R0914, R0912, R0915, R1705, R1720, W0122, W0603, W0123
 
-from tkinter import Tk, Canvas, mainloop, W
+from tkinter import Tk, Canvas, mainloop, NW
 import operator
 from tokenize import tokenize
 from io import BytesIO
@@ -268,7 +268,7 @@ class BaseRules():
 class Character(BaseRules):
     def draw(self):
         #print(self, 'char draw', self.TheCharacter, round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
-        w.create_text(self.getVar('left'), self.getVar('top'), anchor=W, font=("Times New Roman", int(25), "bold"),
+        w.create_text(self.getVar('left'), self.getVar('top'), anchor=NW, font=("Times New Roman", int(25), "bold"),
                       text=self.TheCharacter)
 
     def __init__(self, ch):
@@ -403,7 +403,30 @@ w = Canvas(master, width=canvas_width, height=canvas_height)
 w.pack()
 
 def click(event):
+    global actualLine
+    global actualWord
     print('button clicked', event)
+    # mouse_coordinates= str(event.x) + ", " + str(event.y)
+    # w.create_text(event.x, event.y, text = mouse_coordinates)
+    x = event.x
+    y = event.y
+    for k, v in testpage.TheVars.items():
+        print('  ', k, v, testpage.getVar(k))
+    for l in testpage.childs:
+        print('Line')
+        if l.top <= y < l.bottom:
+            print('line clicked', l)
+            actualLine = l
+            for ww in l.childs:
+                print('Word')
+                if ww.left <= x < ww.right:
+                    print('word clicked', ww)
+                    actualWord = ww
+                # for c in ww.childs:
+                #     print('Char')
+                #     for k, v in c.TheVars.items():
+                #         print('            ', k, v, c.getVar(k))
+
 
 def printinfos():
     print('Page')
@@ -427,7 +450,7 @@ def printinfos():
 
 def key(event):
     global actualWord
-    c = w.create_text(200, 300, anchor=W, font=("Times New Roman", int(25), "bold"),
+    c = w.create_text(200, 300, anchor=NW, font=("Times New Roman", int(25), "bold"),
                       text=event.char)
     print('key pressed', event, 'bounding', w.bbox(c))
     ch = event.char
