@@ -13,6 +13,7 @@ import operator
 from tokenize import tokenize
 from io import BytesIO
 import numpy as np
+import random
 
 def getVariable(name):
     return name.getVar
@@ -107,6 +108,7 @@ class BaseRules():
 
     def full_restrictions(self, debug=0):
         ret = self.restrictions()
+        #print('vvv',len(self.all_vars_used), self.all_vars_used, ret)
         for c in self.childs:
             ret += c.full_restrictions(debug=debug)
         if debug:
@@ -122,23 +124,33 @@ class BaseRules():
     def optimize(self, scale=1.0, debug=False):
         jakobi_list = []
         self.all_vars_used.clear()
-        before = self.full_restrictions()
         all_vars_opt = self.all_vars_used.keys()
+        before = self.full_restrictions()
+        #print('vv_',len(all_vars_opt), all_vars_opt)
+        before = self.full_restrictions()  # must be called several times, as the reference chains may be created one by one
+        #print('vv0',len(all_vars_opt), all_vars_opt)
         if debug:
             print('vars_to_opt', all_vars_opt)
             print('before', before)
         for (obj, vv) in all_vars_opt:
+            #print('vv1',len(all_vars_opt))
             tmp = obj.getVar(vv)
+            #print('vv2',len(all_vars_opt))
             obj.setVar(vv, tmp + 1)
+            #print('vv3',len(all_vars_opt), all_vars_opt)
             after = self.full_restrictions()
+            #print('vv4',len(all_vars_opt), all_vars_opt)
             #print('###',before,after)
             diff = list(map(operator.sub, after, before))
+            #print('vv5',len(all_vars_opt))
             obj.setVar(vv, tmp)
+            #print('vv6',len(all_vars_opt))
             jakobi_list.append(diff)
+            #print('vv7',len(all_vars_opt))
         f_x = np.array(before)
-        JK = np.array(jakobi_list)
+        JK = np.array(jakobi_list, dtype=np.double)
         JK_t = JK.transpose()
-        JK_t_i = np.linalg.pinv(JK_t, rcond=0.001)
+        JK_t_i = np.linalg.pinv(JK_t, rcond=0.00001)
         delta = np.dot(JK_t_i, f_x)
         i = 0
         for (obj, vv) in all_vars_opt:
@@ -147,11 +159,14 @@ class BaseRules():
         check = self.full_restrictions()
         i = 0
         print('len of optimizing', len(check))
+        isok = True
         for d in check:
             if abs(d) > 3:
                 print('-opt-', i, d)
+                isok = False
             i += 1
-
+        return isok
+        
     def try_set(self, where, name, thecode):
         if name in eval(where).priority:
             if eval(where).setVar(name, (self, thecode)):
@@ -271,7 +286,8 @@ class BaseRules():
                 # for t in self.childs:
                 #     print('l.top',t.top,self.top)
                 # print('min_all', ret, eval(ret, dict(self=self, for_all=for_all, min_all=min_all, between=between)))
-
+        # if len(ret)>2:
+        #     print(self.__class__.__name__, ret)
         return eval(ret, dict(self=self, for_all=for_all, min_all=min_all, between=between))
 
     def restrictions(self):
@@ -301,7 +317,7 @@ class Character(BaseRules):
         self.add_property('width')
 
     def restrictions(self):
-        return self.rule('bottom=top+height') + self.rule('right=left+width')
+        return self.rule('top=bottom-height') + self.rule('right=left+width')
 
 class Word(BaseRules):
     def __init__(self):
@@ -326,10 +342,15 @@ class Word(BaseRules):
         ret = []
         if len(self.childs) > 0:
             ret += self.rule('firstchild.left=left')
+            #print('vvv1',len(self.all_vars_used), self.all_vars_used, ret)
             ret += self.rule('min_all: child.top - top')
+            #print('vvv2',len(self.all_vars_used), self.all_vars_used, ret)
             ret += self.rule('for_all: child.bottom=bottom')
+            #print('vvv3',len(self.all_vars_used), self.all_vars_used, ret)
             ret += self.rule('between: rightchild.left=leftchild.right')
+            #print('vvv4',len(self.all_vars_used), self.all_vars_used, ret)
             ret += self.rule('right=lastchild.right')
+            #print('vvv5',len(self.all_vars_used), self.all_vars_used, ret)
         return ret
 
 class Line(BaseRules):
@@ -503,7 +524,7 @@ def printinfos():
 
 def key(event):
     global actualWord
-    c = w.create_text(200, 300, anchor=NW, font=("Times New Roman", int(25), "bold"),
+    c = w.create_text(actualWord.top, actualWord.right, anchor=NW, font=("Times New Roman", int(25), "bold"),
                       text=event.char)
     print('key pressed', event, 'bounding', w.bbox(c))
     ch = event.char
@@ -514,11 +535,12 @@ def key(event):
         l = actualWord.addCharacter(None)
         l.width = 0
         l.height = 0
-        l.left = 0
-        l.top = 0
+        l.left = actualWord.right
+        l.top = actualWord.top
         for pos in range(30):
             print('-----', pos, '---')
-            testpage.optimize(0.5)
+            if testpage.optimize(0.5):
+                break
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
             d.draw()
@@ -536,7 +558,8 @@ def key(event):
         l.setVar('top', top)
         l.setVar('height', bottom-top)
         for _ in range(10):
-            testpage.optimize(0.5)
+            if testpage.optimize(0.9):
+                break
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
             d.draw()
