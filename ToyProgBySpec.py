@@ -6,7 +6,7 @@ Created on Sun Feb 23 18:53:25 2020
 @author: detlef
 """
 
-# pylint: disable=C0301, C0103, C0116, C0321, C0115, R0914, R0912, R0915, R1705, R1720, W0122, W0603, W0123
+# pylint: disable=C0301, C0103, C0116, C0321, C0115, R0914, R0912, R0915, R1705, R1720, W0122, W0603, W0123, R1702
 
 from tkinter import Tk, Canvas, mainloop, NW
 import operator
@@ -66,6 +66,7 @@ class BaseRules():
 
     def __init__(self):
         #manageing variables (not used in later syntax)
+        self.TheVars = {} #contains the variables from priority
         self.clean()
         self.childs = []
 
@@ -74,9 +75,8 @@ class BaseRules():
             self.add_property(l)
 
     def clean(self):
-        self.TheVars = {} #contains the variables from priority
         for l in self.priority:
-            self.setVar(l, 0)
+            self.TheVars[l] = 0
 
 
     def getVar(self, name):
@@ -225,29 +225,37 @@ class BaseRules():
         else:
             if ll[0] == 'for_all':
                 ret = '['
+                komma = False
                 for i in range(len(eval(child_name))):
-                    if i > 0: ret += ','
                     lleq = ll[1].split('=')
                     if len(lleq) == 1:
                         ret += replace_names(ll[1], child_name, i)
                     else:
                         right_side = replace_names(lleq[1], child_name, i)
                         left_side = replace_names(lleq[0], child_name, i)
-                        ret += self.try_set_new(left_side, right_side)
-                        if ret[-1] == ',': ret = ret[:-1]
+                        rr = self.try_set_new(left_side, right_side)
+                        if len(rr) > 0:
+                            ret += rr + ','
+                            komma = True
+                if komma: ret = ret[:-1]
                 ret += ']'
             elif ll[0] == 'between':
                 ret = '['
+                komma = False
                 for i in range(1, len(eval(child_name))):
-                    if i > 1: ret += ','
                     lleq = ll[1].split('=')
                     if len(lleq) == 1:
                         ret += replace_names(ll[1], child_name, i)
                     else:
                         right_side = replace_names(lleq[1], child_name, i)
                         left_side = replace_names(lleq[0], child_name, i)
-                        ret += self.try_set_new(left_side, right_side)
-                        if ret[-1] == ',': ret = ret[:-1]
+                        #print('inbetw1',left_side,right_side,ret,'#')
+                        rr = self.try_set_new(left_side, right_side)
+                        if len(rr) > 0:
+                            ret += rr + ','
+                            komma = True
+                        #print('inbetw2',left_side,right_side,ret,'#')
+                if komma: ret = ret[:-1]
                 ret += ']'
             elif ll[0] == 'min_all':
                 # here references are not possible
@@ -290,10 +298,19 @@ class Word(BaseRules):
         self.priority = ['top', 'left', 'right', 'bottom'] #Later this should be syntactically improved
 
         BaseRules.__init__(self)
+        self.char_pos = -1
 
     def addCharacter(self, ch):
         l = Character(ch)
-        self.childs.append(l)
+        if self.char_pos >= 0:
+            self.childs.insert(self.char_pos, l)
+            self.char_pos += 1
+            self.clean()
+            for d in self.childs:
+                d.clean()
+                #print(d.TheCharacter, d.TheVars['left'], d.TheVars['right'])
+        else:
+            self.childs.append(l)
         return l
 
     def restrictions(self):
@@ -311,6 +328,7 @@ class Line(BaseRules):
         self.priority = ['top', 'left', 'right', 'bottom'] #Later this should be syntactically improved
 
         BaseRules.__init__(self)
+        self.word_pos = -1
 
     def addWord(self):
         l = Word()
@@ -348,6 +366,7 @@ class Page(BaseRules):
         self.add_property('bottom')
         self.add_property('left')
         self.add_property('right')
+        self.line_pos = -1
 
     def addLine(self):
         l = Line()
@@ -373,6 +392,7 @@ class Page(BaseRules):
                 l.childs.insert(0, add)
             add = l.check_to_long()
         if add is not None:
+            add.TheVars = {}
             add.clean()
             actualLine = self.addLine()
             actualLine.childs.append(add)
@@ -412,20 +432,41 @@ def click(event):
     y = event.y
     for k, v in testpage.TheVars.items():
         print('  ', k, v, testpage.getVar(k))
+    testpage.line_pos = -1
+    l_count = 0
     for l in testpage.childs:
         print('Line')
         if l.top <= y < l.bottom:
             print('line clicked', l)
+            testpage.line_pos = l_count
+            l_count += 1
             actualLine = l
+            w_count = 0
+            l.word_pos = -1
             for ww in l.childs:
                 print('Word')
+                c_count = 0
+                ww.char_pos = -1
                 if ww.left <= x < ww.right:
                     print('word clicked', ww)
                     actualWord = ww
-                # for c in ww.childs:
-                #     print('Char')
-                #     for k, v in c.TheVars.items():
-                #         print('            ', k, v, c.getVar(k))
+                    l.word_pos = w_count
+                    for c in ww.childs:
+                        print('Char')
+                        if c.left <= x < c.right:
+                            if x - c.left < c.right - x:
+                                ww.char_pos = c_count
+                            else:
+                                ww.char_pos = c_count +1
+                        c_count += 1
+
+                w_count += 1
+        else:
+            l.word_pos = -1
+
+    print('line', testpage.line_pos, 'word', actualLine.word_pos, 'char', actualWord.char_pos)
+
+
 
 
 def printinfos():
