@@ -30,9 +30,9 @@ def min_all(ll, compare):
         if t < 0:
             sum_neg += t
     if sum_neg < 0:
-        return [sum_neg]
+        return [sum_neg*1.1]
     else:
-        return [ret]
+        return [ret*1.1]
 
 def for_all(ll, compare):
     ret = []
@@ -78,6 +78,12 @@ class BaseRules():
         for l in self.priority:
             self.TheVars[l] = 0
 
+    def clean_down(self):
+        for l in self.priority:
+            if isinstance(self.TheVars[l],tuple):
+                self.TheVars[l] = self.getVar(l)
+        for l in self.childs:
+            l.clean_down()
 
     def getVar(self, name):
         val = self.TheVars[name]
@@ -113,7 +119,7 @@ class BaseRules():
             ret += c.get_all_self_and_childs()
         return ret
 
-    def optimize(self, debug=False):
+    def optimize(self, scale=1.0, debug=False):
         jakobi_list = []
         self.all_vars_used.clear()
         before = self.full_restrictions()
@@ -136,7 +142,7 @@ class BaseRules():
         delta = np.dot(JK_t_i, f_x)
         i = 0
         for (obj, vv) in all_vars_opt:
-            obj.setVar(vv, obj.getVar(vv) - delta[i])
+            obj.setVar(vv, obj.getVar(vv) - delta[i] * scale)
             i += 1
         check = self.full_restrictions()
         i = 0
@@ -262,6 +268,9 @@ class BaseRules():
                 ret = 'min_all('+child_name +', lambda i: '
                 ret += replace_names(ll[1], child_name)
                 ret += ')'
+                # for t in self.childs:
+                #     print('l.top',t.top,self.top)
+                # print('min_all', ret, eval(ret, dict(self=self, for_all=for_all, min_all=min_all, between=between)))
 
         return eval(ret, dict(self=self, for_all=for_all, min_all=min_all, between=between))
 
@@ -276,7 +285,8 @@ class BaseRules():
 class Character(BaseRules):
     def draw(self):
         #print(self, 'char draw', self.TheCharacter, round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
-        w.create_text(self.getVar('left'), self.getVar('top'), anchor=NW, font=("Times New Roman", int(25), "bold"),
+        if self.TheCharacter is not None:
+            w.create_text(self.getVar('left'), self.getVar('top'), anchor=NW, font=("Times New Roman", int(25), "bold"),
                       text=self.TheCharacter)
 
     def __init__(self, ch):
@@ -305,10 +315,9 @@ class Word(BaseRules):
         if self.char_pos >= 0:
             self.childs.insert(self.char_pos, l)
             self.char_pos += 1
-            self.clean()
-            for d in self.childs:
-                d.clean()
-                #print(d.TheCharacter, d.TheVars['left'], d.TheVars['right'])
+            self.clean_down()
+            #for d in self.childs:
+                 #print(d.TheCharacter, d.TheVars['left'], d.TheVars['right'])
         else:
             self.childs.append(l)
         return l
@@ -317,7 +326,7 @@ class Word(BaseRules):
         ret = []
         if len(self.childs) > 0:
             ret += self.rule('firstchild.left=left')
-            ret += self.rule('for_all: child.top=top')
+            ret += self.rule('min_all: child.top - top')
             ret += self.rule('for_all: child.bottom=bottom')
             ret += self.rule('between: rightchild.left=leftchild.right')
             ret += self.rule('right=lastchild.right')
@@ -350,7 +359,7 @@ class Line(BaseRules):
         ToLong = None
         ll = self.childs
         if len(ll) > 0:
-            if ll[len(ll)-1].getVar('right') > self.getVar('right'):
+            if ll[-1].getVar('right') > self.getVar('right'):
                 ToLong = ll.pop()
         return ToLong
 
@@ -388,20 +397,23 @@ class Page(BaseRules):
         global actualLine
         add = None
         for l in self.childs:
+            print('ctl')
             if add is not None:
                 l.childs.insert(0, add)
+                print('inserted')
             add = l.check_to_long()
         if add is not None:
-            add.TheVars = {}
             add.clean()
             actualLine = self.addLine()
             actualLine.childs.append(add)
             add = None
+            print('nl')
         ToLong = None
         ll = self.childs
         if len(ll) > 0:
-            if ll[len(ll)-1].getVar('bottom') > self.getVar('bottom'):
+            if ll[-1].getVar('bottom') > self.getVar('bottom'):
                 ToLong = ll.pop()
+        print('ready',ToLong)
         return ToLong
 
 
@@ -465,7 +477,7 @@ def click(event):
             l.word_pos = -1
 
     print('line', testpage.line_pos, 'word', actualLine.word_pos, 'char', actualWord.char_pos)
-
+    printinfos()
 
 
 
@@ -497,16 +509,24 @@ def key(event):
     ch = event.char
     if ch == ' ':
         testpage.check_to_long()
+        testpage.clean_down()
         actualWord = actualLine.addWord()
-        for pos in range(5):
+        l = actualWord.addCharacter(None)
+        l.width = 0
+        l.height = 0
+        l.left = 0
+        l.top = 0
+        for pos in range(30):
             print('-----', pos, '---')
-            testpage.optimize()
+            testpage.optimize(0.5)
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
             d.draw()
         full = testpage.full_restrictions(debug=0)
         #testpage.optimize()
         print('full', full)
+        for l in testpage.childs:
+            print(l,l.TheVars['top'],l.top,l.TheVars['bottom'],l.bottom)
         #printinfos()
     else:
         l = actualWord.addCharacter(ch)
@@ -515,8 +535,8 @@ def key(event):
         l.setVar('width', right-left)
         l.setVar('top', top)
         l.setVar('height', bottom-top)
-        for _ in range(1):
-            testpage.optimize()
+        for _ in range(10):
+            testpage.optimize(0.5)
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
             d.draw()
