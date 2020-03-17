@@ -355,10 +355,11 @@ class Word(BaseRules):
 
 class Line(BaseRules):
     def __init__(self):
-        self.priority = ['top', 'left', 'right', 'bottom'] #Later this should be syntactically improved
+        self.priority = ['top', 'left', 'right', 'bottom', 'freespace'] #Later this should be syntactically improved
 
         BaseRules.__init__(self)
         self.word_pos = -1
+
 
     def addWord(self):
         l = Word()
@@ -370,9 +371,11 @@ class Line(BaseRules):
         ll = self.childs
         if len(ll) > 0:
             ret += self.rule('firstchild.left = left')
-            ret += self.rule('between: rightchild.left=leftchild.right+5')
+            ret += self.rule('lastchild.right - right')
+            ret += self.rule('between: rightchild.left=leftchild.right+5 + freespace')
             ret += self.rule('min_all: child.top - top')
             ret += self.rule('for_all: child.bottom=bottom')
+            ret += self.rule('min_all: freespace')
 
         return ret
 
@@ -380,6 +383,7 @@ class Line(BaseRules):
         ToLong = None
         ll = self.childs
         if len(ll) > 0:
+            print('tolong right', ll[-1].getVar('right'), self.getVar('right'))
             if ll[-1].getVar('right') > self.getVar('right'):
                 ToLong = ll.pop()
         return ToLong
@@ -415,6 +419,11 @@ class Page(BaseRules):
         return ret
 
     def check_to_long(self):
+        # better check for problems with optimizing?
+        # How to define the action?
+        # firstchild or rightchild
+        # to left or to right
+        # possibly
         global actualLine
         add = None
         for l in self.childs:
