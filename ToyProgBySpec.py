@@ -13,7 +13,6 @@ import operator
 from tokenize import tokenize
 from io import BytesIO
 import numpy as np
-import random
 
 def getVariable(name):
     return name.getVar
@@ -81,7 +80,7 @@ class BaseRules():
 
     def clean_down(self):
         for l in self.priority:
-            if isinstance(self.TheVars[l],tuple):
+            if isinstance(self.TheVars[l], tuple):
                 self.TheVars[l] = self.getVar(l)
         for l in self.childs:
             l.clean_down()
@@ -148,10 +147,12 @@ class BaseRules():
             jakobi_list.append(diff)
             #print('vv7',len(all_vars_opt))
         f_x = np.array(before)
-        JK = np.array(jakobi_list, dtype=np.double)
+        JK = np.array(jakobi_list)
         JK_t = JK.transpose()
-        JK_t_i = np.linalg.pinv(JK_t, rcond=0.00001)
-        delta = np.dot(JK_t_i, f_x)
+        #JK_t_i = np.linalg.pinv(JK_t, rcond=0.00001)
+        #delta = np.dot(JK_t_i, f_x)
+        delta = np.linalg.lstsq(JK_t, f_x, rcond=0.0001)[0]
+        print(delta)
         i = 0
         for (obj, vv) in all_vars_opt:
             obj.setVar(vv, obj.getVar(vv) - delta[i] * scale)
@@ -166,7 +167,7 @@ class BaseRules():
                 isok = False
             i += 1
         return isok
-        
+
     def try_set(self, where, name, thecode):
         if name in eval(where).priority:
             if eval(where).setVar(name, (self, thecode)):
@@ -303,7 +304,7 @@ class Character(BaseRules):
         #print(self, 'char draw', self.TheCharacter, round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
         if self.TheCharacter is not None:
             w.create_text(self.getVar('left'), self.getVar('top'), anchor=NW, font=("Times New Roman", int(25), "bold"),
-                      text=self.TheCharacter)
+                          text=self.TheCharacter)
 
     def __init__(self, ch):
         self.priority = ['top', 'left', 'right', 'bottom'] #Later this should be syntactically improved
@@ -443,7 +444,7 @@ class Page(BaseRules):
         if len(ll) > 0:
             if ll[-1].getVar('bottom') > self.getVar('bottom'):
                 ToLong = ll.pop()
-        print('ready',ToLong)
+        print('ready', ToLong)
         return ToLong
 
 
@@ -542,13 +543,14 @@ def key(event):
         testpage.clean_down()
         actualWord = actualLine.addWord()
         l = actualWord.addCharacter(None)
+        # pylint: disable=W0201 #? dont know why here and not in else
         l.width = 0
         l.height = 0
         l.left = actualWord.right
         l.top = actualWord.top
-        for pos in range(30):
+        for pos in range(5):
             print('-----', pos, '---')
-            if testpage.optimize(0.5):
+            if testpage.optimize(1):
                 break
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
@@ -557,17 +559,17 @@ def key(event):
         #testpage.optimize()
         print('full', full)
         for l in testpage.childs:
-            print(l,l.TheVars['top'],l.top,l.TheVars['bottom'],l.bottom)
+            print(l, l.TheVars['top'], l.top, l.TheVars['bottom'], l.bottom)
         #printinfos()
     else:
         l = actualWord.addCharacter(ch)
         (left, top, right, bottom) = w.bbox(c)
-        l.setVar('left', left)
-        l.setVar('width', right-left)
-        l.setVar('top', top)
-        l.setVar('height', bottom-top)
-        for _ in range(10):
-            if testpage.optimize(0.9):
+        l.left = left
+        l.width = right-left
+        l.top = top
+        l.height = bottom-top
+        for _ in range(2):
+            if testpage.optimize(1):
                 break
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
