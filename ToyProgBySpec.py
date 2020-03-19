@@ -165,12 +165,14 @@ class BaseRules():
         i = 0
         print('len of optimizing', len(check))
         isok = True
+        sum_abs = 0
         for d in check:
+            sum_abs += abs(d)
             if abs(d) > 3:
                 print('-opt-', i, d)
                 isok = False
             i += 1
-        return isok
+        return isok and sum_abs < 5
 
     def try_set(self, where, name, thecode):
         if name in eval(where).priority:
@@ -291,10 +293,12 @@ class BaseRules():
                     ret += ')'
                 else:
                     ret += ', opt=False)'
-                #print('in rule',ret,opt)
-                # for t in self.childs:
-                #     print('l.top',t.top,self.top)
-                # print('min_all', ret, eval(ret, dict(self=self, for_all=for_all, min_all=min_all, between=between)))
+            elif ll[0] == 'not_neg':
+                # here references are not possible
+                ret = 'min_all('+child_name +', lambda i: '
+                ret += replace_names(ll[1], child_name)
+                ret += ', opt=False)'
+
         # if len(ret)>2:
         #     print(self.__class__.__name__, ret)
         return eval(ret, dict(self=self, for_all=for_all, min_all=min_all, between=between))
@@ -352,14 +356,17 @@ class Word(BaseRules):
         if len(self.childs) > 0:
             ret += self.rule('firstchild.left=left')
             #print('vvv1',len(self.all_vars_used), self.all_vars_used, ret)
+            #print('Word0', ret)
             ret += self.rule('min_all: child.top - top')
             #print('vvv2',len(self.all_vars_used), self.all_vars_used, ret)
+            #print('Word1', ret)
             ret += self.rule('for_all: child.bottom=bottom')
             #print('vvv3',len(self.all_vars_used), self.all_vars_used, ret)
             ret += self.rule('between: rightchild.left=leftchild.right')
             #print('vvv4',len(self.all_vars_used), self.all_vars_used, ret)
             ret += self.rule('right=lastchild.right')
             #print('vvv5',len(self.all_vars_used), self.all_vars_used, ret)
+            #print('Word_', ret)
         return ret
 
 class Line(BaseRules):
@@ -382,19 +389,20 @@ class Line(BaseRules):
             ret += self.rule('firstchild.left = left')
             if not opt:
                 print('1', ret, opt)
-            ret += self.rule('min_all: lastchild.right - right', opt) # this is used to get 0 error if correct, but for optimizing we need direction if not correct
+            if len(ll) > 1:
+                ret += self.rule('min_all: lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
             if not opt:
                 print('2', ret, opt)
             ret += self.rule('between: rightchild.left=leftchild.right+5 + freespace')
             if not opt:
                 print('3', ret, opt)
-            ret += self.rule('min_all: child.top - top', opt)
+            ret += self.rule('min_all: child.top - top')
             if not opt:
                 print('4', ret, opt)
             ret += self.rule('for_all: child.bottom=bottom')
             if not opt:
                 print('5', ret, opt)
-            ret += self.rule('min_all: -freespace', opt)
+            ret += self.rule('not_neg: -freespace')
             if not opt:
                 print('6', ret, opt)
             
@@ -403,7 +411,12 @@ class Line(BaseRules):
     def check_to_long(self):
         ToLong = None
         ll = self.childs
-        print('to long from restrictions', sum(map(abs,self.full_restrictions(opt=False))))
+        print('to long from restrictions', self.full_restrictions(opt=False), sum(map(abs,self.full_restrictions(opt=False))))
+        if sum(map(abs,self.full_restrictions(opt=False))) > 10:
+            return ll.pop()
+        return None
+    
+        #old   
         if len(ll) > 0:
             print('tolong right', ll[-1].getVar('right'), self.getVar('right'))
             if ll[-1].getVar('right') > self.getVar('right'):
@@ -560,9 +573,9 @@ def key(event):
     print('key pressed', event, 'bounding', w.bbox(c))
     ch = event.char
     if ch == ' ':
-        for pos in range(5):
+        for pos in range(50):
             print('-----', pos, '---')
-            if testpage.optimize(1):
+            if testpage.optimize(0.9):
                 break
         testpage.check_to_long()
         testpage.clean_down()
