@@ -314,7 +314,7 @@ class BaseRules():
         #     print(self.__class__.__name__, ret)
         return eval(ret, dict(self=self, for_all=for_all, min_all=min_all, not_neg=not_neg, between=between))
 
-    def restrictions(self, opt):
+    def restrictions(self):
         """
         are created from rules by adding the return value lists
         """
@@ -404,20 +404,21 @@ class Line(BaseRules):
             ret += self.rule('min_all: child.top - top')
             ret += self.rule('for_all: child.bottom=bottom')
             ret += self.rule('not_neg: -freespace')
-            
+
         return ret
 
     def check_to_long(self):
         ToLong = None
         ll = self.childs
-        print('to long from restrictions', self.full_restrictions(), sum(map(abs,self.full_restrictions())))
-        
+        print('to long from restrictions', self.full_restrictions(), sum(map(abs, self.full_restrictions())))
+
         # In prinicple this seems to work, but there are problems of convergence of the newton method
-        if sum(map(abs,self.full_restrictions())) > 10:
+        if sum(map(abs, self.full_restrictions())) > 10:
             return ll.pop()
         return None
-    
-        #old   
+
+        # pylint: disable=W0101
+        #old
         if len(ll) > 0:
             print('tolong right', ll[-1].getVar('right'), self.getVar('right'))
             if ll[-1].getVar('right') > self.getVar('right'):
