@@ -19,7 +19,7 @@ def getVariable(name):
 
 # takes a lambda function at the moment to compare two elements
     # e.g. between(ll,lambda a:ll[a].getVar('left')-ll[a-1].getVar('right'))
-def min_all(ll, compare, opt=True):
+def min_all(ll, compare):
     #this is not really min, it must be possible to solve equation system with gradient
     #print('in min_all', opt)
     ret = None
@@ -31,10 +31,24 @@ def min_all(ll, compare, opt=True):
         if t < 0:
             sum_neg += t
     if sum_neg < 0:
-        if opt:
-            return [sum_neg*1.1]
-        else:
-            return [0]
+        return [sum_neg*1.1]
+
+    else:
+        return [ret*1.1]
+
+def not_neg(ll, compare):
+    #this is not really min, it must be possible to solve equation system with gradient
+    #print('in min_all', opt)
+    ret = None
+    sum_neg = 0
+    for i in range(0, len(ll)):
+        t = compare(i)
+        if ret is None or t < ret:
+            ret = t
+        if t < 0:
+            sum_neg += t
+    if sum_neg < 0:
+        return [0]
     else:
         return [ret*1.1]
 
@@ -109,11 +123,11 @@ class BaseRules():
         self.TheVars[name] = value
         return True
 
-    def full_restrictions(self, opt=True, debug=0):
-        ret = self.restrictions(opt=opt)
+    def full_restrictions(self, debug=0):
+        ret = self.restrictions()
         #print('vvv',len(self.all_vars_used), self.all_vars_used, ret)
         for c in self.childs:
-            ret += c.full_restrictions(opt=opt, debug=debug)
+            ret += c.full_restrictions(debug=debug)
         if debug:
             print("full", type(self).__name__, len(ret), ret)
         return ret
@@ -155,7 +169,7 @@ class BaseRules():
         JK_t = JK.transpose()
         #JK_t_i = np.linalg.pinv(JK_t, rcond=0.00001)
         #delta = np.dot(JK_t_i, f_x)
-        delta = np.linalg.lstsq(JK_t, f_x, rcond=0.0001)[0]
+        delta = np.linalg.lstsq(JK_t, f_x, rcond=0.00001)[0]
         #print(delta)
         i = 0
         for (obj, vv) in all_vars_opt:
@@ -188,7 +202,7 @@ class BaseRules():
             return self.try_set(old_set[0], old_set[1], thecode)
 
 
-    def rule(self, rulestring, opt=True, child_name='self.childs'):
+    def rule(self, rulestring, child_name='self.childs'):
         """
         Parameters
         ----------
@@ -289,19 +303,16 @@ class BaseRules():
                 # here references are not possible
                 ret = 'min_all('+child_name +', lambda i: '
                 ret += replace_names(ll[1], child_name)
-                if opt:
-                    ret += ')'
-                else:
-                    ret += ', opt=False)'
+                ret += ')'
             elif ll[0] == 'not_neg':
                 # here references are not possible
-                ret = 'min_all('+child_name +', lambda i: '
+                ret = 'not_neg('+child_name +', lambda i: '
                 ret += replace_names(ll[1], child_name)
-                ret += ', opt=False)'
+                ret += ')'
 
         # if len(ret)>2:
         #     print(self.__class__.__name__, ret)
-        return eval(ret, dict(self=self, for_all=for_all, min_all=min_all, between=between))
+        return eval(ret, dict(self=self, for_all=for_all, min_all=min_all, not_neg=not_neg, between=between))
 
     def restrictions(self, opt):
         """
@@ -329,7 +340,7 @@ class Character(BaseRules):
         self.add_property('height')
         self.add_property('width')
 
-    def restrictions(self, opt):
+    def restrictions(self):
         return self.rule('top=bottom-height') + self.rule('right=left+width')
 
 class Word(BaseRules):
@@ -351,7 +362,7 @@ class Word(BaseRules):
             self.childs.append(l)
         return l
 
-    def restrictions(self, opt):
+    def restrictions(self):
         ret = []
         if len(self.childs) > 0:
             ret += self.rule('firstchild.left=left')
@@ -382,37 +393,27 @@ class Line(BaseRules):
         self.childs.append(l)
         return l
 
-    def restrictions(self, opt):
+    def restrictions(self):
         ret = []
         ll = self.childs
         if len(ll) > 0:
             ret += self.rule('firstchild.left = left')
-            if not opt:
-                print('1', ret, opt)
             if len(ll) > 1:
                 ret += self.rule('min_all: lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
-            if not opt:
-                print('2', ret, opt)
             ret += self.rule('between: rightchild.left=leftchild.right+5 + freespace')
-            if not opt:
-                print('3', ret, opt)
             ret += self.rule('min_all: child.top - top')
-            if not opt:
-                print('4', ret, opt)
             ret += self.rule('for_all: child.bottom=bottom')
-            if not opt:
-                print('5', ret, opt)
             ret += self.rule('not_neg: -freespace')
-            if not opt:
-                print('6', ret, opt)
             
         return ret
 
     def check_to_long(self):
         ToLong = None
         ll = self.childs
-        print('to long from restrictions', self.full_restrictions(opt=False), sum(map(abs,self.full_restrictions(opt=False))))
-        if sum(map(abs,self.full_restrictions(opt=False))) > 10:
+        print('to long from restrictions', self.full_restrictions(), sum(map(abs,self.full_restrictions())))
+        
+        # In prinicple this seems to work, but there are problems of convergence of the newton method
+        if sum(map(abs,self.full_restrictions())) > 10:
             return ll.pop()
         return None
     
@@ -442,7 +443,7 @@ class Page(BaseRules):
         self.childs.append(l)
         return l
 
-    def restrictions(self, opt):
+    def restrictions(self):
         ret = []
         # this must get good syntax later !!!!
         ll = self.childs
