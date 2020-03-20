@@ -146,12 +146,14 @@ class BaseRules():
         #print('vv_',len(all_vars_opt), all_vars_opt)
         before = self.full_restrictions()  # must be called several times, as the reference chains may be created one by one
         #print('vv0',len(all_vars_opt), all_vars_opt)
+        deb_var = []
         if debug:
             print('vars_to_opt', all_vars_opt)
             print('before', before)
         for (obj, vv) in all_vars_opt:
             #print('vv1',len(all_vars_opt))
             tmp = obj.getVar(vv)
+            deb_var.append(tmp)
             #print('vv2',len(all_vars_opt))
             obj.setVar(vv, tmp + 1)
             #print('vv3',len(all_vars_opt), all_vars_opt)
@@ -182,10 +184,15 @@ class BaseRules():
         sum_abs = 0
         for d in check:
             sum_abs += abs(d)
-            if abs(d) > 3:
+            if abs(d) > 1:
                 print('-opt-', i, d)
                 isok = False
             i += 1
+        if not isok:
+            print(' ', before)
+            print(' ', delta)
+            print(' ', jakobi_list)
+            print(' ', deb_var)
         return isok and sum_abs < 5
 
     def try_set(self, where, name, thecode):
@@ -271,7 +278,10 @@ class BaseRules():
                 for i in range(len(eval(child_name))):
                     lleq = ll[1].split('=')
                     if len(lleq) == 1:
-                        ret += replace_names(ll[1], child_name, i)
+                        rr = replace_names(ll[1], child_name, i)
+                        if len(rr) > 0:
+                            ret += rr + ','
+                            komma = True
                     else:
                         right_side = replace_names(lleq[1], child_name, i)
                         left_side = replace_names(lleq[0], child_name, i)
@@ -287,7 +297,10 @@ class BaseRules():
                 for i in range(1, len(eval(child_name))):
                     lleq = ll[1].split('=')
                     if len(lleq) == 1:
-                        ret += replace_names(ll[1], child_name, i)
+                        rr = replace_names(ll[1], child_name, i)
+                        if len(rr) > 0:
+                            ret += rr + ','
+                            komma = True
                     else:
                         right_side = replace_names(lleq[1], child_name, i)
                         left_side = replace_names(lleq[0], child_name, i)
@@ -450,7 +463,7 @@ class Page(BaseRules):
         ll = self.childs
         if len(ll) > 0:
             ret += self.rule('firstchild.top = top ')
-            ret += self.rule('for_all: child.left=left')
+            ret += self.rule('for_all: child.left-left')
             ret += self.rule('for_all: child.right=right')
             ret += self.rule('between: rightchild.top = leftchild.bottom')
         return ret
