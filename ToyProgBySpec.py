@@ -13,6 +13,7 @@ import operator
 from tokenize import tokenize
 from io import BytesIO
 import numpy as np
+from random import normalvariate
 
 def getVariable(name):
     return name.getVar
@@ -31,14 +32,12 @@ def min_all(ll, compare):
         if t < 0:
             sum_neg += t
     if sum_neg < 0:
-        return [sum_neg*1.1]
-
+        return [sum_neg * 0.001] #this must be very small, as it should not break the rules for breaking lines
     else:
-        return [ret*1.1]
+        return [ret]
 
 def not_neg(ll, compare):
-    #this is not really min, it must be possible to solve equation system with gradient
-    #print('in min_all', opt)
+    #is more or less the same as min_all, but does not try to get close to zero if not neg
     ret = None
     sum_neg = 0
     for i in range(0, len(ll)):
@@ -50,7 +49,7 @@ def not_neg(ll, compare):
     if sum_neg < 0:
         return [0]
     else:
-        return [ret*1.1]
+        return [ret]
 
 def for_all(ll, compare):
     ret = []
@@ -111,7 +110,7 @@ class BaseRules():
         else:
             if name in self.priority:
                 self.all_vars_used[(self, name)] = 1
-            return val
+            return val #+ normalvariate(0, 0.001)
 
     def setVar(self, name, value):
         if name in self.TheVars and isinstance(self.TheVars[name], tuple):
@@ -128,7 +127,7 @@ class BaseRules():
         #print('vvv',len(self.all_vars_used), self.all_vars_used, ret)
         for c in self.childs:
             ret += c.full_restrictions(debug=debug)
-        if debug:
+        if debug and len(ret)>0:
             print("full", type(self).__name__, len(ret), ret)
         return ret
 
@@ -144,7 +143,7 @@ class BaseRules():
         all_vars_opt = self.all_vars_used.keys()
         before = self.full_restrictions()
         #print('vv_',len(all_vars_opt), all_vars_opt)
-        before = self.full_restrictions()  # must be called several times, as the reference chains may be created one by one
+        before = self.full_restrictions(debug = 0)  # must be called several times, as the reference chains may be created one by one
         #print('vv0',len(all_vars_opt), all_vars_opt)
         deb_var = []
         if debug:
@@ -184,15 +183,15 @@ class BaseRules():
         sum_abs = 0
         for d in check:
             sum_abs += abs(d)
-            if abs(d) > 1:
+            if abs(d) > 3:
                 print('-opt-', i, d)
                 isok = False
             i += 1
-        if not isok:
-            print(' ', before)
-            print(' ', delta)
-            print(' ', jakobi_list)
-            print(' ', deb_var)
+        # if not isok:
+        #     print(' ', before)
+        #     print(' ', delta)
+        #     print(' ', jakobi_list)
+        #     print(' ', deb_var)
         return isok and sum_abs < 5
 
     def try_set(self, where, name, thecode):
@@ -410,14 +409,27 @@ class Line(BaseRules):
         ret = []
         ll = self.childs
         if len(ll) > 0:
+            dd = []
             ret += self.rule('firstchild.left = left')
+            if len(ret)>len(dd):
+                dd.append(1)
             if len(ll) > 1:
                 ret += self.rule('min_all: lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
+                if len(ret)>len(dd):
+                    dd.append(2)
             ret += self.rule('between: rightchild.left=leftchild.right+5 + freespace')
+            if len(ret)>len(dd):
+                dd.append(3)
             ret += self.rule('min_all: child.top - top')
+            if len(ret)>len(dd):
+                dd.append(4)
             ret += self.rule('for_all: child.bottom=bottom')
+            if len(ret)>len(dd):
+                dd.append(5)
             ret += self.rule('not_neg: -freespace')
-
+            if len(ret)>len(dd):
+                dd.append(6)
+#            print(dd)
         return ret
 
     def check_to_long(self):
@@ -426,7 +438,7 @@ class Line(BaseRules):
         print('to long from restrictions', self.full_restrictions(), sum(map(abs, self.full_restrictions())))
 
         # In prinicple this seems to work, but there are problems of convergence of the newton method
-        if sum(map(abs, self.full_restrictions())) > 10:
+        if sum(map(abs, self.full_restrictions())) > 6:
             return ll.pop()
         return None
 
@@ -463,7 +475,7 @@ class Page(BaseRules):
         ll = self.childs
         if len(ll) > 0:
             ret += self.rule('firstchild.top = top ')
-            ret += self.rule('for_all: child.left-left')
+            ret += self.rule('for_all: child.left=left')
             ret += self.rule('for_all: child.right=right')
             ret += self.rule('between: rightchild.top = leftchild.bottom')
         return ret
@@ -477,7 +489,7 @@ class Page(BaseRules):
         global actualLine
         add = None
         for l in self.childs:
-            print('ctl')
+            #print('ctl')
             if add is not None:
                 l.childs.insert(0, add)
                 print('inserted')
@@ -588,7 +600,7 @@ def key(event):
     print('key pressed', event, 'bounding', w.bbox(c))
     ch = event.char
     if ch == ' ':
-        for pos in range(50):
+        for pos in range(20):
             print('-----', pos, '---')
             if testpage.optimize(0.9):
                 break
@@ -601,7 +613,7 @@ def key(event):
         l.height = 0
         l.left = actualWord.right
         l.top = actualWord.top
-        for pos in range(5):
+        for pos in range(15):
             print('-----', pos, '---')
             if testpage.optimize(1):
                 break
