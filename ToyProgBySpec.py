@@ -603,9 +603,9 @@ def printinfos():
 
 
 
-
+nextword = False
 def key(event):
-    global actualWord
+    global actualWord, nextword
     c = w.create_text(actualWord.top, actualWord.right, anchor=NW, font=("Times New Roman", int(25), "bold"),
                       text=event.char)
     print('key pressed', event, 'bounding', w.bbox(c))
@@ -617,13 +617,13 @@ def key(event):
                 break
         testpage.check_to_long()
         testpage.clean_down()
-        actualWord = actualLine.addWord()
-        l = actualWord.addCharacter(None)
+        nextword = True
+        #l = actualWord.addCharacter(None)
         # pylint: disable=W0201 #? dont know why here and not in else
-        l.width = 0
-        l.height = 0
-        l.left = actualWord.right
-        l.top = actualWord.top
+        #l.width = 0
+        #l.height = 0
+        #l.left = actualWord.right
+        #l.top = actualWord.top
         for pos in range(15):
             print('-----', pos, '---')
             if testpage.optimize(1):
@@ -638,6 +638,9 @@ def key(event):
             print(l, l.TheVars['top'], l.top, l.TheVars['bottom'], l.bottom)
         #printinfos()
     else:
+        if nextword:
+            actualWord = actualLine.addWord()
+            nextword = False
         l = actualWord.addCharacter(ch)
         (left, top, right, bottom) = w.bbox(c)
         l.left = left
