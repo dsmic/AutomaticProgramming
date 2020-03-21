@@ -338,9 +338,6 @@ class BaseRules():
     def add_child(self, a):
         self.childs.append(a)
     
-    def new_chils():
-        raise ValueError('has to be overwritten')
-        
     def check_to_long2(self):
         ll = self.childs
         print('to long from restrictions2', self.__class__.__name__, self.full_restrictions(), sum(map(abs, self.full_restrictions())))
@@ -349,12 +346,11 @@ class BaseRules():
             got = ll[-1].check_to_long2()
             print('got', self.__class__.__name__,got)
             if got is not None:
-                l = self.new_child()
+                l = self.child_type()
                 l.add_child(got)
                 self.add_child(l)
                 return None
             
-        # In prinicple this seems to work, but there are problems of convergence of the newton method
         if sum(map(abs, self.full_restrictions())) > 6:
             return ll.pop()
         
@@ -492,10 +488,8 @@ class Page(BaseRules):
         self.add_property('left')
         self.add_property('right')
         self.line_pos = -1
+        self.child_type = Line
 
-    def new_child(self):
-        return Line()
-    
     def addLine(self):
         l = Line()
         self.add_child(l)
