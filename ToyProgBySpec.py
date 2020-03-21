@@ -13,7 +13,7 @@ import operator
 from tokenize import tokenize
 from io import BytesIO
 import numpy as np
-from random import normalvariate
+#from random import normalvariate
 
 def getVariable(name):
     return name.getVar
@@ -342,6 +342,9 @@ class Character(BaseRules):
                           text=self.TheCharacter)
 
     def __init__(self, ch):
+        # this my be created automatically from rules, buth than fixed ones from add_property must stay by hand I think
+        # Maybe should be kept like this, as this helps organizing what to use (as defining vars in other programming languages)
+        
         self.priority = ['top', 'left', 'right', 'bottom'] #Later this should be syntactically improved
 
         #fixed content not changed by other variables
@@ -488,6 +491,14 @@ class Page(BaseRules):
         # possibly
         global actualLine
         add = None
+        
+        # check for transfer from one child to the next (would be not necessary if not allowed to change inbetween
+        # which would also be diffcult to handle if one deletes, as than one must always check backward)
+        # might not be a good idea for the general definition
+        
+        # maybe changing back to only allow forward construction in the definition and let the AI
+        # generate more general code????
+        
         for l in self.childs:
             #print('ctl')
             if add is not None:
