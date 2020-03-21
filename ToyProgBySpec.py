@@ -326,6 +326,7 @@ class BaseRules():
         #     print(self.__class__.__name__, ret)
         return eval(ret, dict(self=self, for_all=for_all, min_all=min_all, not_neg=not_neg, between=between))
 
+    
     def restrictions(self):
         """
         are created from rules by adding the return value lists
@@ -333,6 +334,31 @@ class BaseRules():
         # pylint: disable=R0201, W0101
         raise ValueError('This has to be overwritten by the child class')
         return []
+
+    def add_child(self, a):
+        self.childs.append(a)
+    
+    def new_chils():
+        raise ValueError('has to be overwritten')
+        
+    def check_to_long2(self):
+        ll = self.childs
+        print('to long from restrictions2', self.__class__.__name__, self.full_restrictions(), sum(map(abs, self.full_restrictions())))
+
+        if len(ll) > 0:
+            got = ll[-1].check_to_long2()
+            print('got', self.__class__.__name__,got)
+            if got is not None:
+                l = self.new_child()
+                l.add_child(got)
+                self.add_child(l)
+                return None
+            
+        # In prinicple this seems to work, but there are problems of convergence of the newton method
+        if sum(map(abs, self.full_restrictions())) > 6:
+            return ll.pop()
+        
+        return None
 
 class Character(BaseRules):
     def draw(self):
@@ -405,7 +431,7 @@ class Line(BaseRules):
 
     def addWord(self):
         l = Word()
-        self.childs.append(l)
+        self.add_child(l)
         return l
 
     def restrictions(self):
@@ -467,9 +493,12 @@ class Page(BaseRules):
         self.add_property('right')
         self.line_pos = -1
 
+    def new_child(self):
+        return Line()
+    
     def addLine(self):
         l = Line()
-        self.childs.append(l)
+        self.add_child(l)
         return l
 
     def restrictions(self):
@@ -605,7 +634,7 @@ def printinfos():
 
 nextword = False
 def key(event):
-    global actualWord, nextword
+    global actualWord, nextword, actualLine
     c = w.create_text(actualWord.top, actualWord.right, anchor=NW, font=("Times New Roman", int(25), "bold"),
                       text=event.char)
     print('key pressed', event, 'bounding', w.bbox(c))
@@ -615,8 +644,9 @@ def key(event):
             print('-----', pos, '---')
             if testpage.optimize(0.9):
                 break
-        testpage.check_to_long()
+        testpage.check_to_long2()
         testpage.clean_down()
+        actualLine = testpage.childs[-1]
         nextword = True
         #l = actualWord.addCharacter(None)
         # pylint: disable=W0201 #? dont know why here and not in else
