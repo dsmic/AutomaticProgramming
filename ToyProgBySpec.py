@@ -68,6 +68,8 @@ def between(ll, compare):
 class BaseRules():
     priority = None # has to be overwritten by child instance variable
     all_vars_used = {}
+    class_id_counter = 0
+    
     def draw(self):
         #print(self, 'char nodraw', round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
         pass
@@ -86,7 +88,9 @@ class BaseRules():
         self.TheVars = {} #contains the variables from priority
         self.clean()
         self.childs = []
-
+        self.class_id = 'cid_' + str(BaseRules.class_id_counter)
+        BaseRules.class_id_counter += 1
+        print(self.class_id, self.class_id_counter)
         #create the properties
         for l in self.priority:
             self.add_property(l)
@@ -109,7 +113,7 @@ class BaseRules():
             return eval(code, {'self': obj})
         else:
             if name in self.priority:
-                self.all_vars_used[(self, name)] = 1
+                BaseRules.all_vars_used[(self, name)] = 1
             return val #+ normalvariate(0, 0.001)
 
     def setVar(self, name, value):
@@ -124,7 +128,6 @@ class BaseRules():
 
     def full_restrictions(self, debug=0):
         ret = self.restrictions()
-        #print('vvv',len(self.all_vars_used), self.all_vars_used, ret)
         for c in self.childs:
             ret += c.full_restrictions(debug=debug)
         if debug and len(ret)>0:
@@ -139,8 +142,8 @@ class BaseRules():
 
     def optimize(self, scale=1.0, debug=False):
         jakobi_list = []
-        self.all_vars_used.clear()
-        all_vars_opt = self.all_vars_used.keys()
+        BaseRules.all_vars_used.clear()
+        all_vars_opt = BaseRules.all_vars_used.keys()
         before = self.full_restrictions()
         #print('vv_',len(all_vars_opt), all_vars_opt)
         before = self.full_restrictions(debug = 0)  # must be called several times, as the reference chains may be created one by one
@@ -261,6 +264,55 @@ class BaseRules():
                     if tt.string == '.': afterdot = True
             return new_string
 
+        #print('trying sympy', rulestring, child_name)
+        def replace_names_sympy(string, child_name, i=None):
+            testtokens = tokenize(BytesIO(string.encode('utf-8')).readline)
+            new_string = ' '
+            afterdot = False
+            for tt in testtokens:
+                if tt.type == 1:
+                    # here string replacement will be possible
+                    ttt = tt.string
+                    if afterdot:
+                        new_string += ttt
+                        afterdot = False
+                    elif ttt == 'firstchild':
+                        #new_string += child_name +"[0]"
+                        new_string += eval(child_name+'[0].class_id', dict(self=self))
+                    elif ttt == 'lastchild':
+                        #new_string += child_name +"[-1]"
+                        new_string += eval(child_name+'[-1].class_id', dict(self=self))
+                    elif ttt in ('child', 'rightchild'):
+                        if i is None:
+                            new_string += child_name +"[i]"
+                        else:
+                            #new_string += child_name +"["+str(i)+"]"
+                            new_string += eval(child_name+'['+str(i)+'].class_id', dict(self=self))
+                    elif ttt == 'leftchild':
+                        #new_string += child_name +"["+str(i-1)+"]"
+                        new_string += eval(child_name+'['+str(i-1)+'].class_id', dict(self=self))
+                    else:
+                        #new_string += "self."+ttt
+                        new_string += eval('self.class_id', dict(self=self)) + '_' + ttt
+                    afterdot = False
+                elif tt.type != 59:
+                    tt_r = tt.string
+                    if tt.string == '.': afterdot = True
+                    if tt_r =='.':
+                        tt_r='_'
+                    new_string += tt_r
+            return new_string
+        ll = rulestring.split(':')
+        if len(ll) == 1:
+             print('  replaced _______', rulestring, replace_names_sympy(rulestring, child_name))    
+        else:
+            if ll[0] == 'for_all':
+                for i in range(len(eval(child_name))):
+                    print('  replaced for_all', ll[1], replace_names_sympy(ll[1], child_name, i))
+            if ll[0] == 'between':
+                for i in range(len(eval(child_name))):
+                    print('  replaced between', ll[1], replace_names_sympy(ll[1], child_name, i))
+                    
         ll = rulestring.split(':')
         if len(ll) == 1:
             lleq = ll[0].split('=')
@@ -403,18 +455,10 @@ class Word(BaseRules):
         ret = []
         if len(self.childs) > 0:
             ret += self.rule('firstchild.left=left')
-            #print('vvv1',len(self.all_vars_used), self.all_vars_used, ret)
-            #print('Word0', ret)
             ret += self.rule('min_all: child.top - top')
-            #print('vvv2',len(self.all_vars_used), self.all_vars_used, ret)
-            #print('Word1', ret)
             ret += self.rule('for_all: child.bottom=bottom')
-            #print('vvv3',len(self.all_vars_used), self.all_vars_used, ret)
             ret += self.rule('between: rightchild.left=leftchild.right')
-            #print('vvv4',len(self.all_vars_used), self.all_vars_used, ret)
             ret += self.rule('right=lastchild.right')
-            #print('vvv5',len(self.all_vars_used), self.all_vars_used, ret)
-            #print('Word_', ret)
         return ret
 
 class Line(BaseRules):
