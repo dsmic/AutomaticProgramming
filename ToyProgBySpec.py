@@ -66,7 +66,7 @@ def between(ll, compare):
 
 
 class BaseRules():
-    priority = None # has to be overwritten by child
+    priority = None # has to be overwritten by child instance variable
     all_vars_used = {}
     def draw(self):
         #print(self, 'char nodraw', round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
