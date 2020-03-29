@@ -273,13 +273,14 @@ class BaseRules():
                     if tt.string == '.': afterdot = True
             return new_string
 
-        #print('trying sympy', rulestring, child_name)
+        print('trying sympy', rulestring, child_name)
         def replace_names_sympy(string, child_name, i=None):
             transform_to_null = string.split('=')
             if len(transform_to_null) == 2: #sympy must have equation without written =0
                 string = transform_to_null[0] + '-(' + transform_to_null[1] +')'
+            string = string.strip()
             testtokens = tokenize(BytesIO(string.encode('utf-8')).readline)
-            new_string = ' '
+            new_string = ''
             afterdot = False
             for tt in testtokens:
                 if tt.type == 1:
@@ -323,7 +324,7 @@ class BaseRules():
                     if ttr in BaseRules.properties_setable:
                         tts = ttr.split('_')
                         use = BaseRules.classid_dict[tts[0]]
-                        ttr = eval('use.'+tts[1])
+                        ttr = eval('use.'+tts[1], dict(use=use))
                         #print('found', tts, use, eval('use.'+tts[1]))
                         
                     final_string += str(ttr)
@@ -336,16 +337,36 @@ class BaseRules():
         
         
         ll = rulestring.split(':')
+        all_rules = []
         if len(ll) == 1:
-             print('  replaced _______', rulestring, replace_names_sympy(rulestring, child_name))    
+            symrule = replace_names_sympy(rulestring, child_name)
+            print('  replaced _______', rulestring, symrule)    
         else:
             if ll[0] == 'for_all':
                 for i in range(len(eval(child_name))):
-                    print('  replaced for_all', ll[1], replace_names_sympy(ll[1], child_name, i))
+                    symrule = replace_names_sympy(ll[1], child_name, i)
+                    all_rules.append(symrule)
+                    print('  replaced for_all', ll[1], symrule)
             if ll[0] == 'between':
                 for i in range(len(eval(child_name))):
-                    print('  replaced between', ll[1], replace_names_sympy(ll[1], child_name, i))
-                    
+                    symrule = replace_names_sympy(ll[1], child_name, i)
+                    all_rules.append(symrule)
+                    print('  replaced between', ll[1], symrule)
+            if ll[0] == 'min_all':
+                symrule = 'Min('+replace_names_sympy(ll[1], child_name, 0)
+                for i in range(1,len(eval(child_name))):
+                    symrule += ',' + replace_names_sympy(ll[1], child_name, i)
+                symrule += ')'
+                all_rules.append(symrule)
+                print('  replaced not_neg', ll[1], symrule)
+            if ll[0] == 'not_neg': # not sure if it should be exactly the same as min_all, we will see
+                symrule = 'Min('+replace_names_sympy(ll[1], child_name, 0)
+                for i in range(1,len(eval(child_name))):
+                    symrule += ',' + replace_names_sympy(ll[1], child_name, i)
+                symrule += ')'
+                all_rules.append(symrule)
+                print('  replaced not_neg', ll[1], symrule)
+        
         ll = rulestring.split(':')
         if len(ll) == 1:
             lleq = ll[0].split('=')
