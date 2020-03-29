@@ -69,6 +69,9 @@ class BaseRules():
     priority = None # has to be overwritten by child instance variable
     all_vars_used = {}
     class_id_counter = 0
+    classid_dict = {}
+
+    properties_setable = [] # all this have a value set by hand
     
     def draw(self):
         #print(self, 'char nodraw', round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
@@ -79,16 +82,22 @@ class BaseRules():
         s1 = 'def gvar_'+l+'(self): return self.getVar("'+l+'")'
         s2 = 'def svar_'+l+'(self, x): return self.setVar("'+l+'",x)' # not sure if this can be used later?!
         s3 = classname+'.' + l +' = property(gvar_'+l+',svar_'+l+')'
+        
         exec(s1)
         exec(s2)
         exec(s3)
 
+    def add_property_setable(self, l):
+        self.add_property(l)
+        BaseRules.properties_setable.append(self.class_id + '_' + l)
+        
     def __init__(self):
         #manageing variables (not used in later syntax)
         self.TheVars = {} #contains the variables from priority
         self.clean()
         self.childs = []
-        self.class_id = 'cid_' + str(BaseRules.class_id_counter)
+        self.class_id = 'cid' + str(BaseRules.class_id_counter)
+        BaseRules.classid_dict[self.class_id] = self
         BaseRules.class_id_counter += 1
         print(self.class_id, self.class_id_counter)
         #create the properties
@@ -266,6 +275,9 @@ class BaseRules():
 
         #print('trying sympy', rulestring, child_name)
         def replace_names_sympy(string, child_name, i=None):
+            transform_to_null = string.split('=')
+            if len(transform_to_null) == 2: #sympy must have equation without written =0
+                string = transform_to_null[0] + '-(' + transform_to_null[1] +')'
             testtokens = tokenize(BytesIO(string.encode('utf-8')).readline)
             new_string = ' '
             afterdot = False
@@ -301,7 +313,28 @@ class BaseRules():
                     if tt_r =='.':
                         tt_r='_'
                     new_string += tt_r
-            return new_string
+            
+            testtokens = tokenize(BytesIO(new_string.encode('utf-8')).readline)
+            final_string = ''
+            for tt in testtokens:
+                ttr = tt.string
+                #print('tok', ttr)
+                if tt.type == 1:
+                    if ttr in BaseRules.properties_setable:
+                        tts = ttr.split('_')
+                        use = BaseRules.classid_dict[tts[0]]
+                        ttr = eval('use.'+tts[1])
+                        #print('found', tts, use, eval('use.'+tts[1]))
+                        
+                    final_string += str(ttr)
+                elif tt.type != 59:
+                    final_string += ttr
+                    
+            return final_string
+            
+        
+        
+        
         ll = rulestring.split(':')
         if len(ll) == 1:
              print('  replaced _______', rulestring, replace_names_sympy(rulestring, child_name))    
@@ -426,8 +459,8 @@ class Character(BaseRules):
         BaseRules.__init__(self)
 
         #additional properties, not defined in priority
-        self.add_property('height')
-        self.add_property('width')
+        self.add_property_setable('height')
+        self.add_property_setable('width')
 
     def restrictions(self):
         return self.rule('top=bottom-height') + self.rule('right=left+width')
@@ -527,10 +560,10 @@ class Page(BaseRules):
         BaseRules.__init__(self)
 
         #additional properties, not defined in priority
-        self.add_property('top')
-        self.add_property('bottom')
-        self.add_property('left')
-        self.add_property('right')
+        self.add_property_setable('top')
+        self.add_property_setable('bottom')
+        self.add_property_setable('left')
+        self.add_property_setable('right')
         self.line_pos = -1
         self.child_type = Line
 
@@ -723,6 +756,7 @@ def key(event):
             d.draw()
         testpage.full_restrictions(debug=0)
         testpage.optimize()
+        print(BaseRules.properties_setable)
 #        for lines in testpage.childs:
 #            print(lines.TheVars)
 
