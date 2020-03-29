@@ -781,17 +781,30 @@ def key(event):
         l.width = right-left
         l.top = top
         l.height = bottom-top
-        for _ in range(2):
-            if testpage.optimize(1):
-                break
-        w.delete("all")
-        for d in testpage.get_all_self_and_childs():
-            d.draw()
+        # for _ in range(2):
+        #     if testpage.optimize(1):
+        #         break
+        # w.delete("all")
+        # for d in testpage.get_all_self_and_childs():
+        #     d.draw()
+        
+        # *************************************
         testpage.clean_all_equations()
         full = testpage.full_restrictions(debug=0)
         print(testpage.all_equations_rules, testpage.all_equations_checks)
-        print(sym.solve(testpage.all_equations_rules))
-        testpage.optimize()
+        solve_result = sym.solve(testpage.all_equations_rules, dict=True)
+        print(solve_result)
+        for (vv, value) in solve_result[0].items():
+            print(vv, value)
+            vs = str(vv).split('_')
+            assert(len(vs)==2)
+            BaseRules.classid_dict[vs[0]].setVar(vs[1],value)
+        # **************************************    
+        w.delete("all")
+        for d in testpage.get_all_self_and_childs():
+            d.draw()
+
+        #testpage.optimize()
         print(BaseRules.properties_setable)
 #        for lines in testpage.childs:
 #            print(lines.TheVars)
