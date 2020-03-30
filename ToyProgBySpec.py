@@ -742,10 +742,23 @@ def key(event):
     print('key pressed', event, 'bounding', w.bbox(c))
     ch = event.char
     if ch == ' ':
-        for pos in range(20):
-            print('-----', pos, '---')
-            if testpage.optimize(0.9):
-                break
+        # for pos in range(20):
+        #     print('-----', pos, '---')
+        #     if testpage.optimize(0.9):
+        #         break
+        # *************************************
+        testpage.clean_all_equations()
+        full = testpage.full_restrictions(debug=0)
+        print(testpage.all_equations_rules, testpage.all_equations_checks)
+        solve_result = sym.solve(testpage.all_equations_rules, dict=True)
+        print(solve_result)
+        for (vv, value) in solve_result[0].items():
+            print(vv, value)
+            vs = str(vv).split('_')
+            assert(len(vs)==2)
+            BaseRules.classid_dict[vs[0]].setVar(vs[1],value)
+        # **************************************    
+        
         testpage.check_to_long2()
         testpage.clean_down()
         actualLine = testpage.childs[-1]
@@ -756,15 +769,28 @@ def key(event):
         #l.height = 0
         #l.left = actualWord.right
         #l.top = actualWord.top
-        for pos in range(15):
-            print('-----', pos, '---')
-            if testpage.optimize(1):
-                break
+        # for pos in range(15):
+        #     print('-----', pos, '---')
+        #     if testpage.optimize(1):
+        #         break
+    
+    
+        testpage.clean_all_equations()
+        full = testpage.full_restrictions(debug=0)
+        print(testpage.all_equations_rules, testpage.all_equations_checks)
+        solve_result = sym.solve(testpage.all_equations_rules, dict=True)
+        print(solve_result)
+        for (vv, value) in solve_result[0].items():
+            print(vv, value)
+            vs = str(vv).split('_')
+            assert(len(vs)==2)
+            BaseRules.classid_dict[vs[0]].setVar(vs[1],value)
+
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
             d.draw()
         full = testpage.full_restrictions(debug=0)
-        testpage.stop_all_equations()
+        #testpage.stop_all_equations()
         #testpage.optimize()
         print('full', full)
         for l in testpage.childs:
@@ -792,6 +818,8 @@ def key(event):
         testpage.clean_all_equations()
         full = testpage.full_restrictions(debug=0)
         print(testpage.all_equations_rules, testpage.all_equations_checks)
+        for (ii,vv) in BaseRules.classid_dict.items():
+            print(ii,vv)
         solve_result = sym.solve(testpage.all_equations_rules, dict=True)
         print(solve_result)
         for (vv, value) in solve_result[0].items():
