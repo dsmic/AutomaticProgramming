@@ -14,7 +14,7 @@ from tokenize import tokenize
 from io import BytesIO
 import numpy as np
 import sympy as sym
-from sympy import Min
+from sympy import Min, Abs
 
 #from random import normalvariate
 
@@ -72,17 +72,21 @@ class BaseRules():
     priority = None # has to be overwritten by child instance variable
     all_vars_used = {}
     class_id_counter = 0
+    tmp_counter = 0
     classid_dict = {}
     
     all_equations_rules = None
     all_equations_checks = None
+    all_equations_min = None
     
     def clean_all_equations(self):
         BaseRules.all_equations_rules = []
         BaseRules.all_equations_checks = []
+        BaseRules.all_equations_min = []
     def stop_all_equations(self):
         BaseRules.all_equations_rules = None
         BaseRules.all_equations_checks = None
+        BaseRules.all_equations_min = None
         
     properties_setable = [] # all this have a value set by hand
 
@@ -286,7 +290,7 @@ class BaseRules():
                     if tt.string == '.': afterdot = True
             return new_string
 
-        print('trying sympy', rulestring, child_name)
+        #print('trying sympy', rulestring, child_name)
         def replace_names_sympy(string, child_name, i=None):
             transform_to_null = string.split('=')
             if len(transform_to_null) == 2: #sympy must have equation without written =0
@@ -352,38 +356,53 @@ class BaseRules():
         ll = rulestring.split(':')
         all_rules = []
         all_checks = []
+        all_min = []
         if len(ll) == 1:
             symrule = replace_names_sympy(rulestring, child_name)
             all_rules.append(symrule)
-            print('  replaced _______', rulestring, symrule)
+            #print('  replaced _______', rulestring, symrule)
         else:
             if ll[0] == 'for_all':
                 for i in range(len(eval(child_name))):
                     symrule = replace_names_sympy(ll[1], child_name, i)
                     all_rules.append(symrule)
-                    print('  replaced for_all', ll[1], symrule)
+                    #print('  replaced for_all', ll[1], symrule)
             if ll[0] == 'between':
                 for i in range(1,len(eval(child_name))):
                     symrule = replace_names_sympy(ll[1], child_name, i)
                     all_rules.append(symrule)
-                    print('  replaced between', ll[1], symrule)
+                    #print('  replaced between', ll[1], symrule)
             if ll[0] == 'min_all':
-                symrule = 'Min('+replace_names_sympy(ll[1], child_name, 0)
-                for i in range(1, len(eval(child_name))):
-                    symrule += ',' + replace_names_sympy(ll[1], child_name, i)
-                symrule += ')'
-                all_rules.append(symrule)
-                print('  replaced not_neg', ll[1], symrule)
+                symrule = []
+                howl = len(eval(child_name))
+                if howl >0:
+                    a = replace_names_sympy(ll[1], child_name, 0)
+                if howl == 2:
+                    b = replace_names_sympy(ll[1], child_name, 1)
+                for i in range(1, howl - 1):
+                    a = replace_names_sympy(ll[1], child_name, i-1)
+                    b = replace_names_sympy(ll[1], child_name, i)
+                    symrule += [ '(('+a+')+('+b+')+abs(('+a+')-('+b+')))/2-tmpvar'+BaseRules.tmp_counter]
+                    BaseRules.tmp_counter += 1
+                if howl>1:
+                    symrule += [ '((('+a+')+('+b+')+Abs(('+a+')-('+b+')))/2)']
+                else:
+                    symrule += [a]
+                BaseRules.tmp_counter += 1
+                    
+                all_rules += symrule
+                print('  replaced min', ll[1], symrule)
             if ll[0] == 'not_neg': # not sure if it should be exactly the same as min_all, we will see
                 print(len(eval(child_name)))
                 for i in range(len(eval(child_name))):
                     symrule = replace_names_sympy(ll[1], child_name, i)
                     all_checks.append(symrule)
-                    print('  replaced not_neg', ll[1], symrule)
+                    #print('  replaced not_neg', ll[1], symrule)
         print(all_rules, all_checks)
         if BaseRules.all_equations_rules is not None:
             BaseRules.all_equations_rules += all_rules
             BaseRules.all_equations_checks += all_checks
+            BaseRules.all_equations_min += all_min
             
 
         ll = rulestring.split(':')
@@ -820,6 +839,7 @@ def key(event):
         print(testpage.all_equations_rules, testpage.all_equations_checks)
         for (ii,vv) in BaseRules.classid_dict.items():
             print(ii,vv)
+        print('mins', BaseRules.all_equations_min)
         solve_result = sym.solve(testpage.all_equations_rules, dict=True)
         print(solve_result)
         for (vv, value) in solve_result[0].items():
