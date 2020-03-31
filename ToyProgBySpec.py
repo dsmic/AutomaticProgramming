@@ -666,6 +666,7 @@ def key(event):
             actualWord = actualLine.addWord()
             nextword = False
         l = actualWord.addCharacter(ch)
+        # pylint: disable=W0201
         (left, top, right, bottom) = w.bbox(c)
         l.left = left
         l.width = right-left
