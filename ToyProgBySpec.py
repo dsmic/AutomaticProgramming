@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sun Feb 23 18:53:25 2020
-
 @author: detlef
 """
 
@@ -13,9 +12,6 @@ import operator
 from tokenize import tokenize
 from io import BytesIO
 import numpy as np
-import sympy as sym
-from sympy import Min
-
 #from random import normalvariate
 
 def getVariable(name):
@@ -71,24 +67,6 @@ def between(ll, compare):
 class BaseRules():
     priority = None # has to be overwritten by child instance variable
     all_vars_used = {}
-    class_id_counter = 0
-    classid_dict = {}
-    
-    all_equations_rules = None
-    all_equations_checks = None
-    all_equations_min = None
-    
-    def clean_all_equations(self):
-        BaseRules.all_equations_rules = []
-        BaseRules.all_equations_checks = []
-        BaseRules.all_equations_min = []
-    def stop_all_equations(self):
-        BaseRules.all_equations_rules = None
-        BaseRules.all_equations_checks = None
-        BaseRules.all_equations_min = None
-        
-    properties_setable = [] # all this have a value set by hand
-
     def draw(self):
         #print(self, 'char nodraw', round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
         pass
@@ -98,24 +76,16 @@ class BaseRules():
         s1 = 'def gvar_'+l+'(self): return self.getVar("'+l+'")'
         s2 = 'def svar_'+l+'(self, x): return self.setVar("'+l+'",x)' # not sure if this can be used later?!
         s3 = classname+'.' + l +' = property(gvar_'+l+',svar_'+l+')'
-
         exec(s1)
         exec(s2)
         exec(s3)
-
-    def add_property_setable(self, l):
-        self.add_property(l)
-        BaseRules.properties_setable.append(self.class_id + '_' + l)
 
     def __init__(self):
         #manageing variables (not used in later syntax)
         self.TheVars = {} #contains the variables from priority
         self.clean()
         self.childs = []
-        self.class_id = 'cid' + str(BaseRules.class_id_counter)
-        BaseRules.classid_dict[self.class_id] = self
-        BaseRules.class_id_counter += 1
-        print(self.class_id, self.class_id_counter)
+
         #create the properties
         for l in self.priority:
             self.add_property(l)
@@ -138,7 +108,7 @@ class BaseRules():
             return eval(code, {'self': obj})
         else:
             if name in self.priority:
-                BaseRules.all_vars_used[(self, name)] = 1
+                self.all_vars_used[(self, name)] = 1
             return val #+ normalvariate(0, 0.001)
 
     def setVar(self, name, value):
@@ -153,9 +123,10 @@ class BaseRules():
 
     def full_restrictions(self, debug=0):
         ret = self.restrictions()
+        #print('vvv',len(self.all_vars_used), self.all_vars_used, ret)
         for c in self.childs:
             ret += c.full_restrictions(debug=debug)
-        if debug and len(ret) > 0:
+        if debug and len(ret)>0:
             print("full", type(self).__name__, len(ret), ret)
         return ret
 
@@ -167,11 +138,11 @@ class BaseRules():
 
     def optimize(self, scale=1.0, debug=False):
         jakobi_list = []
-        BaseRules.all_vars_used.clear()
-        all_vars_opt = BaseRules.all_vars_used.keys()
+        self.all_vars_used.clear()
+        all_vars_opt = self.all_vars_used.keys()
         before = self.full_restrictions()
         #print('vv_',len(all_vars_opt), all_vars_opt)
-        before = self.full_restrictions(debug=0)  # must be called several times, as the reference chains may be created one by one
+        before = self.full_restrictions(debug = 0)  # must be called several times, as the reference chains may be created one by one
         #print('vv0',len(all_vars_opt), all_vars_opt)
         deb_var = []
         if debug:
@@ -289,108 +260,6 @@ class BaseRules():
                     if tt.string == '.': afterdot = True
             return new_string
 
-        def replace_names_sympy(string, child_name, i=None):
-            transform_to_null = string.split('=')
-            if len(transform_to_null) == 2: #sympy must have equation without written =0
-                string = transform_to_null[0] + '-(' + transform_to_null[1] +')'
-            string = string.strip()
-            testtokens = tokenize(BytesIO(string.encode('utf-8')).readline)
-            new_string = ''
-            afterdot = False
-            for tt in testtokens:
-                if tt.type == 1:
-                    # here string replacement will be possible
-                    ttt = tt.string
-                    if afterdot:
-                        new_string += ttt
-                        afterdot = False
-                    elif ttt == 'firstchild':
-                        #new_string += child_name +"[0]"
-                        new_string += eval(child_name+'[0].class_id', dict(self=self))
-                    elif ttt == 'lastchild':
-                        #new_string += child_name +"[-1]"
-                        new_string += eval(child_name+'[-1].class_id', dict(self=self))
-                    elif ttt in ('child', 'rightchild'):
-                        if i is None:
-                            new_string += child_name +"[i]"
-                        else:
-                            #new_string += child_name +"["+str(i)+"]"
-                            new_string += eval(child_name+'['+str(i)+'].class_id', dict(self=self))
-                    elif ttt == 'leftchild':
-                        #new_string += child_name +"["+str(i-1)+"]"
-                        new_string += eval(child_name+'['+str(i-1)+'].class_id', dict(self=self))
-                    else:
-                        #new_string += "self."+ttt
-                        new_string += eval('self.class_id', dict(self=self)) + '_' + ttt
-                    afterdot = False
-                elif tt.type != 59:
-                    tt_r = tt.string
-                    if tt.string == '.': afterdot = True
-                    if tt_r == '.':
-                        tt_r = '_'
-                    new_string += tt_r
-
-            testtokens = tokenize(BytesIO(new_string.encode('utf-8')).readline)
-            final_string = ''
-            for tt in testtokens:
-                ttr = tt.string
-                #print('tok', ttr)
-                if tt.type == 1:
-                    if ttr in BaseRules.properties_setable:
-                        tts = ttr.split('_')
-                        use = BaseRules.classid_dict[tts[0]]
-                        ttr = eval('use.'+tts[1], dict(use=use))
-                        #print('found', tts, use, eval('use.'+tts[1]))
-
-                    final_string += str(ttr)
-                elif tt.type != 59:
-                    final_string += ttr
-
-            return final_string
-
-
-
-
-        ll = rulestring.split(':')
-        all_rules = []
-        all_checks = []
-        all_min = []
-        if len(ll) == 1:
-            symrule = replace_names_sympy(rulestring, child_name)
-            all_rules.append(symrule)
-            print('  replaced _______', rulestring, symrule)
-        else:
-            if ll[0] == 'for_all':
-                for i in range(len(eval(child_name))):
-                    symrule = replace_names_sympy(ll[1], child_name, i)
-                    all_rules.append(symrule)
-                    print('  replaced for_all', ll[1], symrule)
-            if ll[0] == 'between':
-                for i in range(1,len(eval(child_name))):
-                    symrule = replace_names_sympy(ll[1], child_name, i)
-                    all_rules.append(symrule)
-                    print('  replaced between', ll[1], symrule)
-            if ll[0] == 'min_all':
-                symrule = 'Min('+replace_names_sympy(ll[1], child_name, 0)
-                for i in range(1, len(eval(child_name))):
-                    symrule += ',' + replace_names_sympy(ll[1], child_name, i)
-                symrule += ')'
-                all_min.append(symrule)
-                all_rules.append(symrule)
-                print('  replaced not_neg', ll[1], symrule)
-            if ll[0] == 'not_neg': # not sure if it should be exactly the same as min_all, we will see
-                print(len(eval(child_name)))
-                for i in range(len(eval(child_name))):
-                    symrule = replace_names_sympy(ll[1], child_name, i)
-                    all_checks.append(symrule)
-                    print('  replaced not_neg', ll[1], symrule)
-        print(all_rules, all_checks)
-        if BaseRules.all_equations_rules is not None:
-            BaseRules.all_equations_rules += all_rules
-            BaseRules.all_equations_checks += all_checks
-            BaseRules.all_equations_min += all_min
-            
-
         ll = rulestring.split(':')
         if len(ll) == 1:
             lleq = ll[0].split('=')
@@ -456,7 +325,7 @@ class BaseRules():
         #     print(self.__class__.__name__, ret)
         return eval(ret, dict(self=self, for_all=for_all, min_all=min_all, not_neg=not_neg, between=between))
 
-
+    
     def restrictions(self):
         """
         are created from rules by adding the return value lists
@@ -467,28 +336,23 @@ class BaseRules():
 
     def add_child(self, a):
         self.childs.append(a)
-
-    def child_type(self):
-        # pylint: disable=R0201
-        raise ValueError('has to be overwritten')
-
+    
     def check_to_long2(self):
         ll = self.childs
         print('to long from restrictions2', self.__class__.__name__, self.full_restrictions(), sum(map(abs, self.full_restrictions())))
 
         if len(ll) > 0:
             got = ll[-1].check_to_long2()
-            print('got', self.__class__.__name__, got)
+            print('got', self.__class__.__name__,got)
             if got is not None:
-                # pylint: disable=E1111
                 l = self.child_type()
                 l.add_child(got)
                 self.add_child(l)
                 return None
-
+            
         if sum(map(abs, self.full_restrictions())) > 6:
             return ll.pop()
-
+        
         return None
 
 class Character(BaseRules):
@@ -501,7 +365,7 @@ class Character(BaseRules):
     def __init__(self, ch):
         # this my be created automatically from rules, buth than fixed ones from add_property must stay by hand I think
         # Maybe should be kept like this, as this helps organizing what to use (as defining vars in other programming languages)
-
+        
         self.priority = ['top', 'left', 'right', 'bottom'] #Later this should be syntactically improved
 
         #fixed content not changed by other variables
@@ -509,8 +373,8 @@ class Character(BaseRules):
         BaseRules.__init__(self)
 
         #additional properties, not defined in priority
-        self.add_property_setable('height')
-        self.add_property_setable('width')
+        self.add_property('height')
+        self.add_property('width')
 
     def restrictions(self):
         return self.rule('top=bottom-height') + self.rule('right=left+width')
@@ -538,10 +402,18 @@ class Word(BaseRules):
         ret = []
         if len(self.childs) > 0:
             ret += self.rule('firstchild.left=left')
+            #print('vvv1',len(self.all_vars_used), self.all_vars_used, ret)
+            #print('Word0', ret)
             ret += self.rule('min_all: child.top - top')
+            #print('vvv2',len(self.all_vars_used), self.all_vars_used, ret)
+            #print('Word1', ret)
             ret += self.rule('for_all: child.bottom=bottom')
+            #print('vvv3',len(self.all_vars_used), self.all_vars_used, ret)
             ret += self.rule('between: rightchild.left=leftchild.right')
+            #print('vvv4',len(self.all_vars_used), self.all_vars_used, ret)
             ret += self.rule('right=lastchild.right')
+            #print('vvv5',len(self.all_vars_used), self.all_vars_used, ret)
+            #print('Word_', ret)
         return ret
 
 class Line(BaseRules):
@@ -561,13 +433,27 @@ class Line(BaseRules):
         ret = []
         ll = self.childs
         if len(ll) > 0:
+            dd = []
             ret += self.rule('firstchild.left = left')
+            if len(ret)>len(dd):
+                dd.append(1)
             if len(ll) > 1:
                 ret += self.rule('min_all: lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
+                if len(ret)>len(dd):
+                    dd.append(2)
             ret += self.rule('between: rightchild.left=leftchild.right+5 + freespace')
+            if len(ret)>len(dd):
+                dd.append(3)
             ret += self.rule('min_all: child.top - top')
+            if len(ret)>len(dd):
+                dd.append(4)
             ret += self.rule('for_all: child.bottom=bottom')
+            if len(ret)>len(dd):
+                dd.append(5)
             ret += self.rule('not_neg: -freespace')
+            if len(ret)>len(dd):
+                dd.append(6)
+#            print(dd)
         return ret
 
     def check_to_long(self):
@@ -596,10 +482,10 @@ class Page(BaseRules):
         BaseRules.__init__(self)
 
         #additional properties, not defined in priority
-        self.add_property_setable('top')
-        self.add_property_setable('bottom')
-        self.add_property_setable('left')
-        self.add_property_setable('right')
+        self.add_property('top')
+        self.add_property('bottom')
+        self.add_property('left')
+        self.add_property('right')
         self.line_pos = -1
         self.child_type = Line
 
@@ -627,14 +513,14 @@ class Page(BaseRules):
         # possibly
         global actualLine
         add = None
-
+        
         # check for transfer from one child to the next (would be not necessary if not allowed to change inbetween
         # which would also be diffcult to handle if one deletes, as than one must always check backward)
         # might not be a good idea for the general definition
-
+        
         # maybe changing back to only allow forward construction in the definition and let the AI
         # generate more general code????
-
+        
         for l in self.childs:
             #print('ctl')
             if add is not None:
@@ -747,23 +633,10 @@ def key(event):
     print('key pressed', event, 'bounding', w.bbox(c))
     ch = event.char
     if ch == ' ':
-        # for pos in range(20):
-        #     print('-----', pos, '---')
-        #     if testpage.optimize(0.9):
-        #         break
-        # *************************************
-        testpage.clean_all_equations()
-        full = testpage.full_restrictions(debug=0)
-        print(testpage.all_equations_rules, testpage.all_equations_checks)
-        solve_result = sym.solve(testpage.all_equations_rules, dict=True)
-        print(solve_result)
-        for (vv, value) in solve_result[0].items():
-            print(vv, value)
-            vs = str(vv).split('_')
-            assert(len(vs)==2)
-            BaseRules.classid_dict[vs[0]].setVar(vs[1],value)
-        # **************************************    
-        
+        for pos in range(20):
+            print('-----', pos, '---')
+            if testpage.optimize(0.9):
+                break
         testpage.check_to_long2()
         testpage.clean_down()
         actualLine = testpage.childs[-1]
@@ -774,28 +647,14 @@ def key(event):
         #l.height = 0
         #l.left = actualWord.right
         #l.top = actualWord.top
-        # for pos in range(15):
-        #     print('-----', pos, '---')
-        #     if testpage.optimize(1):
-        #         break
-    
-    
-        testpage.clean_all_equations()
-        full = testpage.full_restrictions(debug=0)
-        print(testpage.all_equations_rules, testpage.all_equations_checks)
-        solve_result = sym.solve(testpage.all_equations_rules, dict=True)
-        print(solve_result)
-        for (vv, value) in solve_result[0].items():
-            print(vv, value)
-            vs = str(vv).split('_')
-            assert(len(vs)==2)
-            BaseRules.classid_dict[vs[0]].setVar(vs[1],value)
-
+        for pos in range(15):
+            print('-----', pos, '---')
+            if testpage.optimize(1):
+                break
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
             d.draw()
         full = testpage.full_restrictions(debug=0)
-        #testpage.stop_all_equations()
         #testpage.optimize()
         print('full', full)
         for l in testpage.childs:
@@ -808,55 +667,18 @@ def key(event):
         l = actualWord.addCharacter(ch)
         # pylint: disable=W0201
         (left, top, right, bottom) = w.bbox(c)
-        # pylint: disable=W0201
         l.left = left
         l.width = right-left
         l.top = top
         l.height = bottom-top
-        # for _ in range(2):
-        #     if testpage.optimize(1):
-        #         break
-        # w.delete("all")
-        # for d in testpage.get_all_self_and_childs():
-        #     d.draw()
-        
-        # *************************************
-        testpage.clean_all_equations()
-        full = testpage.full_restrictions(debug=0)
-        print(testpage.all_equations_rules, testpage.all_equations_checks)
-        for (ii,vv) in BaseRules.classid_dict.items():
-            print(ii,vv)
-        print('mins', BaseRules.all_equations_min)
-        solve_result = sym.solve(testpage.all_equations_rules, dict=True)
-        print(solve_result)
-        
-        for new_string in BaseRules.all_equations_min:
-            testtokens = tokenize(BytesIO(new_string.encode('utf-8')).readline)
-            final_string = ''
-            for tt in testtokens:
-                ttr = tt.string
-                #print('tok', ttr)
-                if tt.type == 1:
-                    if sym.sympify(ttr) in solve_result[0]:
-                        ttr = solve_result[0][sym.sympify(ttr)]
-                        
-                    final_string += str(ttr)
-                elif tt.type != 59:
-                    final_string += ttr
-            print(new_string, final_string)
-        
-        for (vv, value) in solve_result[0].items():
-            print(vv, value)
-            vs = str(vv).split('_')
-            assert(len(vs)==2)
-            BaseRules.classid_dict[vs[0]].setVar(vs[1],value)
-        # **************************************    
+        for _ in range(2):
+            if testpage.optimize(1):
+                break
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
             d.draw()
-
-        #testpage.optimize()
-        print(BaseRules.properties_setable)
+        testpage.full_restrictions(debug=0)
+        testpage.optimize()
 #        for lines in testpage.childs:
 #            print(lines.TheVars)
 
