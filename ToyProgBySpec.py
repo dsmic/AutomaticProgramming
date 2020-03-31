@@ -14,7 +14,7 @@ from tokenize import tokenize
 from io import BytesIO
 import numpy as np
 import sympy as sym
-from sympy import Min, Abs
+from sympy import Min
 
 #from random import normalvariate
 
@@ -72,7 +72,6 @@ class BaseRules():
     priority = None # has to be overwritten by child instance variable
     all_vars_used = {}
     class_id_counter = 0
-    tmp_counter = 0
     classid_dict = {}
     
     all_equations_rules = None
@@ -290,7 +289,6 @@ class BaseRules():
                     if tt.string == '.': afterdot = True
             return new_string
 
-        #print('trying sympy', rulestring, child_name)
         def replace_names_sympy(string, child_name, i=None):
             transform_to_null = string.split('=')
             if len(transform_to_null) == 2: #sympy must have equation without written =0
@@ -360,44 +358,32 @@ class BaseRules():
         if len(ll) == 1:
             symrule = replace_names_sympy(rulestring, child_name)
             all_rules.append(symrule)
-            #print('  replaced _______', rulestring, symrule)
+            print('  replaced _______', rulestring, symrule)
         else:
             if ll[0] == 'for_all':
                 for i in range(len(eval(child_name))):
                     symrule = replace_names_sympy(ll[1], child_name, i)
                     all_rules.append(symrule)
-                    #print('  replaced for_all', ll[1], symrule)
+                    print('  replaced for_all', ll[1], symrule)
             if ll[0] == 'between':
                 for i in range(1,len(eval(child_name))):
                     symrule = replace_names_sympy(ll[1], child_name, i)
                     all_rules.append(symrule)
-                    #print('  replaced between', ll[1], symrule)
+                    print('  replaced between', ll[1], symrule)
             if ll[0] == 'min_all':
-                symrule = []
-                howl = len(eval(child_name))
-                if howl >0:
-                    a = replace_names_sympy(ll[1], child_name, 0)
-                if howl == 2:
-                    b = replace_names_sympy(ll[1], child_name, 1)
-                for i in range(1, howl - 1):
-                    a = replace_names_sympy(ll[1], child_name, i-1)
-                    b = replace_names_sympy(ll[1], child_name, i)
-                    symrule += [ '(('+a+')+('+b+')+abs(('+a+')-('+b+')))/2-tmpvar'+BaseRules.tmp_counter]
-                    BaseRules.tmp_counter += 1
-                if howl>1:
-                    symrule += [ '((('+a+')+('+b+')+Abs(('+a+')-('+b+')))/2)']
-                else:
-                    symrule += [a]
-                BaseRules.tmp_counter += 1
-                    
-                all_rules += symrule
-                print('  replaced min', ll[1], symrule)
+                symrule = 'Min('+replace_names_sympy(ll[1], child_name, 0)
+                for i in range(1, len(eval(child_name))):
+                    symrule += ',' + replace_names_sympy(ll[1], child_name, i)
+                symrule += ')'
+                all_min.append(symrule)
+                all_rules.append(symrule)
+                print('  replaced not_neg', ll[1], symrule)
             if ll[0] == 'not_neg': # not sure if it should be exactly the same as min_all, we will see
                 print(len(eval(child_name)))
                 for i in range(len(eval(child_name))):
                     symrule = replace_names_sympy(ll[1], child_name, i)
                     all_checks.append(symrule)
-                    #print('  replaced not_neg', ll[1], symrule)
+                    print('  replaced not_neg', ll[1], symrule)
         print(all_rules, all_checks)
         if BaseRules.all_equations_rules is not None:
             BaseRules.all_equations_rules += all_rules
@@ -842,6 +828,22 @@ def key(event):
         print('mins', BaseRules.all_equations_min)
         solve_result = sym.solve(testpage.all_equations_rules, dict=True)
         print(solve_result)
+        
+        for new_string in BaseRules.all_equations_min:
+            testtokens = tokenize(BytesIO(new_string.encode('utf-8')).readline)
+            final_string = ''
+            for tt in testtokens:
+                ttr = tt.string
+                #print('tok', ttr)
+                if tt.type == 1:
+                    if sym.sympify(ttr) in solve_result[0]:
+                        ttr = solve_result[0][sym.sympify(ttr)]
+                        
+                    final_string += str(ttr)
+                elif tt.type != 59:
+                    final_string += ttr
+            print(new_string, final_string)
+        
         for (vv, value) in solve_result[0].items():
             print(vv, value)
             vs = str(vv).split('_')
