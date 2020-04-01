@@ -14,7 +14,7 @@ from tokenize import tokenize
 from io import BytesIO
 import numpy as np
 import sympy as sym
-from sympy import Min
+from sympy import Min, Max, N
 
 #from random import normalvariate
 
@@ -371,13 +371,23 @@ class BaseRules():
                     all_rules.append(symrule)
                     print('  replaced between', ll[1], symrule)
             if ll[0] == 'min_all':
-                symrule = 'Min('+replace_names_sympy(ll[1], child_name, 0)
+                lll = ll[1].split('-') # must now be not a min_all: _____ - nochild_var
+                symrule = 'Min('+replace_names_sympy(lll[0], child_name, 0)
                 for i in range(1, len(eval(child_name))):
-                    symrule += ',' + replace_names_sympy(ll[1], child_name, i)
-                symrule += ')'
+                    symrule += ',' + replace_names_sympy(lll[0], child_name, i)
+                symrule += ')-'+replace_names_sympy(lll[1], child_name)
                 all_min.append(symrule)
-                all_rules.append(symrule)
-                print('  replaced not_neg', ll[1], symrule)
+                #all_rules.append(symrule)
+                print('  replaced min_all', ll[1], symrule)
+            if ll[0] == 'max_all':
+                lll = ll[1].split('-') # must now be not a min_all: _____ - nochild_var
+                symrule = 'Max('+replace_names_sympy(lll[0], child_name, 0)
+                for i in range(1, len(eval(child_name))):
+                    symrule += ',' + replace_names_sympy(lll[0], child_name, i)
+                symrule += ')-'+replace_names_sympy(lll[1], child_name)
+                all_min.append(symrule)
+                #all_rules.append(symrule)
+                print('  replaced max_all', ll[1], symrule)
             if ll[0] == 'not_neg': # not sure if it should be exactly the same as min_all, we will see
                 print(len(eval(child_name)))
                 for i in range(len(eval(child_name))):
@@ -446,6 +456,8 @@ class BaseRules():
                 ret = 'min_all('+child_name +', lambda i: '
                 ret += replace_names(ll[1], child_name)
                 ret += ')'
+            elif ll[0] == 'max_all':
+                ret = '[]'
             elif ll[0] == 'not_neg':
                 # here references are not possible
                 ret = 'not_neg('+child_name +', lambda i: '
@@ -517,7 +529,7 @@ class Character(BaseRules):
 
 class Word(BaseRules):
     def __init__(self):
-        self.priority = ['top', 'left', 'right', 'bottom'] #Later this should be syntactically improved
+        self.priority = ['top', 'left', 'right', 'bottom', 'height'] #Later this should be syntactically improved
 
         BaseRules.__init__(self)
         self.char_pos = -1
@@ -538,7 +550,8 @@ class Word(BaseRules):
         ret = []
         if len(self.childs) > 0:
             ret += self.rule('firstchild.left=left')
-            ret += self.rule('min_all: child.top - top')
+            ret += self.rule('max_all: child.height - height')
+            ret += self.rule('top + height - bottom')
             ret += self.rule('for_all: child.bottom=bottom')
             ret += self.rule('between: rightchild.left=leftchild.right')
             ret += self.rule('right=lastchild.right')
@@ -755,13 +768,13 @@ def key(event):
         testpage.clean_all_equations()
         full = testpage.full_restrictions(debug=0)
         print(testpage.all_equations_rules, testpage.all_equations_checks)
-        solve_result = sym.solve(testpage.all_equations_rules, dict=True)
+        solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
         print(solve_result)
-        for (vv, value) in solve_result[0].items():
+        for (vv, value) in solve_result.items():
             print(vv, value)
             vs = str(vv).split('_')
             assert(len(vs)==2)
-            BaseRules.classid_dict[vs[0]].setVar(vs[1],value)
+            BaseRules.classid_dict[vs[0]].setVar(vs[1],value.evalf())
         # **************************************    
         
         testpage.check_to_long2()
@@ -783,13 +796,13 @@ def key(event):
         testpage.clean_all_equations()
         full = testpage.full_restrictions(debug=0)
         print(testpage.all_equations_rules, testpage.all_equations_checks)
-        solve_result = sym.solve(testpage.all_equations_rules, dict=True)
+        solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
         print(solve_result)
-        for (vv, value) in solve_result[0].items():
+        for (vv, value) in solve_result.items():
             print(vv, value)
             vs = str(vv).split('_')
             assert(len(vs)==2)
-            BaseRules.classid_dict[vs[0]].setVar(vs[1],value)
+            BaseRules.classid_dict[vs[0]].setVar(vs[1],value.evalf())
 
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
@@ -827,7 +840,9 @@ def key(event):
             print(ii,vv)
         print('mins', BaseRules.all_equations_min)
         solve_result = sym.solve(testpage.all_equations_rules, dict=True)
-        print(solve_result)
+        print('nomin',solve_result)
+        solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
+        print('with',solve_result)
         
         for new_string in BaseRules.all_equations_min:
             testtokens = tokenize(BytesIO(new_string.encode('utf-8')).readline)
@@ -836,19 +851,19 @@ def key(event):
                 ttr = tt.string
                 #print('tok', ttr)
                 if tt.type == 1:
-                    if sym.sympify(ttr) in solve_result[0]:
-                        ttr = solve_result[0][sym.sympify(ttr)]
+                    if sym.sympify(ttr) in solve_result:
+                        ttr = solve_result[sym.sympify(ttr)].evalf()
                         
                     final_string += str(ttr)
                 elif tt.type != 59:
                     final_string += ttr
             print(new_string, final_string)
         
-        for (vv, value) in solve_result[0].items():
+        for (vv, value) in solve_result.items():
             print(vv, value)
             vs = str(vv).split('_')
             assert(len(vs)==2)
-            BaseRules.classid_dict[vs[0]].setVar(vs[1],value)
+            BaseRules.classid_dict[vs[0]].setVar(vs[1],value.evalf())
         # **************************************    
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
