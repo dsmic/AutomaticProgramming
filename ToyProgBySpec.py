@@ -358,18 +358,18 @@ class BaseRules():
         if len(ll) == 1:
             symrule = replace_names_sympy(rulestring, child_name)
             all_rules.append(symrule)
-            print('  replaced _______', rulestring, symrule)
+            #print('  replaced _______', rulestring, symrule)
         else:
             if ll[0] == 'for_all':
                 for i in range(len(eval(child_name))):
                     symrule = replace_names_sympy(ll[1], child_name, i)
                     all_rules.append(symrule)
-                    print('  replaced for_all', ll[1], symrule)
+                    #print('  replaced for_all', ll[1], symrule)
             if ll[0] == 'between':
                 for i in range(1,len(eval(child_name))):
                     symrule = replace_names_sympy(ll[1], child_name, i)
                     all_rules.append(symrule)
-                    print('  replaced between', ll[1], symrule)
+                    #print('  replaced between', ll[1], symrule)
             if ll[0] == 'min_all':
                 lll = ll[1].split('-') # must now be not a min_all: _____ - nochild_var
                 symrule = 'Min('+replace_names_sympy(lll[0], child_name, 0)
@@ -378,7 +378,7 @@ class BaseRules():
                 symrule += ')-'+replace_names_sympy(lll[1], child_name)
                 all_min.append(symrule)
                 #all_rules.append(symrule)
-                print('  replaced min_all', ll[1], symrule)
+                #print('  replaced min_all', ll[1], symrule)
             if ll[0] == 'max_all':
                 lll = ll[1].split('-') # must now be not a min_all: _____ - nochild_var
                 symrule = 'Max('+replace_names_sympy(lll[0], child_name, 0)
@@ -387,14 +387,14 @@ class BaseRules():
                 symrule += ')-'+replace_names_sympy(lll[1], child_name)
                 all_min.append(symrule)
                 #all_rules.append(symrule)
-                print('  replaced max_all', ll[1], symrule)
+                #print('  replaced max_all', ll[1], symrule)
             if ll[0] == 'not_neg': # not sure if it should be exactly the same as min_all, we will see
-                print(len(eval(child_name)))
+                #print(len(eval(child_name)))
                 for i in range(len(eval(child_name))):
                     symrule = replace_names_sympy(ll[1], child_name, i)
                     all_checks.append(symrule)
-                    print('  replaced not_neg', ll[1], symrule)
-        print(all_rules, all_checks)
+                    #print('  replaced not_neg', ll[1], symrule)
+        #print(all_rules, all_checks)
         if BaseRules.all_equations_rules is not None:
             BaseRules.all_equations_rules += all_rules
             BaseRules.all_equations_checks += all_checks
