@@ -834,6 +834,28 @@ def key(event):
         
         # *************************************
         testpage.clean_all_equations()
+        deb_local_eq = actualWord.full_restrictions()
+        rrs = BaseRules.all_equations_rules+testpage.all_equations_min
+        print(rrs)
+        list_vars = []
+        for rrr in rrs:
+            testtokens = tokenize(BytesIO(rrr.encode('utf-8')).readline)
+            for tt in testtokens:
+                #print(tt)
+                if tt.type == 1:
+                    if tt.string[:3] =='cid' and tt.string not in list_vars:
+                        list_vars.append(tt.string)
+        list_vars.sort()
+        list_vars.reverse()
+        print(list_vars[:])
+
+        
+        sr = sym.solve(rrs,list_vars)
+        print(len(sr), len(list_vars), sr)
+        print('rest', [l for l in list_vars if sym.sympify(l) not in sr])
+        print('**********************************************')
+        
+        testpage.clean_all_equations()
         full = testpage.full_restrictions(debug=0)
         print(testpage.all_equations_rules, testpage.all_equations_checks)
         for (ii,vv) in BaseRules.classid_dict.items():
