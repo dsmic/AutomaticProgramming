@@ -14,7 +14,7 @@ from tokenize import tokenize
 from io import BytesIO
 import numpy as np
 import sympy as sym
-from sympy import Min, Max, N
+from sympy import Min, Max, N # needed in sympy equations
 
 #from random import normalvariate
 
@@ -74,15 +74,17 @@ class BaseRules():
     class_id_counter = 0
     classid_dict = {}
 
-    all_equations_rules = None
-    all_equations_checks = None
-    all_equations_min = None
+    all_equations_rules = []
+    all_equations_checks = []
+    all_equations_min = []
 
-    def clean_all_equations(self):
+    @classmethod
+    def clean_all_equations(cls):
         BaseRules.all_equations_rules = []
         BaseRules.all_equations_checks = []
         BaseRules.all_equations_min = []
-    def stop_all_equations(self):
+    @classmethod
+    def stop_all_equations(cls):
         BaseRules.all_equations_rules = None
         BaseRules.all_equations_checks = None
         BaseRules.all_equations_min = None
@@ -113,6 +115,8 @@ class BaseRules():
         self.clean()
         self.childs = []
         self.class_id = 'cid' + str(BaseRules.class_id_counter)
+        self.solved_equations = None
+        self.free_vars = None
         BaseRules.classid_dict[self.class_id] = self
         BaseRules.class_id_counter += 1
         print(self.class_id, self.class_id_counter)
@@ -234,6 +238,39 @@ class BaseRules():
             raise ValueError('should not be possible')
         else:
             return self.try_set(old_set[0], old_set[1], thecode)
+
+    def solve_equations(self):
+        self.clean_all_equations()
+        self.full_restrictions()
+        rrs = BaseRules.all_equations_rules+testpage.all_equations_min
+        print(rrs)
+        # this are the vars of childs
+        list_vars = []
+        # this are vars of self, they could be keep unsolved, as they are the parameters
+        list_vars_self = []
+        for rrr in rrs:
+            testtokens = tokenize(BytesIO(rrr.encode('utf-8')).readline)
+            for tt in testtokens:
+                #print(tt)
+                if tt.type == 1:
+                    if tt.string.split('_')[0] == self.class_id and tt.string not in list_vars+list_vars_self:
+                        list_vars_self.append(tt.string)
+                    elif tt.string[:3] == 'cid' and tt.string not in list_vars:
+                        list_vars.append(tt.string)
+        print(list_vars)
+        print(list_vars_self)
+
+        sr = sym.solve(rrs, list_vars+list_vars_self)
+        print(len(sr), len(list_vars+list_vars_self), sr)
+        free_vars = [l for l in list_vars+list_vars_self if sym.sympify(l) not in sr]
+        print('rest', free_vars)
+        print('**********************************************')
+
+        # all parameters below can be set with solved_equations from free_vars now
+        self.solved_equations = sr
+        self.free_vars = free_vars
+
+        return (sr, free_vars)
 
 
     def rule(self, rulestring, child_name='self.childs'):
@@ -833,27 +870,30 @@ def key(event):
         #     d.draw()
 
         # *************************************
-        testpage.clean_all_equations()
-        actualWord.full_restrictions()
-        rrs = BaseRules.all_equations_rules+testpage.all_equations_min
-        print(rrs)
-        list_vars = []
-        for rrr in rrs:
-            testtokens = tokenize(BytesIO(rrr.encode('utf-8')).readline)
-            for tt in testtokens:
-                #print(tt)
-                if tt.type == 1:
-                    if tt.string[:3] == 'cid' and tt.string not in list_vars:
-                        list_vars.append(tt.string)
-        list_vars.sort()
-        list_vars.reverse()
-        print(list_vars[:])
+        # testpage.clean_all_equations()
+        # actualWord.full_restrictions()
+        # rrs = BaseRules.all_equations_rules+testpage.all_equations_min
+        # print(rrs)
+        # list_vars = []
+        # for rrr in rrs:
+        #     testtokens = tokenize(BytesIO(rrr.encode('utf-8')).readline)
+        #     for tt in testtokens:
+        #         #print(tt)
+        #         if tt.type == 1:
+        #             if tt.string[:3] == 'cid' and tt.string not in list_vars:
+        #                 list_vars.append(tt.string)
+        # list_vars.sort()
+        # list_vars.reverse()
+        # print(list_vars[:])
 
 
-        sr = sym.solve(rrs, list_vars)
-        print(len(sr), len(list_vars), sr)
-        print('rest', [l for l in list_vars if sym.sympify(l) not in sr])
-        print('**********************************************')
+        # sr = sym.solve(rrs, list_vars)
+        # print(len(sr), len(list_vars), sr)
+        # print('rest', [l for l in list_vars if sym.sympify(l) not in sr])
+        # print('**********************************************')
+
+        res_eq = actualWord.solve_equations()
+        print(res_eq)
 
         testpage.clean_all_equations()
         full = testpage.full_restrictions(debug=0)
