@@ -270,9 +270,21 @@ class BaseRules():
         self.solved_equations = sr
         self.free_vars = free_vars
 
-        return (sr, free_vars)
+        only_local_eq = {}
+        for (s, v) in self.solved_equations.items():
+            if repr(s) in list_vars_self: #[sym.sympify(l) for l in list_vars_self]:
+                only_local_eq[s] = v
+        eqs_reduced=[]
+        for (s, v) in only_local_eq.items():
+            eq = repr(s)+'-('+repr(v)+')'
+            print('eq',eq)
+            eqs_reduced.append(eq)
+        return (sr, free_vars, only_local_eq, eqs_reduced)
 
-
+    def set_from_free_vars(self, eq_solved, free_vars_dict):
+        for l, v in eq_solved.items():
+            print(l, eval(repr(v), free_vars_dict))
+            
     def rule(self, rulestring, child_name='self.childs'):
         """
         Parameters
@@ -894,6 +906,9 @@ def key(event):
 
         res_eq = actualWord.solve_equations()
         print(res_eq)
+        try_set = {'cid2_top':4, 'cid2_right':66}
+        
+        actualWord.set_from_free_vars(res_eq[0], try_set)
 
         testpage.clean_all_equations()
         full = testpage.full_restrictions(debug=0)
