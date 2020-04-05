@@ -117,6 +117,7 @@ class BaseRules():
         self.class_id = 'cid' + str(BaseRules.class_id_counter)
         self.solved_equations = None
         self.free_vars = None
+        self.eqs_reduced = None
         BaseRules.classid_dict[self.class_id] = self
         BaseRules.class_id_counter += 1
         print(self.class_id, self.class_id_counter)
@@ -156,6 +157,9 @@ class BaseRules():
         return True
 
     def full_restrictions(self, debug=0):
+        if self.eqs_reduced is not None:
+            BaseRules.all_equations_rules += self.eqs_reduced
+            return self.eqs_reduced
         ret = self.restrictions()
         for c in self.childs:
             ret += c.full_restrictions(debug=debug)
@@ -274,17 +278,31 @@ class BaseRules():
         for (s, v) in self.solved_equations.items():
             if repr(s) in list_vars_self: #[sym.sympify(l) for l in list_vars_self]:
                 only_local_eq[s] = v
-        eqs_reduced=[]
+        self.eqs_reduced = []
         for (s, v) in only_local_eq.items():
             eq = repr(s)+'-('+repr(v)+')'
-            print('eq',eq)
-            eqs_reduced.append(eq)
-        return (sr, free_vars, only_local_eq, eqs_reduced)
+            print('eq', eq)
+            self.eqs_reduced.append(eq)
+        return (sr, free_vars, only_local_eq, self.eqs_reduced)
 
-    def set_from_free_vars(self, eq_solved, free_vars_dict):
-        for l, v in eq_solved.items():
-            print(l, eval(repr(v), free_vars_dict))
+    def set_from_free_vars(self, free_vars_dict):
+        if self.eqs_reduced is not None:
+#            return
+            for l, v in self.solved_equations.items():
+                print(l,v)
+                v = eval(repr(v), free_vars_dict)
+                print(l, v)
+                # they can be written into all parameters now
+                vs = str(l).split('_')
+                assert len(vs) == 2
+                BaseRules.classid_dict[vs[0]].setVar(vs[1], N(v))
+        print('going into ', self.class_id)
+        for wwww in self.childs:
+            print('wwww', wwww.class_id)
             
+            wwww.set_from_free_vars(free_vars_dict)
+  
+        
     def rule(self, rulestring, child_name='self.childs'):
         """
         Parameters
@@ -625,7 +643,8 @@ class Line(BaseRules):
         if len(ll) > 0:
             ret += self.rule('firstchild.left = left')
             if len(ll) > 1:
-                ret += self.rule('min_all: lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
+#                ret += self.rule('min_all: lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
+                ret += self.rule('lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
             ret += self.rule('between: rightchild.left=leftchild.right+5 + freespace')
             ret += self.rule('min_all: child.top - top')
             ret += self.rule('for_all: child.bottom=bottom')
@@ -826,7 +845,7 @@ def key(event):
             BaseRules.classid_dict[vs[0]].setVar(vs[1], value.evalf())
         # **************************************
 
-        testpage.check_to_long2()
+        #testpage.check_to_long2()
         testpage.clean_down()
         actualLine = testpage.childs[-1]
         nextword = True
@@ -904,11 +923,12 @@ def key(event):
         # print('rest', [l for l in list_vars if sym.sympify(l) not in sr])
         # print('**********************************************')
 
+        actualWord.eqs_reduced = None # the Word was changed
         res_eq = actualWord.solve_equations()
         print(res_eq)
-        try_set = {'cid2_top':4, 'cid2_right':66}
-        
-        actualWord.set_from_free_vars(res_eq[0], try_set)
+        try_set = {actualWord.class_id+'_top':88, actualWord.class_id+'_right':66}
+
+        actualWord.set_from_free_vars(try_set)
 
         testpage.clean_all_equations()
         full = testpage.full_restrictions(debug=0)
@@ -920,6 +940,18 @@ def key(event):
         print('nomin', solve_result)
         solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
         print('with', solve_result)
+        
+        fv = {}
+        for (l, v) in solve_result.items():
+            print(l,v)
+            fv[repr(l)]=v
+        actualLine.eqs_reduced = None # the Line was changed
+        actualLine.set_from_free_vars(fv)
+        
+        # for wwww in actualLine.childs:
+        #     print('wwww', wwww.class_id)
+            
+        #     wwww.set_from_free_vars(fv)
 
         for new_string in BaseRules.all_equations_min:
             testtokens = tokenize(BytesIO(new_string.encode('utf-8')).readline)
@@ -944,6 +976,7 @@ def key(event):
         # **************************************
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
+            print(d.class_id)
             d.draw()
 
         #testpage.optimize()
