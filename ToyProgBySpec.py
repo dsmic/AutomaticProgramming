@@ -130,31 +130,32 @@ class BaseRules():
         for l in self.priority:
             self.TheVars[l] = 0
 
-    def clean_down(self):
-        for l in self.priority:
-            if isinstance(self.TheVars[l], tuple):
-                self.TheVars[l] = self.getVar(l)
-        for l in self.childs:
-            l.clean_down()
-        #self.eqs_reduced = None
+    # def clean_down(self):
+    #     pass
+    #     for l in self.priority:
+    #         if isinstance(self.TheVars[l], tuple):
+    #             self.TheVars[l] = self.getVar(l)
+    #     for l in self.childs:
+    #         l.clean_down()
+    #     #self.eqs_reduced = None
 
     def getVar(self, name):
-        val = self.TheVars[name]
-        if isinstance(val, tuple):
-            obj, code = val
-            return eval(code, {'self': obj})
-        else:
-            if name in self.priority:
-                BaseRules.all_vars_used[(self, name)] = 1
-            return val #+ normalvariate(0, 0.001)
+        return self.TheVars[name]
+        # if isinstance(val, tuple):
+        #     obj, code = val
+        #     return eval(code, {'self': obj})
+        # else:
+        #     if name in self.priority:
+        #         BaseRules.all_vars_used[(self, name)] = 1
+        #     return val #+ normalvariate(0, 0.001)
 
     def setVar(self, name, value):
-        if name in self.TheVars and isinstance(self.TheVars[name], tuple):
-            #print('name is',name, self.TheVars[name], value)
-            if not isinstance(value, tuple):
-                return False
-            if self.TheVars[name] != value:
-                return False
+        # if name in self.TheVars and isinstance(self.TheVars[name], tuple):
+        #     #print('name is',name, self.TheVars[name], value)
+        #     if not isinstance(value, tuple):
+        #         return False
+        #     if self.TheVars[name] != value:
+        #         return False
         self.TheVars[name] = value
         return True
 
@@ -162,12 +163,12 @@ class BaseRules():
         if self.eqs_reduced is not None:
             BaseRules.all_equations_rules += self.eqs_reduced
             return self.eqs_reduced
-        ret = self.restrictions()
+        self.restrictions()
         for c in self.childs:
-            ret += c.full_restrictions(debug=debug)
-        if debug and len(ret) > 0:
-            print("full", type(self).__name__, len(ret), ret)
-        return ret
+            c.full_restrictions(debug=debug)
+        #if debug and len(ret) > 0:
+        #    print("full", type(self).__name__, len(ret), ret)
+        #return ret
 
     def get_all_self_and_childs(self):
         ret = [self]
@@ -175,75 +176,75 @@ class BaseRules():
             ret += c.get_all_self_and_childs()
         return ret
 
-    def optimize(self, scale=1.0, debug=False):
-        jakobi_list = []
-        BaseRules.all_vars_used.clear()
-        all_vars_opt = BaseRules.all_vars_used.keys()
-        before = self.full_restrictions()
-        #print('vv_',len(all_vars_opt), all_vars_opt)
-        before = self.full_restrictions(debug=0)  # must be called several times, as the reference chains may be created one by one
-        #print('vv0',len(all_vars_opt), all_vars_opt)
-        deb_var = []
-        if debug:
-            print('vars_to_opt', all_vars_opt)
-            print('before', before)
-        for (obj, vv) in all_vars_opt:
-            #print('vv1',len(all_vars_opt))
-            tmp = obj.getVar(vv)
-            deb_var.append(tmp)
-            #print('vv2',len(all_vars_opt))
-            obj.setVar(vv, tmp + 1)
-            #print('vv3',len(all_vars_opt), all_vars_opt)
-            after = self.full_restrictions()
-            #print('vv4',len(all_vars_opt), all_vars_opt)
-            #print('###',before,after)
-            diff = list(map(operator.sub, after, before))
-            #print('vv5',len(all_vars_opt))
-            obj.setVar(vv, tmp)
-            #print('vv6',len(all_vars_opt))
-            jakobi_list.append(diff)
-            #print('vv7',len(all_vars_opt))
-        f_x = np.array(before)
-        JK = np.array(jakobi_list)
-        JK_t = JK.transpose()
-        #JK_t_i = np.linalg.pinv(JK_t, rcond=0.00001)
-        #delta = np.dot(JK_t_i, f_x)
-        delta = np.linalg.lstsq(JK_t, f_x, rcond=0.00001)[0]
-        #print(delta)
-        i = 0
-        for (obj, vv) in all_vars_opt:
-            obj.setVar(vv, obj.getVar(vv) - delta[i] * scale)
-            i += 1
-        check = self.full_restrictions()
-        i = 0
-        print('len of optimizing', len(check))
-        isok = True
-        sum_abs = 0
-        for d in check:
-            sum_abs += abs(d)
-            if abs(d) > 3:
-                print('-opt-', i, d)
-                isok = False
-            i += 1
-        # if not isok:
-        #     print(' ', before)
-        #     print(' ', delta)
-        #     print(' ', jakobi_list)
-        #     print(' ', deb_var)
-        return isok and sum_abs < 5
+    # def optimize(self, scale=1.0, debug=False):
+    #     jakobi_list = []
+    #     BaseRules.all_vars_used.clear()
+    #     all_vars_opt = BaseRules.all_vars_used.keys()
+    #     before = self.full_restrictions()
+    #     #print('vv_',len(all_vars_opt), all_vars_opt)
+    #     before = self.full_restrictions(debug=0)  # must be called several times, as the reference chains may be created one by one
+    #     #print('vv0',len(all_vars_opt), all_vars_opt)
+    #     deb_var = []
+    #     if debug:
+    #         print('vars_to_opt', all_vars_opt)
+    #         print('before', before)
+    #     for (obj, vv) in all_vars_opt:
+    #         #print('vv1',len(all_vars_opt))
+    #         tmp = obj.getVar(vv)
+    #         deb_var.append(tmp)
+    #         #print('vv2',len(all_vars_opt))
+    #         obj.setVar(vv, tmp + 1)
+    #         #print('vv3',len(all_vars_opt), all_vars_opt)
+    #         after = self.full_restrictions()
+    #         #print('vv4',len(all_vars_opt), all_vars_opt)
+    #         #print('###',before,after)
+    #         diff = list(map(operator.sub, after, before))
+    #         #print('vv5',len(all_vars_opt))
+    #         obj.setVar(vv, tmp)
+    #         #print('vv6',len(all_vars_opt))
+    #         jakobi_list.append(diff)
+    #         #print('vv7',len(all_vars_opt))
+    #     f_x = np.array(before)
+    #     JK = np.array(jakobi_list)
+    #     JK_t = JK.transpose()
+    #     #JK_t_i = np.linalg.pinv(JK_t, rcond=0.00001)
+    #     #delta = np.dot(JK_t_i, f_x)
+    #     delta = np.linalg.lstsq(JK_t, f_x, rcond=0.00001)[0]
+    #     #print(delta)
+    #     i = 0
+    #     for (obj, vv) in all_vars_opt:
+    #         obj.setVar(vv, obj.getVar(vv) - delta[i] * scale)
+    #         i += 1
+    #     check = self.full_restrictions()
+    #     i = 0
+    #     print('len of optimizing', len(check))
+    #     isok = True
+    #     sum_abs = 0
+    #     for d in check:
+    #         sum_abs += abs(d)
+    #         if abs(d) > 3:
+    #             print('-opt-', i, d)
+    #             isok = False
+    #         i += 1
+    #     # if not isok:
+    #     #     print(' ', before)
+    #     #     print(' ', delta)
+    #     #     print(' ', jakobi_list)
+    #     #     print(' ', deb_var)
+    #     return isok and sum_abs < 5
 
-    def try_set(self, where, name, thecode):
-        if name in eval(where).priority:
-            if eval(where).setVar(name, (self, thecode)):
-                return ''
-        return where+".getVar('"+name+"')-("+thecode+")"
+    # def try_set(self, where, name, thecode):
+    #     if name in eval(where).priority:
+    #         if eval(where).setVar(name, (self, thecode)):
+    #             return ''
+    #     return where+".getVar('"+name+"')-("+thecode+")"
 
-    def try_set_new(self, name, thecode):
-        old_set = name.rsplit('.', 1)
-        if len(old_set) == 0:
-            raise ValueError('should not be possible')
-        else:
-            return self.try_set(old_set[0], old_set[1], thecode)
+    # def try_set_new(self, name, thecode):
+    #     old_set = name.rsplit('.', 1)
+    #     if len(old_set) == 0:
+    #         raise ValueError('should not be possible')
+    #     else:
+    #         return self.try_set(old_set[0], old_set[1], thecode)
 
     def solve_equations(self):
         self.clean_all_equations()
@@ -470,72 +471,73 @@ class BaseRules():
             BaseRules.all_equations_min += all_min
 
 
-        ll = rulestring.split(':')
-        if len(ll) == 1:
-            lleq = ll[0].split('=')
-            if len(lleq) == 1:
-                ret = '['+replace_names(ll[0], child_name)+']'
-            else:
-                right_side = replace_names(lleq[1], child_name)
-                left_side = replace_names(lleq[0], child_name)
-                ret = '['+self.try_set_new(left_side, right_side)+']'
-        else:
-            if ll[0] == 'for_all':
-                ret = '['
-                komma = False
-                for i in range(len(eval(child_name))):
-                    lleq = ll[1].split('=')
-                    if len(lleq) == 1:
-                        rr = replace_names(ll[1], child_name, i)
-                        if len(rr) > 0:
-                            ret += rr + ','
-                            komma = True
-                    else:
-                        right_side = replace_names(lleq[1], child_name, i)
-                        left_side = replace_names(lleq[0], child_name, i)
-                        rr = self.try_set_new(left_side, right_side)
-                        if len(rr) > 0:
-                            ret += rr + ','
-                            komma = True
-                if komma: ret = ret[:-1]
-                ret += ']'
-            elif ll[0] == 'between':
-                ret = '['
-                komma = False
-                for i in range(1, len(eval(child_name))):
-                    lleq = ll[1].split('=')
-                    if len(lleq) == 1:
-                        rr = replace_names(ll[1], child_name, i)
-                        if len(rr) > 0:
-                            ret += rr + ','
-                            komma = True
-                    else:
-                        right_side = replace_names(lleq[1], child_name, i)
-                        left_side = replace_names(lleq[0], child_name, i)
-                        #print('inbetw1',left_side,right_side,ret,'#')
-                        rr = self.try_set_new(left_side, right_side)
-                        if len(rr) > 0:
-                            ret += rr + ','
-                            komma = True
-                        #print('inbetw2',left_side,right_side,ret,'#')
-                if komma: ret = ret[:-1]
-                ret += ']'
-            elif ll[0] == 'min_all':
-                # here references are not possible
-                ret = 'min_all('+child_name +', lambda i: '
-                ret += replace_names(ll[1], child_name)
-                ret += ')'
-            elif ll[0] == 'max_all':
-                ret = '[]'
-            elif ll[0] == 'not_neg':
-                # here references are not possible
-                ret = 'not_neg('+child_name +', lambda i: '
-                ret += replace_names(ll[1], child_name)
-                ret += ')'
+        # ll = rulestring.split(':')
+        # if len(ll) == 1:
+        #     lleq = ll[0].split('=')
+        #     if len(lleq) == 1:
+        #         ret = '['+replace_names(ll[0], child_name)+']'
+        #     else:
+        #         right_side = replace_names(lleq[1], child_name)
+        #         left_side = replace_names(lleq[0], child_name)
+        #         ret = '['+self.try_set_new(left_side, right_side)+']'
+        # else:
+        #     if ll[0] == 'for_all':
+        #         ret = '['
+        #         komma = False
+        #         for i in range(len(eval(child_name))):
+        #             lleq = ll[1].split('=')
+        #             if len(lleq) == 1:
+        #                 rr = replace_names(ll[1], child_name, i)
+        #                 if len(rr) > 0:
+        #                     ret += rr + ','
+        #                     komma = True
+        #             else:
+        #                 right_side = replace_names(lleq[1], child_name, i)
+        #                 left_side = replace_names(lleq[0], child_name, i)
+        #                 rr = self.try_set_new(left_side, right_side)
+        #                 if len(rr) > 0:
+        #                     ret += rr + ','
+        #                     komma = True
+        #         if komma: ret = ret[:-1]
+        #         ret += ']'
+        #     elif ll[0] == 'between':
+        #         ret = '['
+        #         komma = False
+        #         for i in range(1, len(eval(child_name))):
+        #             lleq = ll[1].split('=')
+        #             if len(lleq) == 1:
+        #                 rr = replace_names(ll[1], child_name, i)
+        #                 if len(rr) > 0:
+        #                     ret += rr + ','
+        #                     komma = True
+        #             else:
+        #                 right_side = replace_names(lleq[1], child_name, i)
+        #                 left_side = replace_names(lleq[0], child_name, i)
+        #                 #print('inbetw1',left_side,right_side,ret,'#')
+        #                 rr = self.try_set_new(left_side, right_side)
+        #                 if len(rr) > 0:
+        #                     ret += rr + ','
+        #                     komma = True
+        #                 #print('inbetw2',left_side,right_side,ret,'#')
+        #         if komma: ret = ret[:-1]
+        #         ret += ']'
+        #     elif ll[0] == 'min_all':
+        #         # here references are not possible
+        #         ret = 'min_all('+child_name +', lambda i: '
+        #         ret += replace_names(ll[1], child_name)
+        #         ret += ')'
+        #     elif ll[0] == 'max_all':
+        #         ret = '[]'
+        #     elif ll[0] == 'not_neg':
+        #         # here references are not possible
+        #         ret = 'not_neg('+child_name +', lambda i: '
+        #         ret += replace_names(ll[1], child_name)
+        #         ret += ')'
 
-        # if len(ret)>2:
-        #     print(self.__class__.__name__, ret)
-        return eval(ret, dict(self=self, for_all=for_all, min_all=min_all, not_neg=not_neg, between=between))
+        # # if len(ret)>2:
+        # #     print(self.__class__.__name__, ret)
+        # return eval(ret, dict(self=self, for_all=for_all, min_all=min_all, not_neg=not_neg, between=between))
+        #return []
 
 
     def restrictions(self):
@@ -575,24 +577,24 @@ class BaseRules():
                 print('name not defined')
 
 
-    def check_to_long2(self):
-        ll = self.childs
-        print('to long from restrictions2', self.__class__.__name__, self.full_restrictions(), sum(map(abs, self.full_restrictions())))
+    # def check_to_long2(self):
+    #     ll = self.childs
+    #     print('to long from restrictions2', self.__class__.__name__, self.full_restrictions(), sum(map(abs, self.full_restrictions())))
 
-        if len(ll) > 0:
-            got = ll[-1].check_to_long2()
-            print('got', self.__class__.__name__, got)
-            if got is not None:
-                # pylint: disable=E1111
-                l = self.child_type()
-                l.add_child(got)
-                self.add_child(l)
-                return None
+    #     if len(ll) > 0:
+    #         got = ll[-1].check_to_long2()
+    #         print('got', self.__class__.__name__, got)
+    #         if got is not None:
+    #             # pylint: disable=E1111
+    #             l = self.child_type()
+    #             l.add_child(got)
+    #             self.add_child(l)
+    #             return None
 
-        if sum(map(abs, self.full_restrictions())) > 6:
-            return ll.pop()
+    #     if sum(map(abs, self.full_restrictions())) > 6:
+    #         return ll.pop()
 
-        return None
+    #     return None
 
 class Character(BaseRules):
     def draw(self):
@@ -616,7 +618,8 @@ class Character(BaseRules):
         self.add_property_setable('width')
 
     def restrictions(self):
-        return self.rule('top=bottom-height') + self.rule('right=left+width')
+        self.rule('top=bottom-height')
+        self.rule('right=left+width')
 
 class Word(BaseRules):
     def __init__(self):
@@ -630,7 +633,7 @@ class Word(BaseRules):
         if self.char_pos >= 0:
             self.childs.insert(self.char_pos, l)
             self.char_pos += 1
-            self.clean_down()
+            #self.clean_down()
             #for d in self.childs:
                  #print(d.TheCharacter, d.TheVars['left'], d.TheVars['right'])
         else:
@@ -638,15 +641,15 @@ class Word(BaseRules):
         return l
 
     def restrictions(self):
-        ret = []
+        #ret = []
         if len(self.childs) > 0:
-            ret += self.rule('firstchild.left=left')
-            ret += self.rule('max_all: child.height - height')
-            ret += self.rule('top + height - bottom')
-            ret += self.rule('for_all: child.bottom=bottom')
-            ret += self.rule('between: rightchild.left=leftchild.right')
-            ret += self.rule('right=lastchild.right')
-        return ret
+            self.rule('firstchild.left=left')
+            self.rule('max_all: child.height - height')
+            self.rule('top + height - bottom')
+            self.rule('for_all: child.bottom=bottom')
+            self.rule('between: rightchild.left=leftchild.right')
+            self.rule('right=lastchild.right')
+        #return ret
 
 class Line(BaseRules):
     def __init__(self):
@@ -662,18 +665,18 @@ class Line(BaseRules):
         return l
 
     def restrictions(self):
-        ret = []
+        #ret = []
         ll = self.childs
         if len(ll) > 0:
-            ret += self.rule('firstchild.left = left')
+            self.rule('firstchild.left = left')
             if len(ll) > 1:
 #                ret += self.rule('min_all: lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
-                ret += self.rule('lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
-            ret += self.rule('between: rightchild.left=leftchild.right+5 + freespace')
-            ret += self.rule('min_all: child.top - top')
-            ret += self.rule('for_all: child.bottom=bottom')
-            ret += self.rule('not_neg: -freespace')
-        return ret
+                self.rule('lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
+            self.rule('between: rightchild.left=leftchild.right+5 + freespace')
+            self.rule('min_all: child.top - top')
+            self.rule('for_all: child.bottom=bottom')
+            self.rule('not_neg: -freespace')
+        #return ret
 
     def check_to_long(self):
         ToLong = None
@@ -714,51 +717,51 @@ class Page(BaseRules):
         return l
 
     def restrictions(self):
-        ret = []
+        #ret = []
         # this must get good syntax later !!!!
         ll = self.childs
         if len(ll) > 0:
-            ret += self.rule('firstchild.top = top ')
-            ret += self.rule('for_all: child.left=left')
-            ret += self.rule('for_all: child.right=right')
-            ret += self.rule('between: rightchild.top = leftchild.bottom')
-        return ret
+            self.rule('firstchild.top = top ')
+            self.rule('for_all: child.left=left')
+            self.rule('for_all: child.right=right')
+            self.rule('between: rightchild.top = leftchild.bottom')
+        #return ret
 
-    def check_to_long(self):
-        # better check for problems with optimizing?
-        # How to define the action?
-        # firstchild or rightchild
-        # to left or to right
-        # possibly
-        global actualLine
-        add = None
+    # def check_to_long(self):
+    #     # better check for problems with optimizing?
+    #     # How to define the action?
+    #     # firstchild or rightchild
+    #     # to left or to right
+    #     # possibly
+    #     global actualLine
+    #     add = None
 
-        # check for transfer from one child to the next (would be not necessary if not allowed to change inbetween
-        # which would also be diffcult to handle if one deletes, as than one must always check backward)
-        # might not be a good idea for the general definition
+    #     # check for transfer from one child to the next (would be not necessary if not allowed to change inbetween
+    #     # which would also be diffcult to handle if one deletes, as than one must always check backward)
+    #     # might not be a good idea for the general definition
 
-        # maybe changing back to only allow forward construction in the definition and let the AI
-        # generate more general code????
+    #     # maybe changing back to only allow forward construction in the definition and let the AI
+    #     # generate more general code????
 
-        for l in self.childs:
-            #print('ctl')
-            if add is not None:
-                l.childs.insert(0, add)
-                print('inserted')
-            add = l.check_to_long()
-        if add is not None:
-            add.clean()
-            actualLine = self.addLine()
-            actualLine.childs.append(add)
-            add = None
-            print('nl')
-        ToLong = None
-        ll = self.childs
-        if len(ll) > 0:
-            if ll[-1].getVar('bottom') > self.getVar('bottom'):
-                ToLong = ll.pop()
-        print('ready', ToLong)
-        return ToLong
+    #     for l in self.childs:
+    #         #print('ctl')
+    #         if add is not None:
+    #             l.childs.insert(0, add)
+    #             print('inserted')
+    #         add = l.check_to_long()
+    #     if add is not None:
+    #         add.clean()
+    #         actualLine = self.addLine()
+    #         actualLine.childs.append(add)
+    #         add = None
+    #         print('nl')
+    #     ToLong = None
+    #     ll = self.childs
+    #     if len(ll) > 0:
+    #         if ll[-1].getVar('bottom') > self.getVar('bottom'):
+    #             ToLong = ll.pop()
+    #     print('ready', ToLong)
+    #     return ToLong
 
 
 testpage = Page()
@@ -974,7 +977,8 @@ def key(event):
             print(l, v)
             fv[repr(l)] = v
         #actualLine.eqs_reduced = None # the Line was changed
-        #actualLine.set_from_free_vars(fv)
+        testpage.set_from_free_vars(fv)
+        #actualWord.set_from_free_vars(fv)
 
         # for wwww in actualLine.childs:
         #     print('wwww', wwww.class_id)
