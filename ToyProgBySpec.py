@@ -68,7 +68,7 @@ def between(ll, compare):
 
 class BaseRules():
     priority = None # has to be overwritten by child instance variable
-    all_vars_used = {}
+
     class_id_counter = 0
     classid_dict = {}
 
@@ -139,9 +139,6 @@ class BaseRules():
         self.restrictions()
         for c in self.childs:
             c.full_restrictions(debug=debug)
-        #if debug and len(ret) > 0:
-        #    print("full", type(self).__name__, len(ret), ret)
-        #return ret
 
     def get_all_self_and_childs(self):
         ret = [self]
@@ -153,7 +150,6 @@ class BaseRules():
         self.clean_all_equations()
         self.full_restrictions()
         rrs = BaseRules.all_equations_rules+testpage.all_equations_min
-        #print(rrs)
         # this are the vars of childs
         list_vars = []
         # this are vars of self, they could be keep unsolved, as they are the parameters
@@ -182,24 +178,18 @@ class BaseRules():
         self.eqs_reduced = []
         for (s, v) in only_local_eq.items():
             eq = repr(s)+'-('+repr(v)+')'
-            #print('eq', eq)
             self.eqs_reduced.append(eq)
-        #return (sr, free_vars, only_local_eq, self.eqs_reduced)
 
     def set_from_free_vars(self, free_vars_dict):
         if self.eqs_reduced is not None:
             for l, v in self.solved_equations.items():
-                #print(l, v)
                 v = eval(repr(v), free_vars_dict)
-                #print(l, v)
                 # they can be written into all parameters now
                 free_vars_dict[repr(l)] = v
                 vs = str(l).split('_')
                 assert len(vs) == 2
                 BaseRules.classid_dict[vs[0]].setVar(vs[1], N(v))
-        #print('going into ', self.class_id)
         for wwww in self.childs:
-            #print('wwww', wwww.class_id)
             wwww.set_from_free_vars(free_vars_dict)
 
 
@@ -277,9 +267,6 @@ class BaseRules():
                     final_string += ttr
 
             return final_string
-
-
-
 
         ll = rulestring.split(':')
         all_rules = []
@@ -366,7 +353,6 @@ class Character(BaseRules):
     def __init__(self, ch):
         # this my be created automatically from rules, buth than fixed ones from add_property must stay by hand I think
         # Maybe should be kept like this, as this helps organizing what to use (as defining vars in other programming languages)
-
         self.priority = ['top', 'left', 'right', 'bottom'] #Later this should be syntactically improved
 
         #fixed content not changed by other variables
@@ -393,23 +379,17 @@ class Word(BaseRules):
         if self.char_pos >= 0:
             self.childs.insert(self.char_pos, l)
             self.char_pos += 1
-            #self.clean_down()
-            #for d in self.childs:
-                 #print(d.TheCharacter, d.TheVars['left'], d.TheVars['right'])
         else:
             self.childs.append(l)
         return l
 
     def restrictions(self):
-        #ret = []
-        if len(self.childs) > 0:
-            self.rule('firstchild.left=left')
-            self.rule('max_all: child.height - height')
-            self.rule('top + height - bottom')
-            self.rule('for_all: child.bottom=bottom')
-            self.rule('between: rightchild.left=leftchild.right')
-            self.rule('right=lastchild.right')
-        #return ret
+        self.rule('firstchild.left=left')
+        self.rule('max_all: child.height - height')
+        self.rule('top + height - bottom')
+        self.rule('for_all: child.bottom=bottom')
+        self.rule('between: rightchild.left=leftchild.right')
+        self.rule('right=lastchild.right')
 
 class Line(BaseRules):
     def __init__(self):
@@ -425,17 +405,13 @@ class Line(BaseRules):
         return l
 
     def restrictions(self):
-        #ret = []
-        ll = self.childs
-        if len(ll) > 0:
-            self.rule('firstchild.left = left')
-            if len(ll) > 1:
-                self.rule('lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
-            self.rule('between: rightchild.left=leftchild.right+5 + freespace')
-            self.rule('min_all: child.top - top')
-            self.rule('for_all: child.bottom=bottom')
-            self.rule('not_neg: -freespace')
-        #return ret
+        self.rule('firstchild.left = left')
+        if len(self.childs) > 1: #this rule only applies, if there are two or more words in a line, otherwize it is not possible to match left and right!
+            self.rule('lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
+        self.rule('between: rightchild.left=leftchild.right+5 + freespace')
+        self.rule('min_all: child.top - top')
+        self.rule('for_all: child.bottom=bottom')
+        self.rule('not_neg: -freespace')
 
 class Page(BaseRules):
     def __init__(self):
@@ -456,14 +432,10 @@ class Page(BaseRules):
         return l
 
     def restrictions(self):
-        #ret = []
-        # this must get good syntax later !!!!
-        ll = self.childs
-        if len(ll) > 0:
-            self.rule('firstchild.top = top ')
-            self.rule('for_all: child.left=left')
-            self.rule('for_all: child.right=right')
-            self.rule('between: rightchild.top = leftchild.bottom')
+        self.rule('firstchild.top = top ')
+        self.rule('for_all: child.left=left')
+        self.rule('for_all: child.right=right')
+        self.rule('between: rightchild.top = leftchild.bottom')
 
 testpage = Page()
 
@@ -527,8 +499,6 @@ def click(event):
     print('line', testpage.line_pos, 'word', actualLine.word_pos, 'char', actualWord.char_pos)
     printinfos()
 
-
-
 def printinfos():
     print('Page')
     for k, v in testpage.TheVars.items():
@@ -545,8 +515,6 @@ def printinfos():
                 print('Char')
                 for k, v in c.TheVars.items():
                     print('            ', k, v, c.getVar(k))
-
-
 
 nextword = False
 def key(event):
@@ -585,6 +553,11 @@ def key(event):
                 vs = str(vv).split('_')
                 assert len(vs) == 2
                 BaseRules.classid_dict[vs[0]].setVar(vs[1], value.evalf())
+            fv = {}
+            for (l, v) in solve_result.items():
+                #print(l, v)
+                fv[repr(l)] = v
+            testpage.set_from_free_vars(fv)
 
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
