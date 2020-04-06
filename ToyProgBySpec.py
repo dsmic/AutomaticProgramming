@@ -166,17 +166,9 @@ class BaseRules():
                         list_vars_self.append(tt.string)
                     elif tt.string[:3] == 'cid' and tt.string not in list_vars:
                         list_vars.append(tt.string)
-        #print(list_vars)
-        #print(list_vars_self)
 
         sr = sym.solve(rrs, list_vars+list_vars_self, dict=True)[0]
-        # print('1', sr)
-        # sr = sym.solve(rrs, list_vars+list_vars_self)
-        # print('2', sr)
-        #print(len(sr), len(list_vars+list_vars_self), sr)
         free_vars = [l for l in list_vars+list_vars_self if sym.sympify(l) not in sr]
-        #print('rest', free_vars)
-        #print('**********************************************')
 
         # all parameters below can be set with solved_equations from free_vars now
         self.solved_equations = sr
@@ -200,6 +192,7 @@ class BaseRules():
                 v = eval(repr(v), free_vars_dict)
                 #print(l, v)
                 # they can be written into all parameters now
+                free_vars_dict[repr(l)] = v
                 vs = str(l).split('_')
                 assert len(vs) == 2
                 BaseRules.classid_dict[vs[0]].setVar(vs[1], N(v))
@@ -232,36 +225,6 @@ class BaseRules():
             List of elements for the optimizer. References are created as side effect
 
         """
-        # def replace_names(string, child_name, i=None):
-        #     testtokens = tokenize(BytesIO(string.encode('utf-8')).readline)
-        #     new_string = ' '
-        #     afterdot = False
-        #     for tt in testtokens:
-        #         if tt.type == 1:
-        #             # here string replacement will be possible
-        #             ttt = tt.string
-        #             if afterdot:
-        #                 new_string += ttt
-        #                 afterdot = False
-        #             elif ttt == 'firstchild':
-        #                 new_string += child_name +"[0]"
-        #             elif ttt == 'lastchild':
-        #                 new_string += child_name +"[-1]"
-        #             elif ttt in ('child', 'rightchild'):
-        #                 if i is None:
-        #                     new_string += child_name +"[i]"
-        #                 else:
-        #                     new_string += child_name +"["+str(i)+"]"
-        #             elif ttt == 'leftchild':
-        #                 new_string += child_name +"["+str(i-1)+"]"
-        #             else:
-        #                 new_string += "self."+ttt
-        #             afterdot = False
-        #         elif tt.type not in [59, 57]:
-        #             new_string += tt.string
-        #             if tt.string == '.': afterdot = True
-        #     return new_string
-
         def replace_names_sympy(string, child_name, i=None):
             transform_to_null = string.split('=')
             if len(transform_to_null) == 2: #sympy must have equation without written =0
@@ -473,26 +436,6 @@ class Line(BaseRules):
             self.rule('not_neg: -freespace')
         #return ret
 
-    def check_to_long(self):
-        ToLong = None
-        ll = self.childs
-        print('to long from restrictions', self.full_restrictions(), sum(map(abs, self.full_restrictions())))
-
-        # In prinicple this seems to work, but there are problems of convergence of the newton method
-        if sum(map(abs, self.full_restrictions())) > 6:
-            return ll.pop()
-        return None
-
-        # pylint: disable=W0101
-        #old
-        if len(ll) > 0:
-            print('tolong right', ll[-1].getVar('right'), self.getVar('right'))
-            if ll[-1].getVar('right') > self.getVar('right'):
-                ToLong = ll.pop()
-        return ToLong
-
-
-
 class Page(BaseRules):
     def __init__(self):
         self.priority = [] #Later this should be syntactically improved
@@ -625,12 +568,12 @@ def key(event):
 
         #print('checks', testpage.all_equations_checks)
 
-        # lastLine = actualLine
+        lastLine = actualLine
         testpage.check_to_long3(solve_result)
         actualLine = testpage.childs[-1]
-        # if lastLine != actualLine:
-        #     print('new line now')
-        #     lastLine.solve_equations()
+        if lastLine != actualLine:
+            print('new line now')
+            lastLine.solve_equations()
         actualWord = actualLine.childs[-1]
         nextword = True
 
@@ -648,7 +591,7 @@ def key(event):
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
             d.draw()
-        testpage.full_restrictions(debug=0)
+        #testpage.full_restrictions(debug=0)
         # print('full', full)
         # for l in testpage.childs:
         #     print(l, l.TheVars['top'], l.top, l.TheVars['bottom'], l.bottom)
