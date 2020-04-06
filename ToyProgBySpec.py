@@ -12,6 +12,7 @@ from tkinter import Tk, Canvas, mainloop, NW
 from tokenize import tokenize
 from io import BytesIO
 import sympy as sym
+# pylint: disable=W0611
 from sympy import Min, Max, N # needed in sympy equations
 
 def getVariable(name):
@@ -557,44 +558,37 @@ def key(event):
     if ch == ' ':
         testpage.clean_all_equations()
         testpage.full_restrictions(debug=0)
-        #print(testpage.all_equations_rules, testpage.all_equations_checks)
         solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
-        #print(solve_result)
         for (vv, value) in solve_result.items():
             #print(vv, value)
             vs = str(vv).split('_')
             assert len(vs) == 2
             BaseRules.classid_dict[vs[0]].setVar(vs[1], value.evalf())
-
-        #print('checks', testpage.all_equations_checks)
 
         lastLine = actualLine
         testpage.check_to_long3(solve_result)
         actualLine = testpage.childs[-1]
-        if lastLine != actualLine:
-            print('new line now')
-            lastLine.solve_equations()
+
         actualWord = actualLine.childs[-1]
         nextword = True
 
-        testpage.clean_all_equations()
-        testpage.full_restrictions(debug=0)
-        #print(testpage.all_equations_rules, testpage.all_equations_checks)
-        solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
-        #print(solve_result)
-        for (vv, value) in solve_result.items():
-            #print(vv, value)
-            vs = str(vv).split('_')
-            assert len(vs) == 2
-            BaseRules.classid_dict[vs[0]].setVar(vs[1], value.evalf())
+
+        if lastLine != actualLine:
+            print('new line now')
+            lastLine.solve_equations()
+
+            testpage.clean_all_equations()
+            testpage.full_restrictions(debug=0)
+            solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
+            for (vv, value) in solve_result.items():
+                #print(vv, value)
+                vs = str(vv).split('_')
+                assert len(vs) == 2
+                BaseRules.classid_dict[vs[0]].setVar(vs[1], value.evalf())
 
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
             d.draw()
-        #testpage.full_restrictions(debug=0)
-        # print('full', full)
-        # for l in testpage.childs:
-        #     print(l, l.TheVars['top'], l.top, l.TheVars['bottom'], l.bottom)
     else:
         if nextword:
             actualWord = actualLine.addWord()
@@ -613,14 +607,9 @@ def key(event):
 
         testpage.clean_all_equations()
         testpage.full_restrictions(debug=0)
-        # print(testpage.all_equations_rules, testpage.all_equations_checks)
-        # for (ii, vv) in BaseRules.classid_dict.items():
-        #     print(ii, vv)
-        # print('mins', BaseRules.all_equations_min)
-        # solve_result = sym.solve(testpage.all_equations_rules, dict=True)
-        # print('nomin', solve_result)
+
         solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
-        #print('with', solve_result)
+
 
         fv = {}
         for (l, v) in solve_result.items():
@@ -634,7 +623,6 @@ def key(event):
             final_string = ''
             for tt in testtokens:
                 ttr = tt.string
-                #print('tok', ttr)
                 if tt.type == 1:
                     if sym.sympify(ttr) in solve_result:
                         ttr = solve_result[sym.sympify(ttr)].evalf()
@@ -642,19 +630,15 @@ def key(event):
                     final_string += str(ttr)
                 elif tt.type not in [59, 57]:
                     final_string += ttr
-            #print(new_string, final_string)
 
         for (vv, value) in solve_result.items():
-            #print(vv, value)
             vs = str(vv).split('_')
             assert len(vs) == 2
             BaseRules.classid_dict[vs[0]].TheVars[vs[1]] = value.evalf()
 
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
-            #print(d.class_id)
             d.draw()
-        #print(BaseRules.properties_setable)
 
 w.bind('<Button-1>', click)
 master.bind('<Key>', key)
