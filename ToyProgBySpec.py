@@ -9,14 +9,10 @@ Created on Sun Feb 23 18:53:25 2020
 # pylint: disable=C0301, C0103, C0116, C0321, C0115, R0914, R0912, R0915, R1705, R1720, W0122, W0603, W0123, R1702
 
 from tkinter import Tk, Canvas, mainloop, NW
-import operator
 from tokenize import tokenize
 from io import BytesIO
-import numpy as np
 import sympy as sym
 from sympy import Min, Max, N # needed in sympy equations
-
-#from random import normalvariate
 
 def getVariable(name):
     return name.getVar
@@ -93,7 +89,6 @@ class BaseRules():
     properties_setable = [] # all this have a value set by hand
 
     def draw(self):
-        #print(self, 'char nodraw', round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
         pass
 
     def add_property(self, l):
@@ -130,34 +125,11 @@ class BaseRules():
         for l in self.priority:
             self.TheVars[l] = 0
 
-    # def clean_down(self):
-    #     pass
-    #     for l in self.priority:
-    #         if isinstance(self.TheVars[l], tuple):
-    #             self.TheVars[l] = self.getVar(l)
-    #     for l in self.childs:
-    #         l.clean_down()
-    #     #self.eqs_reduced = None
-
     def getVar(self, name):
         return self.TheVars[name]
-        # if isinstance(val, tuple):
-        #     obj, code = val
-        #     return eval(code, {'self': obj})
-        # else:
-        #     if name in self.priority:
-        #         BaseRules.all_vars_used[(self, name)] = 1
-        #     return val #+ normalvariate(0, 0.001)
 
     def setVar(self, name, value):
-        # if name in self.TheVars and isinstance(self.TheVars[name], tuple):
-        #     #print('name is',name, self.TheVars[name], value)
-        #     if not isinstance(value, tuple):
-        #         return False
-        #     if self.TheVars[name] != value:
-        #         return False
         self.TheVars[name] = value
-        return True
 
     def full_restrictions(self, debug=0):
         if self.eqs_reduced is not None:
@@ -176,81 +148,11 @@ class BaseRules():
             ret += c.get_all_self_and_childs()
         return ret
 
-    # def optimize(self, scale=1.0, debug=False):
-    #     jakobi_list = []
-    #     BaseRules.all_vars_used.clear()
-    #     all_vars_opt = BaseRules.all_vars_used.keys()
-    #     before = self.full_restrictions()
-    #     #print('vv_',len(all_vars_opt), all_vars_opt)
-    #     before = self.full_restrictions(debug=0)  # must be called several times, as the reference chains may be created one by one
-    #     #print('vv0',len(all_vars_opt), all_vars_opt)
-    #     deb_var = []
-    #     if debug:
-    #         print('vars_to_opt', all_vars_opt)
-    #         print('before', before)
-    #     for (obj, vv) in all_vars_opt:
-    #         #print('vv1',len(all_vars_opt))
-    #         tmp = obj.getVar(vv)
-    #         deb_var.append(tmp)
-    #         #print('vv2',len(all_vars_opt))
-    #         obj.setVar(vv, tmp + 1)
-    #         #print('vv3',len(all_vars_opt), all_vars_opt)
-    #         after = self.full_restrictions()
-    #         #print('vv4',len(all_vars_opt), all_vars_opt)
-    #         #print('###',before,after)
-    #         diff = list(map(operator.sub, after, before))
-    #         #print('vv5',len(all_vars_opt))
-    #         obj.setVar(vv, tmp)
-    #         #print('vv6',len(all_vars_opt))
-    #         jakobi_list.append(diff)
-    #         #print('vv7',len(all_vars_opt))
-    #     f_x = np.array(before)
-    #     JK = np.array(jakobi_list)
-    #     JK_t = JK.transpose()
-    #     #JK_t_i = np.linalg.pinv(JK_t, rcond=0.00001)
-    #     #delta = np.dot(JK_t_i, f_x)
-    #     delta = np.linalg.lstsq(JK_t, f_x, rcond=0.00001)[0]
-    #     #print(delta)
-    #     i = 0
-    #     for (obj, vv) in all_vars_opt:
-    #         obj.setVar(vv, obj.getVar(vv) - delta[i] * scale)
-    #         i += 1
-    #     check = self.full_restrictions()
-    #     i = 0
-    #     print('len of optimizing', len(check))
-    #     isok = True
-    #     sum_abs = 0
-    #     for d in check:
-    #         sum_abs += abs(d)
-    #         if abs(d) > 3:
-    #             print('-opt-', i, d)
-    #             isok = False
-    #         i += 1
-    #     # if not isok:
-    #     #     print(' ', before)
-    #     #     print(' ', delta)
-    #     #     print(' ', jakobi_list)
-    #     #     print(' ', deb_var)
-    #     return isok and sum_abs < 5
-
-    # def try_set(self, where, name, thecode):
-    #     if name in eval(where).priority:
-    #         if eval(where).setVar(name, (self, thecode)):
-    #             return ''
-    #     return where+".getVar('"+name+"')-("+thecode+")"
-
-    # def try_set_new(self, name, thecode):
-    #     old_set = name.rsplit('.', 1)
-    #     if len(old_set) == 0:
-    #         raise ValueError('should not be possible')
-    #     else:
-    #         return self.try_set(old_set[0], old_set[1], thecode)
-
     def solve_equations(self):
         self.clean_all_equations()
         self.full_restrictions()
         rrs = BaseRules.all_equations_rules+testpage.all_equations_min
-        print(rrs)
+        #print(rrs)
         # this are the vars of childs
         list_vars = []
         # this are vars of self, they could be keep unsolved, as they are the parameters
@@ -264,14 +166,14 @@ class BaseRules():
                         list_vars_self.append(tt.string)
                     elif tt.string[:3] == 'cid' and tt.string not in list_vars:
                         list_vars.append(tt.string)
-        print(list_vars)
-        print(list_vars_self)
+        #print(list_vars)
+        #print(list_vars_self)
 
         sr = sym.solve(rrs, list_vars+list_vars_self)
-        print(len(sr), len(list_vars+list_vars_self), sr)
+        #print(len(sr), len(list_vars+list_vars_self), sr)
         free_vars = [l for l in list_vars+list_vars_self if sym.sympify(l) not in sr]
-        print('rest', free_vars)
-        print('**********************************************')
+        #print('rest', free_vars)
+        #print('**********************************************')
 
         # all parameters below can be set with solved_equations from free_vars now
         self.solved_equations = sr
@@ -284,25 +186,23 @@ class BaseRules():
         self.eqs_reduced = []
         for (s, v) in only_local_eq.items():
             eq = repr(s)+'-('+repr(v)+')'
-            print('eq', eq)
+            #print('eq', eq)
             self.eqs_reduced.append(eq)
         return (sr, free_vars, only_local_eq, self.eqs_reduced)
 
     def set_from_free_vars(self, free_vars_dict):
         if self.eqs_reduced is not None:
-#            return
             for l, v in self.solved_equations.items():
-                print(l, v)
+                #print(l, v)
                 v = eval(repr(v), free_vars_dict)
-                print(l, v)
+                #print(l, v)
                 # they can be written into all parameters now
                 vs = str(l).split('_')
                 assert len(vs) == 2
                 BaseRules.classid_dict[vs[0]].setVar(vs[1], N(v))
-        print('going into ', self.class_id)
+        #print('going into ', self.class_id)
         for wwww in self.childs:
-            print('wwww', wwww.class_id)
-
+            #print('wwww', wwww.class_id)
             wwww.set_from_free_vars(free_vars_dict)
 
 
@@ -375,22 +275,17 @@ class BaseRules():
                         new_string += ttt
                         afterdot = False
                     elif ttt == 'firstchild':
-                        #new_string += child_name +"[0]"
                         new_string += eval(child_name+'[0].class_id', dict(self=self))
                     elif ttt == 'lastchild':
-                        #new_string += child_name +"[-1]"
                         new_string += eval(child_name+'[-1].class_id', dict(self=self))
                     elif ttt in ('child', 'rightchild'):
                         if i is None:
                             new_string += child_name +"[i]"
                         else:
-                            #new_string += child_name +"["+str(i)+"]"
                             new_string += eval(child_name+'['+str(i)+'].class_id', dict(self=self))
                     elif ttt == 'leftchild':
-                        #new_string += child_name +"["+str(i-1)+"]"
                         new_string += eval(child_name+'['+str(i-1)+'].class_id', dict(self=self))
                     else:
-                        #new_string += "self."+ttt
                         new_string += eval('self.class_id', dict(self=self)) + '_' + ttt
                     afterdot = False
                 elif tt.type not in [59, 57]:
@@ -404,13 +299,11 @@ class BaseRules():
             final_string = ''
             for tt in testtokens:
                 ttr = tt.string
-                #print('tok', ttr)
                 if tt.type == 1:
                     if ttr in BaseRules.properties_setable:
                         tts = ttr.split('_')
                         use = BaseRules.classid_dict[tts[0]]
                         ttr = eval('use.'+tts[1], dict(use=use))
-                        #print('found', tts, use, eval('use.'+tts[1]))
 
                     final_string += str(ttr)
                 elif tt.type not in [59, 57]:
@@ -428,18 +321,15 @@ class BaseRules():
         if len(ll) == 1:
             symrule = replace_names_sympy(rulestring, child_name)
             all_rules.append(symrule)
-            #print('  replaced _______', rulestring, symrule)
         else:
             if ll[0] == 'for_all':
                 for i in range(len(eval(child_name))):
                     symrule = replace_names_sympy(ll[1], child_name, i)
                     all_rules.append(symrule)
-                    #print('  replaced for_all', ll[1], symrule)
             if ll[0] == 'between':
                 for i in range(1, len(eval(child_name))):
                     symrule = replace_names_sympy(ll[1], child_name, i)
                     all_rules.append(symrule)
-                    #print('  replaced between', ll[1], symrule)
             if ll[0] == 'min_all':
                 lll = ll[1].split('-') # must now be not a min_all: _____ - nochild_var
                 symrule = 'Min('+replace_names_sympy(lll[0], child_name, 0)
@@ -447,8 +337,6 @@ class BaseRules():
                     symrule += ',' + replace_names_sympy(lll[0], child_name, i)
                 symrule += ')-'+replace_names_sympy(lll[1], child_name)
                 all_min.append(symrule)
-                #all_rules.append(symrule)
-                #print('  replaced min_all', ll[1], symrule)
             if ll[0] == 'max_all':
                 lll = ll[1].split('-') # must now be not a min_all: _____ - nochild_var
                 symrule = 'Max('+replace_names_sympy(lll[0], child_name, 0)
@@ -456,89 +344,14 @@ class BaseRules():
                     symrule += ',' + replace_names_sympy(lll[0], child_name, i)
                 symrule += ')-'+replace_names_sympy(lll[1], child_name)
                 all_min.append(symrule)
-                #all_rules.append(symrule)
-                #print('  replaced max_all', ll[1], symrule)
             if ll[0] == 'not_neg': # not sure if it should be exactly the same as min_all, we will see
-                #print(len(eval(child_name)))
                 for i in range(len(eval(child_name))):
                     symrule = replace_names_sympy(ll[1], child_name, i)
                     all_checks.append(symrule)
-                    #print('  replaced not_neg', ll[1], symrule)
-        #print(all_rules, all_checks)
         if BaseRules.all_equations_rules is not None:
             BaseRules.all_equations_rules += all_rules
             BaseRules.all_equations_checks += all_checks
             BaseRules.all_equations_min += all_min
-
-
-        # ll = rulestring.split(':')
-        # if len(ll) == 1:
-        #     lleq = ll[0].split('=')
-        #     if len(lleq) == 1:
-        #         ret = '['+replace_names(ll[0], child_name)+']'
-        #     else:
-        #         right_side = replace_names(lleq[1], child_name)
-        #         left_side = replace_names(lleq[0], child_name)
-        #         ret = '['+self.try_set_new(left_side, right_side)+']'
-        # else:
-        #     if ll[0] == 'for_all':
-        #         ret = '['
-        #         komma = False
-        #         for i in range(len(eval(child_name))):
-        #             lleq = ll[1].split('=')
-        #             if len(lleq) == 1:
-        #                 rr = replace_names(ll[1], child_name, i)
-        #                 if len(rr) > 0:
-        #                     ret += rr + ','
-        #                     komma = True
-        #             else:
-        #                 right_side = replace_names(lleq[1], child_name, i)
-        #                 left_side = replace_names(lleq[0], child_name, i)
-        #                 rr = self.try_set_new(left_side, right_side)
-        #                 if len(rr) > 0:
-        #                     ret += rr + ','
-        #                     komma = True
-        #         if komma: ret = ret[:-1]
-        #         ret += ']'
-        #     elif ll[0] == 'between':
-        #         ret = '['
-        #         komma = False
-        #         for i in range(1, len(eval(child_name))):
-        #             lleq = ll[1].split('=')
-        #             if len(lleq) == 1:
-        #                 rr = replace_names(ll[1], child_name, i)
-        #                 if len(rr) > 0:
-        #                     ret += rr + ','
-        #                     komma = True
-        #             else:
-        #                 right_side = replace_names(lleq[1], child_name, i)
-        #                 left_side = replace_names(lleq[0], child_name, i)
-        #                 #print('inbetw1',left_side,right_side,ret,'#')
-        #                 rr = self.try_set_new(left_side, right_side)
-        #                 if len(rr) > 0:
-        #                     ret += rr + ','
-        #                     komma = True
-        #                 #print('inbetw2',left_side,right_side,ret,'#')
-        #         if komma: ret = ret[:-1]
-        #         ret += ']'
-        #     elif ll[0] == 'min_all':
-        #         # here references are not possible
-        #         ret = 'min_all('+child_name +', lambda i: '
-        #         ret += replace_names(ll[1], child_name)
-        #         ret += ')'
-        #     elif ll[0] == 'max_all':
-        #         ret = '[]'
-        #     elif ll[0] == 'not_neg':
-        #         # here references are not possible
-        #         ret = 'not_neg('+child_name +', lambda i: '
-        #         ret += replace_names(ll[1], child_name)
-        #         ret += ')'
-
-        # # if len(ret)>2:
-        # #     print(self.__class__.__name__, ret)
-        # return eval(ret, dict(self=self, for_all=for_all, min_all=min_all, not_neg=not_neg, between=between))
-        #return []
-
 
     def restrictions(self):
         """
@@ -559,12 +372,12 @@ class BaseRules():
     def check_to_long3(self, solve_result):
         fv = {}
         for (l, v) in solve_result.items():
-            print(l, v)
+            #print(l, v)
             fv[repr(l)] = v
         for l in self.all_equations_checks:
             try:
                 v = eval(l, fv)
-                print(l, v)
+                #print(l, v)
                 if v > 0:
                     got = self.childs[-1].childs.pop()
                     self.childs[-1].eqs_reduced = None
@@ -574,27 +387,7 @@ class BaseRules():
                     self.add_child(l)
                     break
             except NameError:
-                print('name not defined')
-
-
-    # def check_to_long2(self):
-    #     ll = self.childs
-    #     print('to long from restrictions2', self.__class__.__name__, self.full_restrictions(), sum(map(abs, self.full_restrictions())))
-
-    #     if len(ll) > 0:
-    #         got = ll[-1].check_to_long2()
-    #         print('got', self.__class__.__name__, got)
-    #         if got is not None:
-    #             # pylint: disable=E1111
-    #             l = self.child_type()
-    #             l.add_child(got)
-    #             self.add_child(l)
-    #             return None
-
-    #     if sum(map(abs, self.full_restrictions())) > 6:
-    #         return ll.pop()
-
-    #     return None
+                print('name not defined, but ok here')
 
 class Character(BaseRules):
     def draw(self):
@@ -670,7 +463,6 @@ class Line(BaseRules):
         if len(ll) > 0:
             self.rule('firstchild.left = left')
             if len(ll) > 1:
-#                ret += self.rule('min_all: lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
                 self.rule('lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
             self.rule('between: rightchild.left=leftchild.right+5 + freespace')
             self.rule('min_all: child.top - top')
@@ -725,44 +517,6 @@ class Page(BaseRules):
             self.rule('for_all: child.left=left')
             self.rule('for_all: child.right=right')
             self.rule('between: rightchild.top = leftchild.bottom')
-        #return ret
-
-    # def check_to_long(self):
-    #     # better check for problems with optimizing?
-    #     # How to define the action?
-    #     # firstchild or rightchild
-    #     # to left or to right
-    #     # possibly
-    #     global actualLine
-    #     add = None
-
-    #     # check for transfer from one child to the next (would be not necessary if not allowed to change inbetween
-    #     # which would also be diffcult to handle if one deletes, as than one must always check backward)
-    #     # might not be a good idea for the general definition
-
-    #     # maybe changing back to only allow forward construction in the definition and let the AI
-    #     # generate more general code????
-
-    #     for l in self.childs:
-    #         #print('ctl')
-    #         if add is not None:
-    #             l.childs.insert(0, add)
-    #             print('inserted')
-    #         add = l.check_to_long()
-    #     if add is not None:
-    #         add.clean()
-    #         actualLine = self.addLine()
-    #         actualLine.childs.append(add)
-    #         add = None
-    #         print('nl')
-    #     ToLong = None
-    #     ll = self.childs
-    #     if len(ll) > 0:
-    #         if ll[-1].getVar('bottom') > self.getVar('bottom'):
-    #             ToLong = ll.pop()
-    #     print('ready', ToLong)
-    #     return ToLong
-
 
 testpage = Page()
 
@@ -855,50 +609,31 @@ def key(event):
     print('key pressed', event, 'bounding', w.bbox(c))
     ch = event.char
     if ch == ' ':
-        # for pos in range(20):
-        #     print('-----', pos, '---')
-        #     if testpage.optimize(0.9):
-        #         break
-        # *************************************
         testpage.clean_all_equations()
         full = testpage.full_restrictions(debug=0)
-        print(testpage.all_equations_rules, testpage.all_equations_checks)
+        #print(testpage.all_equations_rules, testpage.all_equations_checks)
         solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
-        print(solve_result)
+        #print(solve_result)
         for (vv, value) in solve_result.items():
-            print(vv, value)
+            #print(vv, value)
             vs = str(vv).split('_')
             assert len(vs) == 2
             BaseRules.classid_dict[vs[0]].setVar(vs[1], value.evalf())
-        # **************************************
-        print('checks', testpage.all_equations_checks)
 
-
+        #print('checks', testpage.all_equations_checks)
 
         testpage.check_to_long3(solve_result)
-        #testpage.clean_down()
         actualLine = testpage.childs[-1]
         actualWord = actualLine.childs[-1]
         nextword = True
-        #l = actualWord.addCharacter(None)
-        # pylint: disable=W0201 #? dont know why here and not in else
-        #l.width = 0
-        #l.height = 0
-        #l.left = actualWord.right
-        #l.top = actualWord.top
-        # for pos in range(15):
-        #     print('-----', pos, '---')
-        #     if testpage.optimize(1):
-        #         break
-
 
         testpage.clean_all_equations()
         full = testpage.full_restrictions(debug=0)
-        print(testpage.all_equations_rules, testpage.all_equations_checks)
+        #print(testpage.all_equations_rules, testpage.all_equations_checks)
         solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
-        print(solve_result)
+        #print(solve_result)
         for (vv, value) in solve_result.items():
-            print(vv, value)
+            #print(vv, value)
             vs = str(vv).split('_')
             assert len(vs) == 2
             BaseRules.classid_dict[vs[0]].setVar(vs[1], value.evalf())
@@ -907,12 +642,9 @@ def key(event):
         for d in testpage.get_all_self_and_childs():
             d.draw()
         full = testpage.full_restrictions(debug=0)
-        #testpage.stop_all_equations()
-        #testpage.optimize()
-        print('full', full)
-        for l in testpage.childs:
-            print(l, l.TheVars['top'], l.top, l.TheVars['bottom'], l.bottom)
-        #printinfos()
+        # print('full', full)
+        # for l in testpage.childs:
+        #     print(l, l.TheVars['top'], l.top, l.TheVars['bottom'], l.bottom)
     else:
         if nextword:
             actualWord = actualLine.addWord()
@@ -924,66 +656,28 @@ def key(event):
         l.width = right-left
         l.top = top
         l.height = bottom-top
-        # for _ in range(2):
-        #     if testpage.optimize(1):
-        #         break
-        # w.delete("all")
-        # for d in testpage.get_all_self_and_childs():
-        #     d.draw()
-
-        # *************************************
-        # testpage.clean_all_equations()
-        # actualWord.full_restrictions()
-        # rrs = BaseRules.all_equations_rules+testpage.all_equations_min
-        # print(rrs)
-        # list_vars = []
-        # for rrr in rrs:
-        #     testtokens = tokenize(BytesIO(rrr.encode('utf-8')).readline)
-        #     for tt in testtokens:
-        #         #print(tt)
-        #         if tt.type == 1:
-        #             if tt.string[:3] == 'cid' and tt.string not in list_vars:
-        #                 list_vars.append(tt.string)
-        # list_vars.sort()
-        # list_vars.reverse()
-        # print(list_vars[:])
-
-
-        # sr = sym.solve(rrs, list_vars)
-        # print(len(sr), len(list_vars), sr)
-        # print('rest', [l for l in list_vars if sym.sympify(l) not in sr])
-        # print('**********************************************')
 
         actualWord.eqs_reduced = None # the Word was changed
         res_eq = actualWord.solve_equations()
-        print(res_eq)
-        #try_set = {actualWord.class_id+'_top':88, actualWord.class_id+'_right':66}
-
-        #actualWord.set_from_free_vars(try_set)
+        #print(res_eq)
 
         testpage.clean_all_equations()
         full = testpage.full_restrictions(debug=0)
-        print(testpage.all_equations_rules, testpage.all_equations_checks)
-        for (ii, vv) in BaseRules.classid_dict.items():
-            print(ii, vv)
-        print('mins', BaseRules.all_equations_min)
-        solve_result = sym.solve(testpage.all_equations_rules, dict=True)
-        print('nomin', solve_result)
+        # print(testpage.all_equations_rules, testpage.all_equations_checks)
+        # for (ii, vv) in BaseRules.classid_dict.items():
+        #     print(ii, vv)
+        # print('mins', BaseRules.all_equations_min)
+        # solve_result = sym.solve(testpage.all_equations_rules, dict=True)
+        # print('nomin', solve_result)
         solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
-        print('with', solve_result)
+        #print('with', solve_result)
 
         fv = {}
         for (l, v) in solve_result.items():
-            print(l, v)
+            #print(l, v)
             fv[repr(l)] = v
-        #actualLine.eqs_reduced = None # the Line was changed
+
         testpage.set_from_free_vars(fv)
-        #actualWord.set_from_free_vars(fv)
-
-        # for wwww in actualLine.childs:
-        #     print('wwww', wwww.class_id)
-
-        #     wwww.set_from_free_vars(fv)
 
         for new_string in BaseRules.all_equations_min:
             testtokens = tokenize(BytesIO(new_string.encode('utf-8')).readline)
@@ -998,24 +692,19 @@ def key(event):
                     final_string += str(ttr)
                 elif tt.type not in [59, 57]:
                     final_string += ttr
-            print(new_string, final_string)
+            #print(new_string, final_string)
 
         for (vv, value) in solve_result.items():
-            print(vv, value)
+            #print(vv, value)
             vs = str(vv).split('_')
             assert len(vs) == 2
-#            BaseRules.classid_dict[vs[0]].setVar(vs[1], value.evalf())
             BaseRules.classid_dict[vs[0]].TheVars[vs[1]] = value.evalf()
-        # **************************************
+
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
-            print(d.class_id)
+            #print(d.class_id)
             d.draw()
-
-        #testpage.optimize()
-        print(BaseRules.properties_setable)
-#        for lines in testpage.childs:
-#            print(lines.TheVars)
+        #print(BaseRules.properties_setable)
 
 w.bind('<Button-1>', click)
 master.bind('<Key>', key)
