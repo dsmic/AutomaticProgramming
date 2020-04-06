@@ -4,7 +4,7 @@
 Created on Sun Feb 23 18:53:25 2020
 
 @author: detlef
-"""
+edr """
 
 # pylint: disable=C0301, C0103, C0116, C0321, C0115, R0914, R0912, R0915, R1705, R1720, W0122, W0603, W0123, R1702
 
@@ -134,7 +134,7 @@ class BaseRules():
     def full_restrictions(self, debug=0):
         if self.eqs_reduced is not None:
             BaseRules.all_equations_rules += self.eqs_reduced
-            return self.eqs_reduced
+            return
         self.restrictions()
         for c in self.childs:
             c.full_restrictions(debug=debug)
@@ -169,7 +169,10 @@ class BaseRules():
         #print(list_vars)
         #print(list_vars_self)
 
-        sr = sym.solve(rrs, list_vars+list_vars_self)
+        sr = sym.solve(rrs, list_vars+list_vars_self, dict=True)[0]
+        # print('1', sr)
+        # sr = sym.solve(rrs, list_vars+list_vars_self)
+        # print('2', sr)
         #print(len(sr), len(list_vars+list_vars_self), sr)
         free_vars = [l for l in list_vars+list_vars_self if sym.sympify(l) not in sr]
         #print('rest', free_vars)
@@ -188,7 +191,7 @@ class BaseRules():
             eq = repr(s)+'-('+repr(v)+')'
             #print('eq', eq)
             self.eqs_reduced.append(eq)
-        return (sr, free_vars, only_local_eq, self.eqs_reduced)
+        #return (sr, free_vars, only_local_eq, self.eqs_reduced)
 
     def set_from_free_vars(self, free_vars_dict):
         if self.eqs_reduced is not None:
@@ -229,35 +232,35 @@ class BaseRules():
             List of elements for the optimizer. References are created as side effect
 
         """
-        def replace_names(string, child_name, i=None):
-            testtokens = tokenize(BytesIO(string.encode('utf-8')).readline)
-            new_string = ' '
-            afterdot = False
-            for tt in testtokens:
-                if tt.type == 1:
-                    # here string replacement will be possible
-                    ttt = tt.string
-                    if afterdot:
-                        new_string += ttt
-                        afterdot = False
-                    elif ttt == 'firstchild':
-                        new_string += child_name +"[0]"
-                    elif ttt == 'lastchild':
-                        new_string += child_name +"[-1]"
-                    elif ttt in ('child', 'rightchild'):
-                        if i is None:
-                            new_string += child_name +"[i]"
-                        else:
-                            new_string += child_name +"["+str(i)+"]"
-                    elif ttt == 'leftchild':
-                        new_string += child_name +"["+str(i-1)+"]"
-                    else:
-                        new_string += "self."+ttt
-                    afterdot = False
-                elif tt.type not in [59, 57]:
-                    new_string += tt.string
-                    if tt.string == '.': afterdot = True
-            return new_string
+        # def replace_names(string, child_name, i=None):
+        #     testtokens = tokenize(BytesIO(string.encode('utf-8')).readline)
+        #     new_string = ' '
+        #     afterdot = False
+        #     for tt in testtokens:
+        #         if tt.type == 1:
+        #             # here string replacement will be possible
+        #             ttt = tt.string
+        #             if afterdot:
+        #                 new_string += ttt
+        #                 afterdot = False
+        #             elif ttt == 'firstchild':
+        #                 new_string += child_name +"[0]"
+        #             elif ttt == 'lastchild':
+        #                 new_string += child_name +"[-1]"
+        #             elif ttt in ('child', 'rightchild'):
+        #                 if i is None:
+        #                     new_string += child_name +"[i]"
+        #                 else:
+        #                     new_string += child_name +"["+str(i)+"]"
+        #             elif ttt == 'leftchild':
+        #                 new_string += child_name +"["+str(i-1)+"]"
+        #             else:
+        #                 new_string += "self."+ttt
+        #             afterdot = False
+        #         elif tt.type not in [59, 57]:
+        #             new_string += tt.string
+        #             if tt.string == '.': afterdot = True
+        #     return new_string
 
         def replace_names_sympy(string, child_name, i=None):
             transform_to_null = string.split('=')
@@ -610,7 +613,7 @@ def key(event):
     ch = event.char
     if ch == ' ':
         testpage.clean_all_equations()
-        full = testpage.full_restrictions(debug=0)
+        testpage.full_restrictions(debug=0)
         #print(testpage.all_equations_rules, testpage.all_equations_checks)
         solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
         #print(solve_result)
@@ -622,13 +625,17 @@ def key(event):
 
         #print('checks', testpage.all_equations_checks)
 
+        # lastLine = actualLine
         testpage.check_to_long3(solve_result)
         actualLine = testpage.childs[-1]
+        # if lastLine != actualLine:
+        #     print('new line now')
+        #     lastLine.solve_equations()
         actualWord = actualLine.childs[-1]
         nextword = True
 
         testpage.clean_all_equations()
-        full = testpage.full_restrictions(debug=0)
+        testpage.full_restrictions(debug=0)
         #print(testpage.all_equations_rules, testpage.all_equations_checks)
         solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
         #print(solve_result)
@@ -641,7 +648,7 @@ def key(event):
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
             d.draw()
-        full = testpage.full_restrictions(debug=0)
+        testpage.full_restrictions(debug=0)
         # print('full', full)
         # for l in testpage.childs:
         #     print(l, l.TheVars['top'], l.top, l.TheVars['bottom'], l.bottom)
@@ -658,11 +665,11 @@ def key(event):
         l.height = bottom-top
 
         actualWord.eqs_reduced = None # the Word was changed
-        res_eq = actualWord.solve_equations()
+        actualWord.solve_equations()
         #print(res_eq)
 
         testpage.clean_all_equations()
-        full = testpage.full_restrictions(debug=0)
+        testpage.full_restrictions(debug=0)
         # print(testpage.all_equations_rules, testpage.all_equations_checks)
         # for (ii, vv) in BaseRules.classid_dict.items():
         #     print(ii, vv)
