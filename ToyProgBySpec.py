@@ -32,6 +32,7 @@ def min_all(ll, compare):
         t = compare(i)
         if ret is None or t < ret:
             ret = t
+        #print('debugging',t)
         if t < 0:
             sum_neg += t
     if sum_neg < 0:
@@ -135,6 +136,7 @@ class BaseRules():
                 self.TheVars[l] = self.getVar(l)
         for l in self.childs:
             l.clean_down()
+        #self.eqs_reduced = None
 
     def getVar(self, name):
         val = self.TheVars[name]
@@ -289,7 +291,7 @@ class BaseRules():
         if self.eqs_reduced is not None:
 #            return
             for l, v in self.solved_equations.items():
-                print(l,v)
+                print(l, v)
                 v = eval(repr(v), free_vars_dict)
                 print(l, v)
                 # they can be written into all parameters now
@@ -299,10 +301,10 @@ class BaseRules():
         print('going into ', self.class_id)
         for wwww in self.childs:
             print('wwww', wwww.class_id)
-            
+
             wwww.set_from_free_vars(free_vars_dict)
-  
-        
+
+
     def rule(self, rulestring, child_name='self.childs'):
         """
         Parameters
@@ -550,6 +552,28 @@ class BaseRules():
     def child_type(self):
         # pylint: disable=R0201
         raise ValueError('has to be overwritten')
+
+
+    def check_to_long3(self, solve_result):
+        fv = {}
+        for (l, v) in solve_result.items():
+            print(l, v)
+            fv[repr(l)] = v
+        for l in self.all_equations_checks:
+            try:
+                v = eval(l, fv)
+                print(l, v)
+                if v > 0:
+                    got = self.childs[-1].childs.pop()
+                    self.childs[-1].eqs_reduced = None
+                    # pylint: disable=E1111
+                    l = self.child_type()
+                    l.add_child(got)
+                    self.add_child(l)
+                    break
+            except NameError:
+                print('name not defined')
+
 
     def check_to_long2(self):
         ll = self.childs
@@ -844,10 +868,14 @@ def key(event):
             assert len(vs) == 2
             BaseRules.classid_dict[vs[0]].setVar(vs[1], value.evalf())
         # **************************************
+        print('checks', testpage.all_equations_checks)
 
-        #testpage.check_to_long2()
-        testpage.clean_down()
+
+
+        testpage.check_to_long3(solve_result)
+        #testpage.clean_down()
         actualLine = testpage.childs[-1]
+        actualWord = actualLine.childs[-1]
         nextword = True
         #l = actualWord.addCharacter(None)
         # pylint: disable=W0201 #? dont know why here and not in else
@@ -926,9 +954,9 @@ def key(event):
         actualWord.eqs_reduced = None # the Word was changed
         res_eq = actualWord.solve_equations()
         print(res_eq)
-        try_set = {actualWord.class_id+'_top':88, actualWord.class_id+'_right':66}
+        #try_set = {actualWord.class_id+'_top':88, actualWord.class_id+'_right':66}
 
-        actualWord.set_from_free_vars(try_set)
+        #actualWord.set_from_free_vars(try_set)
 
         testpage.clean_all_equations()
         full = testpage.full_restrictions(debug=0)
@@ -940,17 +968,17 @@ def key(event):
         print('nomin', solve_result)
         solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
         print('with', solve_result)
-        
+
         fv = {}
         for (l, v) in solve_result.items():
-            print(l,v)
-            fv[repr(l)]=v
-        actualLine.eqs_reduced = None # the Line was changed
-        actualLine.set_from_free_vars(fv)
-        
+            print(l, v)
+            fv[repr(l)] = v
+        #actualLine.eqs_reduced = None # the Line was changed
+        #actualLine.set_from_free_vars(fv)
+
         # for wwww in actualLine.childs:
         #     print('wwww', wwww.class_id)
-            
+
         #     wwww.set_from_free_vars(fv)
 
         for new_string in BaseRules.all_equations_min:
@@ -972,7 +1000,8 @@ def key(event):
             print(vv, value)
             vs = str(vv).split('_')
             assert len(vs) == 2
-            BaseRules.classid_dict[vs[0]].setVar(vs[1], value.evalf())
+#            BaseRules.classid_dict[vs[0]].setVar(vs[1], value.evalf())
+            BaseRules.classid_dict[vs[0]].TheVars[vs[1]] = value.evalf()
         # **************************************
         w.delete("all")
         for d in testpage.get_all_self_and_childs():
