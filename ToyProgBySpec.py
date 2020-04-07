@@ -18,40 +18,6 @@ from sympy import Min, Max, N # needed in sympy equations
 def getVariable(name):
     return name.getVar
 
-# takes a lambda function at the moment to compare two elements
-    # e.g. between(ll,lambda a:ll[a].getVar('left')-ll[a-1].getVar('right'))
-def min_all(ll, compare):
-    #this is not really min, it must be possible to solve equation system with gradient
-    #print('in min_all', opt)
-    ret = None
-    sum_neg = 0
-    for i in range(0, len(ll)):
-        t = compare(i)
-        if ret is None or t < ret:
-            ret = t
-        #print('debugging',t)
-        if t < 0:
-            sum_neg += t
-    if sum_neg < 0:
-        return [sum_neg * 0.001] #this must be very small, as it should not break the rules for breaking lines
-    else:
-        return [ret]
-
-def not_neg(ll, compare):
-    #is more or less the same as min_all, but does not try to get close to zero if not neg
-    ret = None
-    sum_neg = 0
-    for i in range(0, len(ll)):
-        t = compare(i)
-        if ret is None or t < ret:
-            ret = t
-        if t < 0:
-            sum_neg += t
-    if sum_neg < 0:
-        return [0]
-    else:
-        return [ret]
-
 def for_all(ll, compare):
     ret = []
     for i in range(0, len(ll)):
@@ -274,7 +240,10 @@ class BaseRules():
         all_min = []
         if len(ll) == 1:
             symrule = replace_names_sympy(rulestring, child_name)
-            all_rules.append(symrule)
+            if '>' in ll[0] or '<' in ll[0]:
+                all_checks.append(symrule)
+            else:
+                all_rules.append(symrule)
         else:
             if ll[0] == 'for_all':
                 for i in range(len(eval(child_name))):
@@ -285,23 +254,20 @@ class BaseRules():
                     symrule = replace_names_sympy(ll[1], child_name, i)
                     all_rules.append(symrule)
             if ll[0] == 'min_all':
-                lll = ll[1].split('-') # must now be not a min_all: _____ - nochild_var
+                lll = ll[1].split('=') # must now be not a min_all: _____ - nochild_var
                 symrule = 'Min('+replace_names_sympy(lll[0], child_name, 0)
                 for i in range(1, len(eval(child_name))):
                     symrule += ',' + replace_names_sympy(lll[0], child_name, i)
                 symrule += ')-'+replace_names_sympy(lll[1], child_name)
                 all_min.append(symrule)
             if ll[0] == 'max_all':
-                lll = ll[1].split('-') # must now be not a min_all: _____ - nochild_var
+                lll = ll[1].split('=') # must now be not a min_all: _____ - nochild_var
                 symrule = 'Max('+replace_names_sympy(lll[0], child_name, 0)
                 for i in range(1, len(eval(child_name))):
                     symrule += ',' + replace_names_sympy(lll[0], child_name, i)
                 symrule += ')-'+replace_names_sympy(lll[1], child_name)
                 all_min.append(symrule)
-            if ll[0] == 'not_neg': # not sure if it should be exactly the same as min_all, we will see
-                for i in range(len(eval(child_name))):
-                    symrule = replace_names_sympy(ll[1], child_name, i)
-                    all_checks.append(symrule)
+
         if BaseRules.all_equations_rules is not None:
             BaseRules.all_equations_rules += all_rules
             BaseRules.all_equations_checks += all_checks
@@ -332,7 +298,7 @@ class BaseRules():
             try:
                 v = eval(l, fv)
                 #print(l, v)
-                if v > 0:
+                if not v:
                     got = self.childs[-1].childs.pop()
                     self.childs[-1].eqs_reduced = None
                     # pylint: disable=E1111
@@ -385,7 +351,7 @@ class Word(BaseRules):
 
     def restrictions(self):
         self.rule('firstchild.left=left')
-        self.rule('max_all: child.height - height')
+        self.rule('max_all: child.height = height')
         self.rule('top + height - bottom')
         self.rule('for_all: child.bottom=bottom')
         self.rule('between: rightchild.left=leftchild.right')
@@ -409,9 +375,9 @@ class Line(BaseRules):
         if len(self.childs) > 1: #this rule only applies, if there are two or more words in a line, otherwize it is not possible to match left and right!
             self.rule('lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
         self.rule('between: rightchild.left=leftchild.right+5 + freespace')
-        self.rule('min_all: child.top - top')
+        self.rule('min_all: child.top = top')
         self.rule('for_all: child.bottom=bottom')
-        self.rule('not_neg: -freespace')
+        self.rule('0<freespace')
 
 class Page(BaseRules):
     def __init__(self):
