@@ -83,7 +83,7 @@ class BaseRules():
         self.eqs_reduced = None
         BaseRules.classid_dict[self.class_id] = self
         BaseRules.class_id_counter += 1
-        print(self.class_id, self.class_id_counter)
+        print(self.class_id, self.class_id_counter, self.__class__.__name__)
         #create the properties
         for l in self.priority:
             self.add_property(l)
@@ -156,6 +156,7 @@ class BaseRules():
                 free_vars_dict[repr(l)] = v
                 vs = str(l).split('_')
                 assert len(vs) == 2
+                #print('setting',vs[0], vs[1], N(v))
                 BaseRules.classid_dict[vs[0]].setVar(vs[1], N(v))
         for wwwww in self.childs:
             for wwww in wwwww:
@@ -312,6 +313,21 @@ class BaseRules():
             except NameError:
                 print('name not defined, but ok here')
 
+    def full_set(self):
+        self.clean_all_equations()
+        self.full_restrictions()
+        solve_result = sym.solve(self.all_equations_rules + self.all_equations_min, dict=True)[0]
+        
+        fv = {}
+        for (l, v) in solve_result.items():
+            print(l, v)
+            fv[repr(l)] = v
+            vs = str(l).split('_')
+            assert len(vs) == 2
+            self.classid_dict[vs[0]].TheVars[vs[1]] = v.evalf()
+        
+        self.set_from_free_vars(fv)
+
 class Character(BaseRules):
     def draw(self):
         #print(self, 'char draw', self.TheCharacter, round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
@@ -405,6 +421,61 @@ class Page(BaseRules):
         self.rule('for_all: child.left=left')
         self.rule('for_all: child.right=right')
         self.rule('between: rightchild.top = leftchild.bottom')
+
+
+class MenuItem(BaseRules):
+    def draw(self):
+        #print(self, 'char draw', self.TheCharacter, round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
+        if self.TheCharacter is not None:
+            w.create_text(self.getVar('left'), self.getVar('top'), anchor=NW, font=("Times New Roman", int(25), "bold"),
+                          text=self.TheCharacter)
+
+    def __init__(self, ch):
+        # this my be created automatically from rules, buth than fixed ones from add_property must stay by hand I think
+        # Maybe should be kept like this, as this helps organizing what to use (as defining vars in other programming languages)
+        self.priority = ['top', 'left', 'right', 'bottom'] #Later this should be syntactically improved
+
+        #fixed content not changed by other variables
+        self.TheCharacter = ch
+        BaseRules.__init__(self)
+
+        #additional properties, not defined in priority
+        self.add_property_setable('height')
+        self.add_property_setable('width')
+        c = w.create_text(600, 600, anchor=NW, font=("Times New Roman", int(25), "bold"),
+                  text=ch)
+        (x1, y1, x2, y2) = w.bbox(c)
+        self.height = y2-y1
+        self.width = x2-x1
+        print(w.bbox(c), self.height,self.width)
+
+
+    def restrictions(self):
+        self.rule('top=bottom-height')
+        self.rule('right=left+width')
+
+
+class Menu(BaseRules):
+    def __init__(self):
+        self.priority = ['left', 'bottom'] #Later this should be syntactically improved
+
+        BaseRules.__init__(self)
+        self.add_property_setable('top')
+        self.add_property_setable('right')
+
+
+    def addMenuItem(self, name):
+        l = MenuItem(name)
+        self.add_child(l)
+        return l
+
+    def restrictions(self):
+        self.rule('lastchild.right = right')
+        if len(self.childs[0]) > 1: #this rule only applies, if there are two or more words in a line, otherwize it is not possible to match left and right!
+            self.rule('lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
+        self.rule('between: rightchild.left=leftchild.right+5')
+        self.rule('min_all: child.top = top')
+        self.rule('for_all: child.bottom=bottom')
 
 testpage = Page()
 
@@ -529,7 +600,7 @@ def key(event):
             testpage.set_from_free_vars(fv)
 
         w.delete("all")
-        for d in testpage.get_all_self_and_childs():
+        for d in testpage.get_all_self_and_childs() + menu.get_all_self_and_childs():
             d.draw()
     else:
         if nextword:
@@ -558,30 +629,59 @@ def key(event):
             #print(l, v)
             fv[repr(l)] = v
 
-        testpage.set_from_free_vars(fv)
+        testpage.full_set()
 
-        for new_string in BaseRules.all_equations_min:
-            testtokens = tokenize(BytesIO(new_string.encode('utf-8')).readline)
-            final_string = ''
-            for tt in testtokens:
-                ttr = tt.string
-                if tt.type == 1:
-                    if sym.sympify(ttr) in solve_result:
-                        ttr = solve_result[sym.sympify(ttr)].evalf()
+        # for new_string in BaseRules.all_equations_min:
+        #     testtokens = tokenize(BytesIO(new_string.encode('utf-8')).readline)
+        #     final_string = ''
+        #     for tt in testtokens:
+        #         ttr = tt.string
+        #         if tt.type == 1:
+        #             if sym.sympify(ttr) in solve_result:
+        #                 ttr = solve_result[sym.sympify(ttr)].evalf()
 
-                    final_string += str(ttr)
-                elif tt.type not in [59, 57]:
-                    final_string += ttr
+        #             final_string += str(ttr)
+        #         elif tt.type not in [59, 57]:
+        #             final_string += ttr
 
-        for (vv, value) in solve_result.items():
-            vs = str(vv).split('_')
-            assert len(vs) == 2
-            BaseRules.classid_dict[vs[0]].TheVars[vs[1]] = value.evalf()
+        # for (vv, value) in solve_result.items():
+        #     vs = str(vv).split('_')
+        #     assert len(vs) == 2
+        #     BaseRules.classid_dict[vs[0]].TheVars[vs[1]] = value.evalf()
 
         w.delete("all")
-        for d in testpage.get_all_self_and_childs():
+        for d in testpage.get_all_self_and_childs() + menu.get_all_self_and_childs():
             d.draw()
 
 w.bind('<Button-1>', click)
 master.bind('<Key>', key)
+
+menu = Menu()
+menu.right = 600
+menu.top = 20
+menu.addMenuItem('Datei')
+menu.addMenuItem('Edit')
+
+for mitem in menu.childs[0]:
+    mitem.solve_equations()
+    print(mitem.eqs_reduced)
+
+menu.full_set()
+# menu.clean_all_equations()
+# menu.full_restrictions()
+# solve_result = sym.solve(menu.all_equations_rules + menu.all_equations_min, dict=True)[0]
+
+# fv = {}
+# for (l, v) in solve_result.items():
+#     print(l, v)
+#     fv[repr(l)] = v
+#     vs = str(l).split('_')
+#     assert len(vs) == 2
+#     BaseRules.classid_dict[vs[0]].TheVars[vs[1]] = v.evalf()
+
+# menu.set_from_free_vars(fv)
+
+for d in menu.get_all_self_and_childs():
+    d.draw()
+
 mainloop()
