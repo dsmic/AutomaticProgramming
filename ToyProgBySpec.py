@@ -76,7 +76,7 @@ class BaseRules():
         #manageing variables (not used in later syntax)
         self.TheVars = {} #contains the variables from priority
         self.clean()
-        self.childs = []
+        self.childs = [[]]
         self.class_id = 'cid' + str(BaseRules.class_id_counter)
         self.solved_equations = None
         self.free_vars = None
@@ -103,13 +103,15 @@ class BaseRules():
             BaseRules.all_equations_rules += self.eqs_reduced
             return
         self.restrictions()
-        for c in self.childs:
-            c.full_restrictions(debug=debug)
+        for cc in self.childs:
+            for c in cc:
+                c.full_restrictions(debug=debug)
 
     def get_all_self_and_childs(self):
         ret = [self]
-        for c in self.childs:
-            ret += c.get_all_self_and_childs()
+        for cc in self.childs:
+            for c in cc:
+                ret += c.get_all_self_and_childs()
         return ret
 
     def solve_equations(self):
@@ -155,11 +157,12 @@ class BaseRules():
                 vs = str(l).split('_')
                 assert len(vs) == 2
                 BaseRules.classid_dict[vs[0]].setVar(vs[1], N(v))
-        for wwww in self.childs:
-            wwww.set_from_free_vars(free_vars_dict)
+        for wwwww in self.childs:
+            for wwww in wwwww:
+                wwww.set_from_free_vars(free_vars_dict)
 
 
-    def rule(self, rulestring, child_name='self.childs'):
+    def rule(self, rulestring, child_name='self.childs[0]'):
         """
         Parameters
         ----------
@@ -282,7 +285,7 @@ class BaseRules():
         return []
 
     def add_child(self, a):
-        self.childs.append(a)
+        self.childs[0].append(a)
 
     def child_type(self):
         # pylint: disable=R0201
@@ -299,8 +302,8 @@ class BaseRules():
                 v = eval(l, fv)
                 #print(l, v)
                 if not v:
-                    got = self.childs[-1].childs.pop()
-                    self.childs[-1].eqs_reduced = None
+                    got = self.childs[0][-1].childs[0].pop()
+                    self.childs[0][-1].eqs_reduced = None
                     # pylint: disable=E1111
                     l = self.child_type()
                     l.add_child(got)
@@ -343,10 +346,10 @@ class Word(BaseRules):
     def addCharacter(self, ch):
         l = Character(ch)
         if self.char_pos >= 0:
-            self.childs.insert(self.char_pos, l)
+            self.childs[0].insert(self.char_pos, l)
             self.char_pos += 1
         else:
-            self.childs.append(l)
+            self.childs[0].append(l)
         return l
 
     def restrictions(self):
@@ -372,7 +375,7 @@ class Line(BaseRules):
 
     def restrictions(self):
         self.rule('firstchild.left = left')
-        if len(self.childs) > 1: #this rule only applies, if there are two or more words in a line, otherwize it is not possible to match left and right!
+        if len(self.childs[0]) > 1: #this rule only applies, if there are two or more words in a line, otherwize it is not possible to match left and right!
             self.rule('lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
         self.rule('between: rightchild.left=leftchild.right+5 + freespace')
         self.rule('min_all: child.top = top')
@@ -432,7 +435,7 @@ def click(event):
         print('  ', k, v, testpage.getVar(k))
     testpage.line_pos = -1
     l_count = 0
-    for l in testpage.childs:
+    for l in testpage.childs[0]:
         print('Line')
         if l.top <= y < l.bottom:
             print('line clicked', l)
@@ -441,7 +444,7 @@ def click(event):
             actualLine = l
             w_count = 0
             l.word_pos = -1
-            for ww in l.childs:
+            for ww in l.childs[0]:
                 print('Word')
                 c_count = 0
                 ww.char_pos = -1
@@ -449,7 +452,7 @@ def click(event):
                     print('word clicked', ww)
                     actualWord = ww
                     l.word_pos = w_count
-                    for c in ww.childs:
+                    for c in ww.childs[0]:
                         print('Char')
                         if c.left <= x < c.right:
                             if x - c.left < c.right - x:
@@ -469,15 +472,15 @@ def printinfos():
     print('Page')
     for k, v in testpage.TheVars.items():
         print('  ', k, v, testpage.getVar(k))
-    for l in testpage.childs:
+    for l in testpage.childs[0]:
         print('Line')
         for k, v in l.TheVars.items():
             print('     ', k, v, l.getVar(k))
-        for ww in l.childs:
+        for ww in l.childs[0]:
             print('Word')
             for k, v in ww.TheVars.items():
                 print('        ', k, v, ww.getVar(k))
-            for c in ww.childs:
+            for c in ww.childs[0]:
                 print('Char')
                 for k, v in c.TheVars.items():
                     print('            ', k, v, c.getVar(k))
@@ -501,9 +504,9 @@ def key(event):
 
         lastLine = actualLine
         testpage.check_to_long3(solve_result)
-        actualLine = testpage.childs[-1]
+        actualLine = testpage.childs[0][-1]
 
-        actualWord = actualLine.childs[-1]
+        actualWord = actualLine.childs[0][-1]
         nextword = True
 
 
