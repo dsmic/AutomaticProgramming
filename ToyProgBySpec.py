@@ -293,7 +293,11 @@ class BaseRules():
         raise ValueError('has to be overwritten')
 
 
-    def check_to_long3(self, solve_result):
+    def check_to_long3(self):
+        ret = False
+        self.clean_all_equations()
+        self.full_restrictions()
+        solve_result = sym.solve(self.all_equations_rules + self.all_equations_min, dict=True)[0]
         fv = {}
         for (l, v) in solve_result.items():
             #print(l, v)
@@ -309,10 +313,12 @@ class BaseRules():
                     l = self.child_type()
                     l.add_child(got)
                     self.add_child(l)
+                    ret = True
                     break
             except NameError:
                 print('name not defined, but ok here')
-
+        return ret
+    
     def full_set(self):
         self.clean_all_equations()
         self.full_restrictions()
@@ -564,40 +570,14 @@ def key(event):
     print('key pressed', event, 'bounding', w.bbox(c))
     ch = event.char
     if ch == ' ':
-        testpage.clean_all_equations()
-        testpage.full_restrictions(debug=0)
-        solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
-        for (vv, value) in solve_result.items():
-            #print(vv, value)
-            vs = str(vv).split('_')
-            assert len(vs) == 2
-            BaseRules.classid_dict[vs[0]].setVar(vs[1], value.evalf())
-
         lastLine = actualLine
-        testpage.check_to_long3(solve_result)
-        actualLine = testpage.childs[0][-1]
-
-        actualWord = actualLine.childs[0][-1]
         nextword = True
-
-
-        if lastLine != actualLine:
+        if testpage.check_to_long3():
             print('new line now')
+            actualLine = testpage.childs[0][-1]
+            actualWord = actualLine.childs[0][-1]
             lastLine.solve_equations()
-
-            testpage.clean_all_equations()
-            testpage.full_restrictions(debug=0)
-            solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
-            for (vv, value) in solve_result.items():
-                #print(vv, value)
-                vs = str(vv).split('_')
-                assert len(vs) == 2
-                BaseRules.classid_dict[vs[0]].setVar(vs[1], value.evalf())
-            fv = {}
-            for (l, v) in solve_result.items():
-                #print(l, v)
-                fv[repr(l)] = v
-            testpage.set_from_free_vars(fv)
+            testpage.full_set()
 
         w.delete("all")
         for d in testpage.get_all_self_and_childs() + menu.get_all_self_and_childs():
@@ -616,38 +596,7 @@ def key(event):
 
         actualWord.eqs_reduced = None # the Word was changed
         actualWord.solve_equations()
-        #print(res_eq)
-
-        testpage.clean_all_equations()
-        testpage.full_restrictions(debug=0)
-
-        solve_result = sym.solve(testpage.all_equations_rules + testpage.all_equations_min, dict=True)[0]
-
-
-        fv = {}
-        for (l, v) in solve_result.items():
-            #print(l, v)
-            fv[repr(l)] = v
-
         testpage.full_set()
-
-        # for new_string in BaseRules.all_equations_min:
-        #     testtokens = tokenize(BytesIO(new_string.encode('utf-8')).readline)
-        #     final_string = ''
-        #     for tt in testtokens:
-        #         ttr = tt.string
-        #         if tt.type == 1:
-        #             if sym.sympify(ttr) in solve_result:
-        #                 ttr = solve_result[sym.sympify(ttr)].evalf()
-
-        #             final_string += str(ttr)
-        #         elif tt.type not in [59, 57]:
-        #             final_string += ttr
-
-        # for (vv, value) in solve_result.items():
-        #     vs = str(vv).split('_')
-        #     assert len(vs) == 2
-        #     BaseRules.classid_dict[vs[0]].TheVars[vs[1]] = value.evalf()
 
         w.delete("all")
         for d in testpage.get_all_self_and_childs() + menu.get_all_self_and_childs():
@@ -667,20 +616,6 @@ for mitem in menu.childs[0]:
     print(mitem.eqs_reduced)
 
 menu.full_set()
-# menu.clean_all_equations()
-# menu.full_restrictions()
-# solve_result = sym.solve(menu.all_equations_rules + menu.all_equations_min, dict=True)[0]
-
-# fv = {}
-# for (l, v) in solve_result.items():
-#     print(l, v)
-#     fv[repr(l)] = v
-#     vs = str(l).split('_')
-#     assert len(vs) == 2
-#     BaseRules.classid_dict[vs[0]].TheVars[vs[1]] = v.evalf()
-
-# menu.set_from_free_vars(fv)
-
 for d in menu.get_all_self_and_childs():
     d.draw()
 
