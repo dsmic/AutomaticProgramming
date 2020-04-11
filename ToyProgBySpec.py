@@ -333,7 +333,18 @@ class BaseRules():
             self.classid_dict[vs[0]].TheVars[vs[1]] = v.evalf()
         
         self.set_from_free_vars(fv)
-
+        
+    def clickCheck(self, pos):
+        x = pos.x
+        y = pos.y
+        print(x, y, self.left, self.right, self.top, self.bottom)
+        ret = []
+        for l in self.childs[0]:
+            ret += l.clickCheck(pos)
+        if self.left <= x < self.right and self.top <= y < self.bottom:
+            ret += [self]
+        return ret
+        
 class Character(BaseRules):
     def draw(self):
         #print(self, 'char draw', self.TheCharacter, round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
@@ -462,16 +473,17 @@ class MenuItem(BaseRules):
 
 
 class Menu(BaseRules):
-    def __init__(self):
+    def __init__(self, name):
         self.priority = ['left', 'bottom'] #Later this should be syntactically improved
 
         BaseRules.__init__(self)
         self.add_property_setable('top')
         self.add_property_setable('right')
-
+        self.menuname = name
 
     def addMenuItem(self, name):
         l = MenuItem(name)
+        l.name = self.menuname + '_' + name
         self.add_child(l)
         return l
 
@@ -543,7 +555,12 @@ def click(event):
             l.word_pos = -1
 
     print('line', testpage.line_pos, 'word', actualLine.word_pos, 'char', actualWord.char_pos)
+
+    
     printinfos()
+    r = menu.clickCheck(event)
+    if len(r) > 0:
+        print('clicked', r[0].name)
 
 def printinfos():
     print('Page')
@@ -605,7 +622,7 @@ def key(event):
 w.bind('<Button-1>', click)
 master.bind('<Key>', key)
 
-menu = Menu()
+menu = Menu("main")
 menu.right = 600
 menu.top = 20
 menu.addMenuItem('Datei')
@@ -618,5 +635,8 @@ for mitem in menu.childs[0]:
 menu.full_set()
 for d in menu.get_all_self_and_childs():
     d.draw()
+
+import testmodules.test2
+testmodules.test2.tttt(testpage)
 
 mainloop()
