@@ -11,14 +11,18 @@ edr """
 from tkinter import Tk, Canvas, mainloop, NW
 from tokenize import tokenize
 from io import BytesIO
-import sympy as sym
-# pylint: disable=W0611
-from sympy import Min, Max, N # needed in sympy equations
 
 import os
 import subprocess
 import shutil
+import importlib
+
+import sympy as sym
+# pylint: disable=W0611
+from sympy import Min, Max, N # needed in sympy equations
+
 import testmodules
+
 
 show_called_file = True
 
@@ -94,6 +98,7 @@ class BaseRules():
         #create the properties
         for l in self.priority:
             self.add_property(l)
+        self.RestrictionsList = [] #executed by BaseRules class
 
     def clean(self):
         for l in self.priority:
@@ -288,9 +293,8 @@ class BaseRules():
         """
         are created from rules by adding the return value lists
         """
-        # pylint: disable=R0201, W0101
-        raise ValueError('This has to be overwritten by the child class')
-        return []
+        for l in self.RestrictionsList:
+            self.rule(l)
 
     def add_child(self, a):
         self.childs[0].append(a)
@@ -325,12 +329,12 @@ class BaseRules():
             except NameError:
                 print('name not defined, but ok here')
         return ret
-    
+
     def full_set(self):
         self.clean_all_equations()
         self.full_restrictions()
         solve_result = sym.solve(self.all_equations_rules + self.all_equations_min, dict=True)[0]
-        
+
         fv = {}
         for (l, v) in solve_result.items():
             print(l, v)
@@ -338,10 +342,11 @@ class BaseRules():
             vs = str(l).split('_')
             assert len(vs) == 2
             self.classid_dict[vs[0]].TheVars[vs[1]] = v.evalf()
-        
+
         self.set_from_free_vars(fv)
-        
+
     def clickCheck(self, pos):
+        # pylint: disable=E1101
         x = pos.x
         y = pos.y
         print(x, y, self.left, self.right, self.top, self.bottom)
@@ -351,7 +356,7 @@ class BaseRules():
         if self.left <= x < self.right and self.top <= y < self.bottom:
             ret += [self]
         return ret
-        
+
 class Character(BaseRules):
     def draw(self):
         #print(self, 'char draw', self.TheCharacter, round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
@@ -371,10 +376,8 @@ class Character(BaseRules):
         #additional properties, not defined in priority
         self.add_property_setable('height')
         self.add_property_setable('width')
-
-    def restrictions(self):
-        self.rule('top=bottom-height')
-        self.rule('right=left+width')
+        self.RestrictionsList = ['top=bottom-height',
+                                 'right=left+width']
 
 class Word(BaseRules):
     def __init__(self):
@@ -382,7 +385,12 @@ class Word(BaseRules):
 
         BaseRules.__init__(self)
         self.char_pos = -1
-
+        self.RestrictionsList = ['firstchild.left=left',
+                                 'max_all: child.height = height',
+                                 'top + height - bottom',
+                                 'for_all: child.bottom=bottom',
+                                 'between: rightchild.left=leftchild.right',
+                                 'right=lastchild.right']
     def addCharacter(self, ch):
         l = Character(ch)
         if self.char_pos >= 0:
@@ -392,21 +400,17 @@ class Word(BaseRules):
             self.childs[0].append(l)
         return l
 
-    def restrictions(self):
-        self.rule('firstchild.left=left')
-        self.rule('max_all: child.height = height')
-        self.rule('top + height - bottom')
-        self.rule('for_all: child.bottom=bottom')
-        self.rule('between: rightchild.left=leftchild.right')
-        self.rule('right=lastchild.right')
-
 class Line(BaseRules):
     def __init__(self):
         self.priority = ['top', 'left', 'right', 'bottom', 'freespace'] #Later this should be syntactically improved
 
         BaseRules.__init__(self)
         self.word_pos = -1
-
+        self.RestrictionsList = ['firstchild.left = left',
+                                 'between: rightchild.left=leftchild.right+5 + freespace',
+                                 'min_all: child.top = top',
+                                 'for_all: child.bottom=bottom',
+                                 '0<freespace']
 
     def addWord(self):
         l = Word()
@@ -414,13 +418,9 @@ class Line(BaseRules):
         return l
 
     def restrictions(self):
-        self.rule('firstchild.left = left')
         if len(self.childs[0]) > 1: #this rule only applies, if there are two or more words in a line, otherwize it is not possible to match left and right!
             self.rule('lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
-        self.rule('between: rightchild.left=leftchild.right+5 + freespace')
-        self.rule('min_all: child.top = top')
-        self.rule('for_all: child.bottom=bottom')
-        self.rule('0<freespace')
+        BaseRules.restrictions(self) # call RestrictionsList
 
 class Page(BaseRules):
     def __init__(self):
@@ -434,18 +434,15 @@ class Page(BaseRules):
         self.add_property_setable('right')
         self.line_pos = -1
         self.child_type = Line
+        self.RestrictionsList = ['firstchild.top = top ',
+                                 'for_all: child.left=left',
+                                 'for_all: child.right=right',
+                                 'between: rightchild.top = leftchild.bottom']
 
     def addLine(self):
         l = Line()
         self.add_child(l)
         return l
-
-    def restrictions(self):
-        self.rule('firstchild.top = top ')
-        self.rule('for_all: child.left=left')
-        self.rule('for_all: child.right=right')
-        self.rule('between: rightchild.top = leftchild.bottom')
-
 
 class MenuItem(BaseRules):
     def draw(self):
@@ -467,16 +464,18 @@ class MenuItem(BaseRules):
         self.add_property_setable('height')
         self.add_property_setable('width')
         c = w.create_text(600, 600, anchor=NW, font=("Times New Roman", int(25), "bold"),
-                  text=ch)
+                          text=ch)
         (x1, y1, x2, y2) = w.bbox(c)
         self.height = y2-y1
         self.width = x2-x1
-        print(w.bbox(c), self.height,self.width)
+        print(w.bbox(c), self.height, self.width)
+        self.name = None
+        self.RestrictionsList = ['top=bottom-height',
+                                 'right=left+width']
 
-
-    def restrictions(self):
-        self.rule('top=bottom-height')
-        self.rule('right=left+width')
+    # def restrictions(self):
+    #     self.rule()
+    #     self.rule()
 
 
 class Menu(BaseRules):
@@ -487,6 +486,10 @@ class Menu(BaseRules):
         self.add_property_setable('top')
         self.add_property_setable('right')
         self.menuname = name
+        self.RestrictionsList = ['lastchild.right = right',
+                                 'between: rightchild.left=leftchild.right+5',
+                                 'min_all: child.top = top',
+                                 'for_all: child.bottom=bottom']
 
     def addMenuItem(self, name):
         l = MenuItem(name)
@@ -494,13 +497,13 @@ class Menu(BaseRules):
         self.add_child(l)
         return l
 
-    def restrictions(self):
-        self.rule('lastchild.right = right')
-        if len(self.childs[0]) > 1: #this rule only applies, if there are two or more words in a line, otherwize it is not possible to match left and right!
-            self.rule('lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
-        self.rule('between: rightchild.left=leftchild.right+5')
-        self.rule('min_all: child.top = top')
-        self.rule('for_all: child.bottom=bottom')
+    # def restrictions(self):
+    #     self.rule()
+    #     if len(self.childs[0]) > 1: #this rule only applies, if there are two or more words in a line, otherwize it is not possible to match left and right!
+    #         self.rule('lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
+    #     self.rule()
+    #     self.rule()
+    #     self.rule()
 
 testpage = Page()
 
@@ -520,7 +523,6 @@ w = Canvas(master, width=canvas_width, height=canvas_height)
 w.pack()
 
 def click(event):
-    import importlib
     importlib.reload(testmodules)
     global actualLine
     global actualWord
@@ -565,7 +567,7 @@ def click(event):
 
     print('line', testpage.line_pos, 'word', actualLine.word_pos, 'char', actualWord.char_pos)
 
-    
+
     printinfos()
     r = menu.clickCheck(event)
     if len(r) > 0:
@@ -573,8 +575,8 @@ def click(event):
         try:
             exec('testmodules.'+r[0].name+".call('testcall')")
             if show_called_file:
-                    nf = 'testmodules/'+r[0].name+'.py'
-                    subprocess.call(["spyder", nf])
+                nf = 'testmodules/'+r[0].name+'.py'
+                subprocess.call(["spyder", nf])
         except AttributeError:
             nf = 'testmodules/'+r[0].name+'.py'
             if not os.path.exists(nf):
@@ -616,8 +618,8 @@ def key(event):
             testpage.full_set()
 
         w.delete("all")
-        for d in testpage.get_all_self_and_childs() + menu.get_all_self_and_childs():
-            d.draw()
+        for dd in testpage.get_all_self_and_childs() + menu.get_all_self_and_childs():
+            dd.draw()
     else:
         if nextword:
             actualWord = actualLine.addWord()
@@ -635,8 +637,8 @@ def key(event):
         testpage.full_set()
 
         w.delete("all")
-        for d in testpage.get_all_self_and_childs() + menu.get_all_self_and_childs():
-            d.draw()
+        for dd in testpage.get_all_self_and_childs() + menu.get_all_self_and_childs():
+            dd.draw()
 
 w.bind('<Button-1>', click)
 master.bind('<Key>', key)
@@ -654,9 +656,5 @@ for mitem in menu.childs[0]:
 menu.full_set()
 for d in menu.get_all_self_and_childs():
     d.draw()
-
-t3 = 'debuggin'
-import testmodules.test2
-testmodules.test2.tttt(testpage)
 
 mainloop()
