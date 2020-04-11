@@ -15,6 +15,8 @@ import sympy as sym
 # pylint: disable=W0611
 from sympy import Min, Max, N # needed in sympy equations
 
+import os
+import shutil
 import testmodules
 
 def getVariable(name):
@@ -565,6 +567,14 @@ def click(event):
     r = menu.clickCheck(event)
     if len(r) > 0:
         print('clicked', r[0].name)
+        try:
+            exec('testmodules.'+r[0].name+".call('testcall')")
+        except AttributeError:
+            nf = 'testmodules/'+r[0].name+'.py'
+            if not os.path.exists(nf):
+                shutil.copyfile('testmodules/template', nf)
+                import subprocess
+                subprocess.call(["spyder", nf])
 
 def printinfos():
     print('Page')
@@ -640,6 +650,7 @@ menu.full_set()
 for d in menu.get_all_self_and_childs():
     d.draw()
 
+t3 = 'debuggin'
 import testmodules.test2
 testmodules.test2.tttt(testpage)
 
