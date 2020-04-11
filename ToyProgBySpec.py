@@ -15,6 +15,8 @@ import sympy as sym
 # pylint: disable=W0611
 from sympy import Min, Max, N # needed in sympy equations
 
+import testmodules
+
 def getVariable(name):
     return name.getVar
 
@@ -513,6 +515,8 @@ w = Canvas(master, width=canvas_width, height=canvas_height)
 w.pack()
 
 def click(event):
+    import importlib
+    importlib.reload(testmodules)
     global actualLine
     global actualWord
     print('button clicked', event)
