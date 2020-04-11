@@ -16,8 +16,11 @@ import sympy as sym
 from sympy import Min, Max, N # needed in sympy equations
 
 import os
+import subprocess
 import shutil
 import testmodules
+
+show_called_file = True
 
 def getVariable(name):
     return name.getVar
@@ -569,11 +572,13 @@ def click(event):
         print('clicked', r[0].name)
         try:
             exec('testmodules.'+r[0].name+".call('testcall')")
+            if show_called_file:
+                    nf = 'testmodules/'+r[0].name+'.py'
+                    subprocess.call(["spyder", nf])
         except AttributeError:
             nf = 'testmodules/'+r[0].name+'.py'
             if not os.path.exists(nf):
                 shutil.copyfile('testmodules/template', nf)
-                import subprocess
                 subprocess.call(["spyder", nf])
 
 def printinfos():

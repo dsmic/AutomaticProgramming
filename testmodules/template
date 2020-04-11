@@ -1,0 +1,4 @@
+import __main__ as m
+
+def call(param):
+    print('implemented', param, m)
