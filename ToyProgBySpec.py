@@ -486,10 +486,15 @@ class Menu(BaseRules):
         self.add_property_setable('top')
         self.add_property_setable('right')
         self.menuname = name
-        self.RestrictionsList = ['lastchild.right = right',
-                                 'between: rightchild.left=leftchild.right+5',
-                                 'min_all: child.top = top',
-                                 'for_all: child.bottom=bottom']
+        # self.RestrictionsList = ['lastchild.right = right',
+        #                          'between: rightchild.left=leftchild.right+5',
+        #                          'min_all: child.top = top',
+        #                          'for_all: child.bottom=bottom']
+        self.RestrictionsList = ['firstchild.top = top',
+                                 'between: rightchild.top=leftchild.bottom+5',
+                                 'for_all: child.right = right',
+                                 'lastchild.bottom = bottom'
+                                 ]
 
     def addMenuItem(self, name):
         l = MenuItem(name)
