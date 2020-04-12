@@ -480,8 +480,7 @@ class MenuItem(BaseRules):
         BaseRules.restrictions(self)
 
     def addMenu(self, name, ItemList, horizontal=False):
-        l = Menu(name, ItemList, horizontal)
-        l.menuname = self.name + '_' + name
+        l = Menu(self.name + '_' + name, ItemList, horizontal)
         self.add_child(l)
         return l
 
