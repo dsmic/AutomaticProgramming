@@ -424,14 +424,14 @@ class Line(BaseRules):
 
 class Page(BaseRules):
     def __init__(self):
-        self.priority = [] #Later this should be syntactically improved
+        self.priority = ['top', 'left', 'right', 'bottom'] #Later this should be syntactically improved
         BaseRules.__init__(self)
 
         #additional properties, not defined in priority
-        self.add_property_setable('top')
-        self.add_property_setable('bottom')
-        self.add_property_setable('left')
-        self.add_property_setable('right')
+        # self.add_property_setable('top')
+        # self.add_property_setable('bottom')
+        # self.add_property_setable('left')
+        # self.add_property_setable('right')
         self.line_pos = -1
         self.child_type = Line
         self.RestrictionsList = ['firstchild.top = top ',
@@ -470,31 +470,43 @@ class MenuItem(BaseRules):
         self.width = x2-x1
         print(w.bbox(c), self.height, self.width)
         self.name = None
-        self.RestrictionsList = ['top=bottom-height',
-                                 'right=left+width']
+        # self.RestrictionsList = ['top=bottom-height',
+        #                          'right=left+width']
+        self.RestrictionsList = [] # This are only additional restrictions
 
-    # def restrictions(self):
-    #     self.rule()
-    #     self.rule()
+    def restrictions(self):
+        self.rule('top=bottom-height')
+        self.rule('right=left+width')
+        BaseRules.restrictions(self)
+
+    def addMenu(self, name, ItemList, horizontal=False):
+        l = Menu(name, ItemList, horizontal)
+        l.menuname = self.name + '_' + name
+        self.add_child(l)
+        return l
 
 
 class Menu(BaseRules):
-    def __init__(self, name):
-        self.priority = ['left', 'bottom'] #Later this should be syntactically improved
+    def __init__(self, name, ItemList, horizontal=True):
+        self.priority = ['top', 'right', 'left', 'bottom'] #Later this should be syntactically improved
 
         BaseRules.__init__(self)
-        self.add_property_setable('top')
-        self.add_property_setable('right')
+        # self.add_property_setable('top')
+        # self.add_property_setable('right')
         self.menuname = name
-        # self.RestrictionsList = ['lastchild.right = right',
-        #                          'between: rightchild.left=leftchild.right+5',
-        #                          'min_all: child.top = top',
-        #                          'for_all: child.bottom=bottom']
-        self.RestrictionsList = ['firstchild.top = top',
-                                 'between: rightchild.top=leftchild.bottom+5',
-                                 'for_all: child.right = right',
-                                 'lastchild.bottom = bottom'
-                                 ]
+        if horizontal:
+            self.RestrictionsList = ['lastchild.right = right',
+                                     'between: rightchild.left=leftchild.right+5',
+                                     'min_all: child.top = top',
+                                     'for_all: child.bottom=bottom']
+        else:
+            self.RestrictionsList = ['firstchild.top = top',
+                                     'between: rightchild.top=leftchild.bottom+5',
+                                     'for_all: child.right = right',
+                                     'lastchild.bottom = bottom'
+                                     ]
+        for l in ItemList:
+            self.addMenuItem(l)
 
     def addMenuItem(self, name):
         l = MenuItem(name)
@@ -512,10 +524,10 @@ class Menu(BaseRules):
 
 testpage = Page()
 
-testpage.setVar('left', 0)
-testpage.setVar('top', 200)
-testpage.setVar('right', 400)
-testpage.setVar('bottom', 400)
+testpage.RestrictionsList.append('left')
+testpage.RestrictionsList.append('top-200')
+testpage.RestrictionsList.append('right-400')
+testpage.RestrictionsList.append('bottom-400')
 
 actualLine = testpage.addLine()
 actualWord = actualLine.addWord()
@@ -578,7 +590,7 @@ def click(event):
     if len(r) > 0:
         print('clicked', r[0].name)
         try:
-            exec('testmodules.'+r[0].name+".call('testcall')")
+            exec('testmodules.'+r[0].name+".call(r[0])")
             if show_called_file:
                 nf = 'testmodules/'+r[0].name+'.py'
                 subprocess.call(["spyder", nf])
@@ -587,6 +599,9 @@ def click(event):
             if not os.path.exists(nf):
                 shutil.copyfile('testmodules/template', nf)
                 subprocess.call(["spyder", nf])
+    menu.full_set()
+    for d in menu.get_all_self_and_childs():
+        d.draw()
 
 def printinfos():
     print('Page')
@@ -648,15 +663,17 @@ def key(event):
 w.bind('<Button-1>', click)
 master.bind('<Key>', key)
 
-menu = Menu("main")
-menu.right = 600
-menu.top = 20
-menu.addMenuItem('Datei')
-menu.addMenuItem('Edit')
+menu = Menu("main", ['Datei', 'Edit'], horizontal=True)
+menu.RestrictionsList.append('right-600')
+menu.RestrictionsList.append('top-90')
+# menu.right = 600
+# menu.top = 20
+#menu.addMenuItem('Datei')
+#menu.addMenuItem('Edit')
 
-for mitem in menu.childs[0]:
-    mitem.solve_equations()
-    print(mitem.eqs_reduced)
+# for mitem in menu.childs[0]:
+#     mitem.solve_equations()
+#     print(mitem.eqs_reduced)
 
 menu.full_set()
 for d in menu.get_all_self_and_childs():
