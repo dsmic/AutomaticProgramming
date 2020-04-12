@@ -44,6 +44,7 @@ def between(ll, compare):
 
 
 class BaseRules():
+    # pylint: disable=R0902
     priority = None # has to be overwritten by child instance variable
 
     class_id_counter = 0
@@ -370,7 +371,7 @@ class BaseRules():
             if r is not None:
                 return r + [self]
         return None
-    
+
 class Character(BaseRules):
     def draw(self):
         #print(self, 'char draw', self.TheCharacter, round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
@@ -441,11 +442,6 @@ class Page(BaseRules):
         self.priority = ['top', 'left', 'right', 'bottom'] #Later this should be syntactically improved
         BaseRules.__init__(self)
 
-        #additional properties, not defined in priority
-        # self.add_property_setable('top')
-        # self.add_property_setable('bottom')
-        # self.add_property_setable('left')
-        # self.add_property_setable('right')
         self.line_pos = -1
         self.child_type = Line
         self.RestrictionsList = ['firstchild.top = top ',
@@ -484,23 +480,17 @@ class MenuItem(BaseRules):
         self.width = x2-x1
         print(w.bbox(c), self.height, self.width)
         self.name = None
-        # self.RestrictionsList = ['top=bottom-height',
-        #                          'right=left+width']
-        self.RestrictionsList = [] # This are only additional restrictions
+        self.RestrictionsList = ['top=bottom-height', 'right=left+width']
 
-    def restrictions(self):
-        self.rule('top=bottom-height')
-        self.rule('right=left+width')
-        BaseRules.restrictions(self)
 
-    def addMenu(self, name, ItemList, ParentRestrictionsList = [], horizontal=False):
+    def addMenu(self, name, ItemList, ParentRestrictionsList=None, horizontal=False):
         l = Menu(self.name + '_' + name, ItemList, horizontal, ParentRestrictionsList)
         self.add_child(l)
         return l
 
 
 class Menu(BaseRules):
-    def __init__(self, name, ItemList, horizontal=True,ParentRestrictionsList = []):
+    def __init__(self, name, ItemList, horizontal=True, ParentRestrictionsList=None):
         self.priority = ['top', 'right', 'left', 'bottom'] #Later this should be syntactically improved
 
         BaseRules.__init__(self)
@@ -527,14 +517,6 @@ class Menu(BaseRules):
         l.name = self.menuname + '_' + name
         self.add_child(l)
         return l
-
-    # def restrictions(self):
-    #     self.rule()
-    #     if len(self.childs[0]) > 1: #this rule only applies, if there are two or more words in a line, otherwize it is not possible to match left and right!
-    #         self.rule('lastchild.right - right') # this is used to get 0 error if correct, but for optimizing we need direction if not correct
-    #     self.rule()
-    #     self.rule()
-    #     self.rule()
 
 testpage = Page()
 
@@ -595,7 +577,6 @@ def click(event):
                 w_count += 1
         else:
             l.word_pos = -1
-
     print('line', testpage.line_pos, 'word', actualLine.word_pos, 'char', actualWord.char_pos)
 
 
@@ -617,8 +598,8 @@ def click(event):
                 subprocess.call(["spyder", nf])
     menu.full_set()
     w.delete("all")
-    for d in menu.get_all_self_and_childs():
-        d.draw()
+    for dd in testpage.get_all_self_and_childs() + menu.get_all_self_and_childs():
+        dd.draw()
 
 def printinfos():
     print('Page')
@@ -683,14 +664,6 @@ master.bind('<Key>', key)
 menu = Menu("main", ['Datei', 'Edit'], horizontal=True)
 menu.RestrictionsList.append('right-600')
 menu.RestrictionsList.append('top-90')
-# menu.right = 600
-# menu.top = 20
-#menu.addMenuItem('Datei')
-#menu.addMenuItem('Edit')
-
-# for mitem in menu.childs[0]:
-#     mitem.solve_equations()
-#     print(mitem.eqs_reduced)
 
 menu.full_set()
 for d in menu.get_all_self_and_childs():
