@@ -351,16 +351,21 @@ class BaseRules():
         y = pos.y
         print(x, y, self.left, self.right, self.top, self.bottom)
         ret = []
-        clicktree = []
         for l in self.childs[0]:
-            (r, c)= l.clickCheck(pos)
-            ret += r
-            clicktree +=c
+            ret += l.clickCheck(pos)
         if self.left <= x < self.right and self.top <= y < self.bottom:
             ret += [self]
-        clicktree += [self]
-        return (ret, clicktree)
+        return ret
 
+    def clicktree(self, item):
+        if item == self:
+            return [self]
+        for l in self.childs[0]:
+            r = l.clicktree(item)
+            if r is not None:
+                return r + [self]
+        return None
+    
 class Character(BaseRules):
     def draw(self):
         #print(self, 'char draw', self.TheCharacter, round(self.getVar('left')), round(self.getVar('top')), round(self.getVar('right')), round(self.getVar('bottom')))
@@ -589,21 +594,23 @@ def click(event):
 
 
     printinfos()
-    (r, clicktree) = menu.clickCheck(event)
+    r = menu.clickCheck(event)
+    clicktree = menu.clicktree(r[0])
     print('clicktree', clicktree)
     if len(r) > 0:
         print('clicked', r[0].name)
         try:
-            exec('testmodules.'+r[0].name+".call(r[0])")
             if show_called_file:
                 nf = 'testmodules/'+r[0].name+'.py'
                 subprocess.call(["spyder", nf])
+            exec('testmodules.'+r[0].name+".call(clicktree)")
         except AttributeError:
             nf = 'testmodules/'+r[0].name+'.py'
             if not os.path.exists(nf):
                 shutil.copyfile('testmodules/template', nf)
                 subprocess.call(["spyder", nf])
     menu.full_set()
+    w.delete("all")
     for d in menu.get_all_self_and_childs():
         d.draw()
 

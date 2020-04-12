@@ -1,4 +1,5 @@
 import __main__ as m
 
-def call(param):
+def call(clicktree):
+    param = clicktree[0]
     print('implemented', param, m)
