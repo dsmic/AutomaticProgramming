@@ -351,11 +351,15 @@ class BaseRules():
         y = pos.y
         print(x, y, self.left, self.right, self.top, self.bottom)
         ret = []
+        clicktree = []
         for l in self.childs[0]:
-            ret += l.clickCheck(pos)
+            (r, c)= l.clickCheck(pos)
+            ret += r
+            clicktree +=c
         if self.left <= x < self.right and self.top <= y < self.bottom:
             ret += [self]
-        return ret
+        clicktree += [self]
+        return (ret, clicktree)
 
 class Character(BaseRules):
     def draw(self):
@@ -585,7 +589,8 @@ def click(event):
 
 
     printinfos()
-    r = menu.clickCheck(event)
+    (r, clicktree) = menu.clickCheck(event)
+    print('clicktree', clicktree)
     if len(r) > 0:
         print('clicked', r[0].name)
         try:
