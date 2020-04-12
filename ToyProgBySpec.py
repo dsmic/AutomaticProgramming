@@ -99,6 +99,7 @@ class BaseRules():
         for l in self.priority:
             self.add_property(l)
         self.RestrictionsList = [] #executed by BaseRules class
+        self.ParentRestrictionsList = []
 
     def clean(self):
         for l in self.priority:
@@ -295,6 +296,10 @@ class BaseRules():
         """
         for l in self.RestrictionsList:
             self.rule(l)
+        for l in self.childs:
+            for ll in l:
+                for lll in ll.ParentRestrictionsList:
+                    self.rule(lll)
 
     def add_child(self, a):
         self.childs[0].append(a)
@@ -488,14 +493,14 @@ class MenuItem(BaseRules):
         self.rule('right=left+width')
         BaseRules.restrictions(self)
 
-    def addMenu(self, name, ItemList, horizontal=False):
-        l = Menu(self.name + '_' + name, ItemList, horizontal)
+    def addMenu(self, name, ItemList, ParentRestrictionsList = [], horizontal=False):
+        l = Menu(self.name + '_' + name, ItemList, horizontal, ParentRestrictionsList)
         self.add_child(l)
         return l
 
 
 class Menu(BaseRules):
-    def __init__(self, name, ItemList, horizontal=True):
+    def __init__(self, name, ItemList, horizontal=True,ParentRestrictionsList = []):
         self.priority = ['top', 'right', 'left', 'bottom'] #Later this should be syntactically improved
 
         BaseRules.__init__(self)
@@ -515,6 +520,7 @@ class Menu(BaseRules):
                                      ]
         for l in ItemList:
             self.addMenuItem(l)
+        self.ParentRestrictionsList = ParentRestrictionsList
 
     def addMenuItem(self, name):
         l = MenuItem(name)
