@@ -721,7 +721,10 @@ def mouserelease(event):
     else:
         last_line_properties = line_properties.copy()
         lastdirect = thisdirect
-
+    for d in draw_objects:
+        print('draw', d)
+        d.draw()
+        
 def mousepress(event):
     global lastpress, lastpoints
     lastpress = event
@@ -735,6 +738,19 @@ def mousemove(event):
     w.create_line(lastpoints[-1].x, lastpoints[-1].y, event.x, event.y)
     lastpoints += [event]
     print('move',event)
+
+class draw_point():
+    def __init__(self, cx, cy):
+        self.cx = cx
+        self.cy = cy
+    
+    def draw(self):
+        cx = self.cx
+        cy = self.cy
+        w.create_line(cx-5, cy-5, cx+5, cy+5, fill="red")
+        w.create_line(cx-5, cy+5, cx+5, cy-5, fill="red")
+
+draw_objects = []
     
 w.bind('<ButtonRelease-1>', mouserelease)
 w.bind('<ButtonPress-1>', mousepress)

@@ -9,7 +9,7 @@ def call(lp, last_lp):
         
         m.w.create_line(cx-5, cy-5, cx+5, cy+5, fill="red")
         m.w.create_line(cx-5, cy+5, cx+5, cy-5, fill="red")
-        
+        m.draw_objects.append(m.draw_point(cx, cy))
         # m.w.create_line(last_lp['start'].x,last_lp['start'].y, last_lp['end'].x, last_lp['end'].y, fill="red" )
         # m.w.create_line(lp['start'].x,lp['start'].y, lp['end'].x, lp['end'].y, fill="red" )
         return True
