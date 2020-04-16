@@ -6,9 +6,13 @@ def call(lp, last_lp):
     
     # check for click
     if lp['length'] == 0:
-        if m.markedpoint is None:
+        if m.markedpoint is None and m.clickedposition is None:
             np = m.find_point_near(lp['start'], 20)
             m.markedpoint = np
+            if np is None:
+                m.clickedposition = lp['start']
+            else:
+                m.clickedposition = None
             return True
         intersecs = m.find_intersections()
         print('intersecs', intersecs)
@@ -16,6 +20,7 @@ def call(lp, last_lp):
             print('p', l.x,l.y)
             m.draw_objects.append(m.draw_point(l.x,l.y))
         m.markedpoint = None
+        m.clickedposition = None
         return True
     
     
