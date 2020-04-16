@@ -806,8 +806,108 @@ def find_point_near(point, dist=None):
     if dist is None or mindist < dist:
         return minpoint
     return None
-        
-        
+
+def intersect_line_line(l1, l2):
+    l1sx = l1.sp.x
+    l1sy = l1.sp.y
+    l1ex = l1.ep.x
+    l1ey = l1.ep.y
+    l2sx = l2.sp.x
+    l2sy = l2.sp.y
+    l2ex = l2.ep.x
+    l2ey = l2.ep.y
+    g1 = str(l1sx) + ' + x1 * '+ str(l1ex-l1sx) + '-('+   str(l2sx) + ' + x2 * '+ str(l2ex-l2sx) +')'
+    g2 = str(l1sy) + ' + x1 * '+ str(l1ey-l1sy) + '-('+   str(l2sy) + ' + x2 * '+ str(l2ey-l2sy) +')'
+    print(g1)
+    print(g2)
+    try:
+        r = sym.solve([g1,g2])
+        print(r)
+        x1 = N(r[sym.sympify('x1')])
+        x2 = N(r[sym.sympify('x2')])
+        print(l1sx+ x1 * (l1ex-l1sx))
+        print(l1sy+ x1 * (l1ey-l1sy))
+        if 0<=x1<=1 and 0<=x2<=1:
+            return [point(l1sx+ x1 * (l1ex-l1sx), l1sy+ x1 * (l1ey-l1sy))]
+    except TypeError:
+        print('not solveable')
+    except KeyError:
+        print('not solveable')
+    return []
+
+def intersect_line_circle(l1, c2):
+    ret = []
+    l1sx = l1.sp.x
+    l1sy = l1.sp.y
+    l1ex = l1.ep.x
+    l1ey = l1.ep.y
+    c2x = c2.cp.x
+    c2y = c2.cp.y
+    radius = c2.radius
+    g1 = '(' + str(l1sx) + ' + x1 * '+ str(l1ex-l1sx) + '-' + str(c2x) +')**2 + ' + '(' + str(l1sy) + ' + x1 * '+ str(l1ey-l1sy) + '-' + str(c2y) +')**2 -' + str(radius) + '**2'
+    print(g1)
+    try:
+        r = sym.solve(g1)
+    except TypeError:
+        return ret
+    print(r)
+    for r1 in r:
+        try:
+            x1 = N(r1)
+            print('lösungen',x1)
+            if 0<=r1<=1:
+                ret.append(point(l1sx+ x1 * (l1ex-l1sx), l1sy+ x1 * (l1ey-l1sy)))
+        except TypeError:
+            pass
+    return ret
+            
+def intersect_circle_circle(c1, c2):
+    ret = []
+    c1x = c1.cp.x
+    c1y = c1.cp.y
+    radius1 = c2.radius
+    c2x = c2.cp.x
+    c2y = c2.cp.y
+    radius2 = c2.radius
+    g1 = '(  x  - ' + str(c1x) +')**2 + ( y - '  + str(c1y) + ')**2 - ' + str(radius1)
+    g2 = '(  x  - ' + str(c2x) +')**2 + ( y - '  + str(c2y) + ')**2 - ' + str(radius2)
+    print(g1)
+    print(g2)
+    try:
+        r = sym.solve([g1,g2])
+    except TypeError:
+        return ret
+    print(r)
+    for r1 in r:
+        try:
+            x = N(r1[sym.sympify('x')])
+            print('lösungen x',x)
+            y = N(r1[sym.sympify('y')])
+            print('lösungen y',y)
+            ret.append(point(x,y))
+        except TypeError:
+            pass
+    return ret
+            
+   
+    
+
+def find_intersections():
+    point_list = []
+    for o1 in draw_objects:
+        if isinstance(o1, draw_line):
+            for o2 in draw_objects:
+                if isinstance(o2, draw_line):
+                    point_list += intersect_line_line(o1,o2)
+                if isinstance(o2, draw_circle):
+                    point_list += intersect_line_circle(o1,o2)
+        if isinstance(o1, draw_circle):
+            for o2 in draw_objects:
+                if isinstance(o2, draw_line):
+                    point_list += intersect_line_circle(o2,o1)
+                if isinstance(o2, draw_circle):
+                    point_list += intersect_circle_circle(o1,o2)
+    return point_list
 
 draw_objects = []
     
@@ -828,4 +928,19 @@ for d in menu.get_all_self_and_childs():
 
 w.create_rectangle(10,10,100,100)
 w.create_arc(-100,-100,100,100, extent=359.99, style=tk.ARC)
-mainloop()
+#mainloop()
+
+sp = point(2,4)
+ep = point(60,70)
+sp2 = point(20,5)
+ep2 = point(6,7.5)
+l1 = draw_line(sp,ep)
+l2 = draw_line(sp2,ep2)
+c1 = draw_circle(sp,5)
+c2 = draw_circle(sp2,5)
+o=intersect_line_line(l1,l2)
+print(o)
+o=intersect_line_circle(l1,c2)
+print(o)
+o=intersect_circle_circle(c1,c2)
+print(o)
