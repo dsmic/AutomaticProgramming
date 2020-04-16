@@ -679,7 +679,7 @@ def direct(a,b):
     return math.atan2(a.y-b.y, a.x-b.x)
 
 def mouserelease(event):
-    global lastdirect, last_line_properties
+    global lastdirect, last_line_properties, lastpoints
     print('release',event)
     #******************************
     # this is working for draw the full line
@@ -725,6 +725,8 @@ def mouserelease(event):
     if done:
         last_line_properties = None
         lastdirection = None
+        w.delete("all")
+        lastpoints = None
     else:
         last_line_properties = line_properties.copy()
         lastdirect = thisdirect
