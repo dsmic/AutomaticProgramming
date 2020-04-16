@@ -6,7 +6,11 @@ def call(lp, last_lp):
     
     # check for point was marked, now we make a circle from it
     if m.markedpoint is not None:
-        radius = m.abst(m.markedpoint, lp['center'])
+        # check if point is near center
+        pp = m.find_point_near(lp['center'],20)
+        if pp is None:
+            pp = lp['center']
+        radius = m.abst(m.markedpoint, pp)
         m.draw_objects.append(m.draw_circle(m.markedpoint, radius))
         m.markedpoint = None
         return True
