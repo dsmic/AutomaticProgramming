@@ -133,7 +133,7 @@ class BaseRules():
     def solve_equations(self):
         self.clean_all_equations()
         self.full_restrictions()
-        rrs = BaseRules.all_equations_rules+testpage.all_equations_min
+        rrs = BaseRules.all_equations_rules+BaseRules.all_equations_min
         # this are the vars of childs
         list_vars = []
         # this are vars of self, they could be keep unsolved, as they are the parameters
@@ -665,6 +665,7 @@ def click(event):
 lastpress = None
 lastpoints = None
 last_line_properties = None
+markedpoint = None
 
 lastdirect = 0
 
@@ -712,8 +713,14 @@ def mouserelease(event):
     thisdirect = direct(start,end)
     # print(abs(math.modf((thisdirect-lastdirect)/math.pi)[0]))
     # print(abs(abs(math.modf((thisdirect-lastdirect)/math.pi)[0])-0.5)*2)
-    line_properties = {'start': start, 'end': end, 'length': ssum, 'curvature': krum/ssum, 'direction': thisdirect, 
-                       'parallel_to_last': abs(abs(math.modf((thisdirect-lastdirect)/math.pi)[0])-0.5)*2}
+    ct = point((start.x+end.x)/2, (start.y+end.y)/2)
+    if ssum > 0:
+        kr = krum/ssum
+    else:
+        kr = 0
+    line_properties = {'start': start, 'end': end, 'center': ct, 'length': ssum, 'curvature': kr, 'direction': thisdirect, 
+                       'parallel_to_last': abs(abs(math.modf((thisdirect-lastdirect)/math.pi)[0])-0.5)*2,
+                       'pointlist': lastpoints}
     done = drawmodules.draw_line_ready.call(line_properties, last_line_properties)
     if done:
         last_line_properties = None
@@ -738,17 +745,67 @@ def mousemove(event):
     w.create_line(lastpoints[-1].x, lastpoints[-1].y, event.x, event.y)
     lastpoints += [event]
     print('move',event)
-
+class point():
+    def __init__(self,x,y):
+        self.x=x
+        self.y=y
+        
 class draw_point():
     def __init__(self, cx, cy):
-        self.cx = cx
-        self.cy = cy
+        self.x = cx
+        self.y = cy
     
     def draw(self):
-        cx = self.cx
-        cy = self.cy
+        cx = self.x
+        cy = self.y
         w.create_line(cx-5, cy-5, cx+5, cy+5, fill="red")
         w.create_line(cx-5, cy+5, cx+5, cy-5, fill="red")
+
+class draw_line():
+    def __init__(self, sp, ep):
+        self.sp = sp
+        self.ep = ep
+    def draw(self):
+        w.create_line(self.sp.x, self.sp.y, self.ep.x, self.ep.y, fill="red")
+        
+class draw_polygon():
+    def __init__(self, pg):
+        self.pg = pg
+    
+    def draw(self):
+        pg = self.pg
+        if len(pg) >= 4:
+            w.create_line(*pg, fill="red")
+        
+class draw_circle():
+    def __init__(self, cp, radius):
+        self.cp = cp
+        self.radius = radius
+    def draw(self):
+        cp=self.cp
+        radius=self.radius
+        w.create_oval(cp.x - radius, cp.y - radius, cp.x +  radius, cp.y + radius, outline='red')
+
+def find_point_near(point, dist=None):
+    mindist = None
+    minpoint = None
+    for p in draw_objects:
+        if isinstance(p, draw_point):
+            if mindist is None:
+                mindist = abst(point, p)
+                minpoint = p
+            else:
+                ab = abst(point, p)
+                if ab < mindist:
+                    mindist = ab
+                    minpoint = p
+    if mindist is None:
+        return None
+    if dist is None or mindist < dist:
+        return minpoint
+    return None
+        
+        
 
 draw_objects = []
     
