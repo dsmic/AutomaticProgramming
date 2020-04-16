@@ -670,6 +670,7 @@ markedpoint = None
 lastdirect = 0
 
 def abst(a,b):
+    print(a.x,a.y,b.x,b.y)
     return math.sqrt((a.x-b.x)**2+(a.y-b.y)**2)
 
 def kreuz(a,b,c):
@@ -894,15 +895,18 @@ def intersect_circle_circle(c1, c2):
 
 def find_intersections():
     point_list = []
-    for o1 in draw_objects:
+    tmp_draw = draw_objects[:]
+    print('draw', draw_objects)
+    while len(tmp_draw) > 1:
+        o1 = tmp_draw.pop()
         if isinstance(o1, draw_line):
-            for o2 in draw_objects:
+            for o2 in tmp_draw:
                 if isinstance(o2, draw_line):
                     point_list += intersect_line_line(o1,o2)
                 if isinstance(o2, draw_circle):
                     point_list += intersect_line_circle(o1,o2)
         if isinstance(o1, draw_circle):
-            for o2 in draw_objects:
+            for o2 in tmp_draw:
                 if isinstance(o2, draw_line):
                     point_list += intersect_line_circle(o2,o1)
                 if isinstance(o2, draw_circle):
@@ -928,7 +932,7 @@ for d in menu.get_all_self_and_childs():
 
 w.create_rectangle(10,10,100,100)
 w.create_arc(-100,-100,100,100, extent=359.99, style=tk.ARC)
-#mainloop()
+mainloop()
 
 sp = point(2,4)
 ep = point(60,70)

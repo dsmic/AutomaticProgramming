@@ -4,6 +4,21 @@ def call(lp, last_lp):
     print('implemented', lp, last_lp, m)
     flatpoint = [p for s in lp['pointlist'] for p in (s.x,s.y)]
     
+    # check for click
+    if lp['length'] == 0:
+        if m.markedpoint is None:
+            np = m.find_point_near(lp['start'], 20)
+            m.markedpoint = np
+            return True
+        intersecs = m.find_intersections()
+        print('intersecs', intersecs)
+        for l in intersecs:
+            print('p', l.x,l.y)
+            m.draw_objects.append(m.draw_point(l.x,l.y))
+        m.markedpoint = None
+        return True
+    
+    
     # check for point was marked, now we make a circle from it
     if m.markedpoint is not None:
         # check if point is near center
@@ -15,12 +30,6 @@ def call(lp, last_lp):
         m.markedpoint = None
         return True
         
-    # check for click
-    if lp['length'] == 0:
-        np = m.find_point_near(lp['start'], 20)
-        m.markedpoint = np
-        return True
-    
     # check for a cross to mark points    
     if last_lp is not None and 3 < last_lp['length'] < 50 and 3 < lp['length'] < 50 and lp['parallel_to_last'] < 0.3:
         cx = (last_lp['start'].x + last_lp['end'].x + lp['start'].x + lp['end'].x) / 4
