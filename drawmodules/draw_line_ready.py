@@ -5,7 +5,7 @@ def call(lp, last_lp):
     flatpoint = [p for s in lp['pointlist'] for p in (s.x, s.y)]
 
     # check for click
-    if lp['length'] < 3:
+    if lp['length'] < 5:
         if m.clickedposition is not None:
             if m.abst(m.clickedposition, lp['start']) < 30:
                 intersecs = m.find_intersections()
@@ -53,7 +53,7 @@ def call(lp, last_lp):
         return True
 
     # check for a cross to mark points
-    if last_lp is not None and 3 < last_lp['length'] < 50 and 3 < lp['length'] < 50 and lp['parallel_to_last'] < 0.3 and m.abst(lp['center'], last_lp['center']) < 20:
+    if last_lp is not None and 5 < last_lp['length'] < 80 and 5 < lp['length'] < 80 and lp['parallel_to_last'] < 0.3 and m.abst(lp['center'], last_lp['center']) < 20:
         cx = (last_lp['start'].x + last_lp['end'].x + lp['start'].x + lp['end'].x) / 4
         cy = (last_lp['start'].y + last_lp['end'].y + lp['start'].y + lp['end'].y) / 4
         m.draw_objects.pop()

@@ -740,6 +740,7 @@ def mouserelease(event):
         dd.draw()
     if mark is not None:
         mark.draw()
+
 def mousepress(event):
     global lastpress, lastpoints
     lastpress = event
@@ -933,8 +934,18 @@ def find_intersections():
 
 draw_objects = []
 
+def mouseright(event):
+    global mark
+    draw_objects.pop()
+    mark = None
+    w.delete("all")
+    for dd in draw_objects:
+        print('draw', dd)
+        dd.draw()
+
 w.bind('<ButtonRelease-1>', mouserelease)
 w.bind('<ButtonPress-1>', mousepress)
+w.bind('<ButtonPress-3>', mouseright)
 w.bind('<B1-Motion>', mousemove)
 
 #master.bind('<Key>', key)
