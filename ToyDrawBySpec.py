@@ -843,24 +843,25 @@ def find_point_near(ppoint, dist=None):
     return None
 
 def find_line_near(ppoint, dist=None):
-    mindist = None
-    minline = None
+    minline = []
     for l in draw_objects:
         if isinstance(l, draw_line):
             for p in [l.sp, l.ep]:
-                if mindist is None:
-                    mindist = abst(ppoint, p)
-                    minline = l
-                else:
-                    ab = abst(ppoint, p)
-                    if ab < mindist:
-                        mindist = ab
-                        minline = l
-    if minline is None:
-        return None
-    if dist is None or mindist < dist:
-        return minline
-    return None
+                ab = abst(ppoint, p)
+                if ab < dist:
+                    minline.append(l)
+    return minline
+
+def check_strecke(xx, ll):
+    sg = ll.sg
+    eg = ll.eg
+    if sg and eg:
+        return True
+    if sg:
+        return xx <= 1
+    if eg:
+        return 0 <= xx
+    return 0 <= xx <= 1
 
 def intersect_line_line(l1, l2):
     l1sx = l1.sp.x
@@ -880,9 +881,8 @@ def intersect_line_line(l1, l2):
     try:
         x1 = (-(l1sx - l2sx)*(l2ey - l2sy) + (l1sy - l2sy)*(l2ex - l2sx))/((l1ex - l1sx)*(l2ey - l2sy) - (l1ey - l1sy)*(l2ex - l2sx))
         x2 = ((l1ex - l1sx)*(l1sy - l2sy) - (l1ey - l1sy)*(l1sx - l2sx))/((l1ex - l1sx)*(l2ey - l2sy) - (l1ey - l1sy)*(l2ex - l2sx))
-        # print(l1sx+ x1 * (l1ex-l1sx))
-        # print(l1sy+ x1 * (l1ey-l1sy))
-        if 0 <= x1 <= 1 and 0 <= x2 <= 1:
+        
+        if check_strecke(x1, l1) and check_strecke(x2, l2):
             return [point(l1sx+ x1 * (l1ex-l1sx), l1sy+ x1 * (l1ey-l1sy))]
     except ZeroDivisionError as e:
         print('line_line', e)
@@ -898,19 +898,19 @@ def intersect_line_circle(l1, c2):
     c2y = c2.cp.y
     radius = c2.radius
 #    g1 = '( l1sx + x1 * (l1ex-l1sx) - c2x )**2 + ( l1sy + x1 * (l1ey-l1sy) - c2y )**2 - radius **2'
-#    print(g1)
-    #r1 = sym.solve(g1,['x1'])
-#    r1 = [, ]
-#    print(r1)
+#    r1 = sym.solve(g1,['x1'])
+
     try:
         x1 = (c2x*l1ex - c2x*l1sx + c2y*l1ey - c2y*l1sy - l1ex*l1sx - l1ey*l1sy + l1sx**2 + l1sy**2 - sqrt(-c2x**2*l1ey**2 + 2*c2x**2*l1ey*l1sy - c2x**2*l1sy**2 + 2*c2x*c2y*l1ex*l1ey - 2*c2x*c2y*l1ex*l1sy - 2*c2x*c2y*l1ey*l1sx + 2*c2x*c2y*l1sx*l1sy - 2*c2x*l1ex*l1ey*l1sy + 2*c2x*l1ex*l1sy**2 + 2*c2x*l1ey**2*l1sx - 2*c2x*l1ey*l1sx*l1sy - c2y**2*l1ex**2 + 2*c2y**2*l1ex*l1sx - c2y**2*l1sx**2 + 2*c2y*l1ex**2*l1sy - 2*c2y*l1ex*l1ey*l1sx - 2*c2y*l1ex*l1sx*l1sy + 2*c2y*l1ey*l1sx**2 - l1ex**2*l1sy**2 + l1ex**2*radius**2 + 2*l1ex*l1ey*l1sx*l1sy - 2*l1ex*l1sx*radius**2 - l1ey**2*l1sx**2 + l1ey**2*radius**2 - 2*l1ey*l1sy*radius**2 + l1sx**2*radius**2 + l1sy**2*radius**2))/(l1ex**2 - 2*l1ex*l1sx + l1ey**2 - 2*l1ey*l1sy + l1sx**2 + l1sy**2)
-        if 0 <= x1 <= 1:
+        
+        if check_strecke(x1, l1):
             ret.append(point(l1sx + x1 * (l1ex-l1sx), l1sy + x1 * (l1ey-l1sy)))
     except (ValueError, ZeroDivisionError) as e:
         print('line_circle', e)
     try:
         x1 = (c2x*l1ex - c2x*l1sx + c2y*l1ey - c2y*l1sy - l1ex*l1sx - l1ey*l1sy + l1sx**2 + l1sy**2 + sqrt(-c2x**2*l1ey**2 + 2*c2x**2*l1ey*l1sy - c2x**2*l1sy**2 + 2*c2x*c2y*l1ex*l1ey - 2*c2x*c2y*l1ex*l1sy - 2*c2x*c2y*l1ey*l1sx + 2*c2x*c2y*l1sx*l1sy - 2*c2x*l1ex*l1ey*l1sy + 2*c2x*l1ex*l1sy**2 + 2*c2x*l1ey**2*l1sx - 2*c2x*l1ey*l1sx*l1sy - c2y**2*l1ex**2 + 2*c2y**2*l1ex*l1sx - c2y**2*l1sx**2 + 2*c2y*l1ex**2*l1sy - 2*c2y*l1ex*l1ey*l1sx - 2*c2y*l1ex*l1sx*l1sy + 2*c2y*l1ey*l1sx**2 - l1ex**2*l1sy**2 + l1ex**2*radius**2 + 2*l1ex*l1ey*l1sx*l1sy - 2*l1ex*l1sx*radius**2 - l1ey**2*l1sx**2 + l1ey**2*radius**2 - 2*l1ey*l1sy*radius**2 + l1sx**2*radius**2 + l1sy**2*radius**2))/(l1ex**2 - 2*l1ex*l1sx + l1ey**2 - 2*l1ey*l1sy + l1sx**2 + l1sy**2)
-        if 0 <= x1 <= 1:
+        
+        if check_strecke(x1, l1):
             ret.append(point(l1sx + x1 * (l1ex-l1sx), l1sy + x1 * (l1ey-l1sy)))
     except (ValueError, ZeroDivisionError) as e:
         print('line_circle', e)

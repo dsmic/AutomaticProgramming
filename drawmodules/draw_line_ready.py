@@ -74,17 +74,18 @@ def call(lp, last_lp):
         return True
 
     # check if we do lengthen a line
-    nl = m.find_line_near(lp['center'], 20)
-    if nl is not None:
-        #check for direction
-        line_direct = m.direct(nl.sp, nl.ep)
-        is_par = m.is_parallel(line_direct, lp['direction'])
-        if is_par > 0.6:
-            print('same direction')
-            if m.abst(nl.sp, lp['center']) < 20:
-                nl.sg = True
-            if m.abst(nl.ep, lp['center']) < 20:
-                nl.eg = True
+    nl_list = m.find_line_near(lp['center'], 20)
+    if len(nl_list) > 0:
+        for nl in nl_list:
+            #check for direction
+            line_direct = m.direct(nl.sp, nl.ep)
+            is_par = m.is_parallel(line_direct, lp['direction'])
+            if is_par > 0.6:
+                print('same direction')
+                if m.abst(nl.sp, lp['center']) < 20:
+                    nl.sg = True
+                if m.abst(nl.ep, lp['center']) < 20:
+                    nl.eg = True
         return True        
     
 
