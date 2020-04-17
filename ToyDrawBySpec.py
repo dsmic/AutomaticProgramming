@@ -6,9 +6,9 @@ Created on Sun Feb 23 18:53:25 2020
 @author: detlef
 edr """
 
-# pylint: disable=C0301, C0103, C0116, C0321, C0115, R0914, R0912, R0915, R1705, R1720, W0122, W0603, W0123, R1702
+# pylint: disable=C0301, C0103, C0116, C0321, C0115, R0914, R0912, R0915, R1705, R1720, W0122, W0603, W0123, R1702, R0903
 
-import tkinter as tk
+#import tkinter as tk
 from tkinter import Tk, Canvas, mainloop, NW
 from tokenize import tokenize
 from io import BytesIO
@@ -540,8 +540,8 @@ w.pack()
 
 def click(event):
     importlib.reload(drawmodules)
-    global actualLine
-    global actualWord
+    # global actualLine
+    # global actualWord
     print('button clicked', event)
     # mouse_coordinates= str(event.x) + ", " + str(event.y)
     # w.create_text(event.x, event.y, text = mouse_coordinates)
@@ -671,26 +671,28 @@ clickedposition = None
 
 lastdirect = 0
 
-def abst(a,b):
-    print(a.x,a.y,b.x,b.y)
+mark = None
+
+def abst(a, b):
+    print(a.x, a.y, b.x, b.y)
     return math.sqrt((a.x-b.x)**2+(a.y-b.y)**2)
 
-def kreuz(a,b,c):
+def kreuz(a, b, c):
     # sign of kreuzprodukt
-    return math.copysign(1,(c.x-a.x)*(b.y-a.y)-(c.y-a.y)*(b.x-a.x))
-def direct(a,b):
+    return math.copysign(1, (c.x-a.x)*(b.y-a.y)-(c.y-a.y)*(b.x-a.x))
+def direct(a, b):
     return math.atan2(a.y-b.y, a.x-b.x)
 
 def mouserelease(event):
     global lastdirect, last_line_properties, lastpoints
-    print('release',event)
+    print('release', event)
     #******************************
     # this is working for draw the full line
     # pointflat = [a for l in lastpoints for a in (l.x,l.y)]
     # w.create_line(*pointflat, smooth=True, splinesteps=3)
     # print(pointflat)
     #******************************
-    if abs(event.x - lastpress.x)< 5 and abs(event.y-lastpress.y)<5:
+    if abs(event.x - lastpress.x) < 5 and abs(event.y-lastpress.y) < 5:
         click(event)
     # calculate line properties
     start = lastpoints[0]
@@ -698,22 +700,22 @@ def mouserelease(event):
     lp = lastpoints[0]
     ssum = 0
     for l in lastpoints[1:]:
-        ssum += abst(l,lp)
+        ssum += abst(l, lp)
         lp = l
     krum = 0
-    for i in range(2,len(lastpoints)):
-        c = abst(lastpoints[i-2],lastpoints[i])
+    for i in range(2, len(lastpoints)):
+        c = abst(lastpoints[i-2], lastpoints[i])
         if c > 0:
-            a = abst(lastpoints[i-1],lastpoints[i])
-            b = abst(lastpoints[i-2],lastpoints[i-1])
+            a = abst(lastpoints[i-1], lastpoints[i])
+            b = abst(lastpoints[i-2], lastpoints[i-1])
             s = (a+b+c)/2
             try:
-                print(a,b,c,s,  2/c*math.sqrt(s*(s-a)*(s-b)*(s-c)))
-                krum += 2/c*math.sqrt(s*(s-a)*(s-b)*(s-c)) * kreuz(lastpoints[i-2],lastpoints[i-1],lastpoints[i])
-                print(kreuz(lastpoints[i-2],lastpoints[i-1],lastpoints[i]), krum)
+                print(a, b, c, s, 2/c*math.sqrt(s*(s-a)*(s-b)*(s-c)))
+                krum += 2/c*math.sqrt(s*(s-a)*(s-b)*(s-c)) * kreuz(lastpoints[i-2], lastpoints[i-1], lastpoints[i])
+                print(kreuz(lastpoints[i-2], lastpoints[i-1], lastpoints[i]), krum)
             except ValueError:
                 print('ValueError')
-    thisdirect = direct(start,end)
+    thisdirect = direct(start, end)
     # print(abs(math.modf((thisdirect-lastdirect)/math.pi)[0]))
     # print(abs(abs(math.modf((thisdirect-lastdirect)/math.pi)[0])-0.5)*2)
     ct = point((start.x+end.x)/2, (start.y+end.y)/2)
@@ -721,7 +723,7 @@ def mouserelease(event):
         kr = krum/ssum
     else:
         kr = 0
-    line_properties = {'start': start, 'end': end, 'center': ct, 'length': ssum, 'curvature': kr, 'direction': thisdirect, 
+    line_properties = {'start': start, 'end': end, 'center': ct, 'length': ssum, 'curvature': kr, 'direction': thisdirect,
                        'parallel_to_last': abs(abs(math.modf((thisdirect-lastdirect)/math.pi)[0])-0.5)*2,
                        'pointlist': lastpoints}
     done = drawmodules.draw_line_ready.call(line_properties, last_line_properties)
@@ -733,15 +735,16 @@ def mouserelease(event):
     else:
         last_line_properties = line_properties.copy()
         lastdirect = thisdirect
-    for d in draw_objects:
-        print('draw', d)
-        d.draw()
-        
+    for dd in draw_objects:
+        print('draw', dd)
+        dd.draw()
+    if mark is not None:
+        mark.draw()
 def mousepress(event):
     global lastpress, lastpoints
     lastpress = event
     lastpoints = [event]
-    print('press',event)
+    print('press', event)
 
 def mousemove(event):
     global lastpoints
@@ -749,60 +752,69 @@ def mousemove(event):
     #     return
     w.create_line(lastpoints[-1].x, lastpoints[-1].y, event.x, event.y)
     lastpoints += [event]
-    print('move',event)
+    print('move', event)
 class point():
-    def __init__(self,x,y):
-        self.x=x
-        self.y=y
-        
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
 class draw_point():
     def __init__(self, cx, cy, color='red'):
         self.x = cx
         self.y = cy
         self.c = color
-    
+
     def draw(self):
         cx = self.x
         cy = self.y
         w.create_line(cx-5, cy-5, cx+5, cy+5, fill=self.c)
         w.create_line(cx-5, cy+5, cx+5, cy-5, fill=self.c)
-        print('indraw',cx,cy)
-        
+        print('indraw', cx, cy)
+
 class draw_line():
     def __init__(self, sp, ep):
         self.sp = sp
         self.ep = ep
     def draw(self):
         w.create_line(self.sp.x, self.sp.y, self.ep.x, self.ep.y, fill="red")
-        
+
 class draw_polygon():
     def __init__(self, pg):
         self.pg = pg
-    
+
     def draw(self):
         pg = self.pg
         if len(pg) >= 4:
             w.create_line(*pg, fill="red")
-        
+
 class draw_circle():
     def __init__(self, cp, radius):
         self.cp = cp
         self.radius = radius
     def draw(self):
-        cp=self.cp
-        radius=self.radius
+        cp = self.cp
+        radius = self.radius
         w.create_oval(cp.x - radius, cp.y - radius, cp.x +  radius, cp.y + radius, outline='red')
 
-def find_point_near(point, dist=None):
+class draw_mark():
+    def __init__(self, cp, radius=3):
+        self.cp = cp
+        self.radius = radius
+    def draw(self):
+        cp = self.cp
+        radius = self.radius
+        w.create_oval(cp.x - radius, cp.y - radius, cp.x +  radius, cp.y + radius, fill='green')
+
+def find_point_near(ppoint, dist=None):
     mindist = None
     minpoint = None
     for p in draw_objects:
         if isinstance(p, draw_point):
             if mindist is None:
-                mindist = abst(point, p)
+                mindist = abst(ppoint, p)
                 minpoint = p
             else:
-                ab = abst(point, p)
+                ab = abst(ppoint, p)
                 if ab < mindist:
                     mindist = ab
                     minpoint = p
@@ -825,19 +837,17 @@ def intersect_line_line(l1, l2):
     g2 = 'l1sy + x1 * (l1ey-l1sy) - ( l2sy + x2 * (l2ey-l2sy))'
     print(g1)
     print(g2)
+    # r = sym.solve([g1,g2],['x1','x2'])
+    # print(r)
     try:
-        # r = sym.solve([g1,g2],['x1','x2'])
-        # print(r)
-        x1 = eval('(-(l1sx - l2sx)*(l2ey - l2sy) + (l1sy - l2sy)*(l2ex - l2sx))/((l1ex - l1sx)*(l2ey - l2sy) - (l1ey - l1sy)*(l2ex - l2sx))')
-        x2 = eval('((l1ex - l1sx)*(l1sy - l2sy) - (l1ey - l1sy)*(l1sx - l2sx))/((l1ex - l1sx)*(l2ey - l2sy) - (l1ey - l1sy)*(l2ex - l2sx))')
+        x1 = (-(l1sx - l2sx)*(l2ey - l2sy) + (l1sy - l2sy)*(l2ex - l2sx))/((l1ex - l1sx)*(l2ey - l2sy) - (l1ey - l1sy)*(l2ex - l2sx))
+        x2 = ((l1ex - l1sx)*(l1sy - l2sy) - (l1ey - l1sy)*(l1sx - l2sx))/((l1ex - l1sx)*(l2ey - l2sy) - (l1ey - l1sy)*(l2ex - l2sx))
         # print(l1sx+ x1 * (l1ex-l1sx))
         # print(l1sy+ x1 * (l1ey-l1sy))
-        if 0<=x1<=1 and 0<=x2<=1:
+        if 0 <= x1 <= 1 and 0 <= x2 <= 1:
             return [point(l1sx+ x1 * (l1ex-l1sx), l1sy+ x1 * (l1ey-l1sy))]
-    except TypeError:
-        print('not solveable')
-    except KeyError:
-        print('not solveable')
+    except ZeroDivisionError as e:
+        print('line_line', e)
     return []
 
 def intersect_line_circle(l1, c2):
@@ -849,22 +859,25 @@ def intersect_line_circle(l1, c2):
     c2x = c2.cp.x
     c2y = c2.cp.y
     radius = c2.radius
-    g1 = '( l1sx + x1 * (l1ex-l1sx) - c2x )**2 + ( l1sy + x1 * (l1ey-l1sy) - c2y )**2 - radius **2'
-    print(g1)
+#    g1 = '( l1sx + x1 * (l1ex-l1sx) - c2x )**2 + ( l1sy + x1 * (l1ey-l1sy) - c2y )**2 - radius **2'
+#    print(g1)
     #r1 = sym.solve(g1,['x1'])
-    r1 = ['(c2x*l1ex - c2x*l1sx + c2y*l1ey - c2y*l1sy - l1ex*l1sx - l1ey*l1sy + l1sx**2 + l1sy**2 - sqrt(-c2x**2*l1ey**2 + 2*c2x**2*l1ey*l1sy - c2x**2*l1sy**2 + 2*c2x*c2y*l1ex*l1ey - 2*c2x*c2y*l1ex*l1sy - 2*c2x*c2y*l1ey*l1sx + 2*c2x*c2y*l1sx*l1sy - 2*c2x*l1ex*l1ey*l1sy + 2*c2x*l1ex*l1sy**2 + 2*c2x*l1ey**2*l1sx - 2*c2x*l1ey*l1sx*l1sy - c2y**2*l1ex**2 + 2*c2y**2*l1ex*l1sx - c2y**2*l1sx**2 + 2*c2y*l1ex**2*l1sy - 2*c2y*l1ex*l1ey*l1sx - 2*c2y*l1ex*l1sx*l1sy + 2*c2y*l1ey*l1sx**2 - l1ex**2*l1sy**2 + l1ex**2*radius**2 + 2*l1ex*l1ey*l1sx*l1sy - 2*l1ex*l1sx*radius**2 - l1ey**2*l1sx**2 + l1ey**2*radius**2 - 2*l1ey*l1sy*radius**2 + l1sx**2*radius**2 + l1sy**2*radius**2))/(l1ex**2 - 2*l1ex*l1sx + l1ey**2 - 2*l1ey*l1sy + l1sx**2 + l1sy**2)', '(c2x*l1ex - c2x*l1sx + c2y*l1ey - c2y*l1sy - l1ex*l1sx - l1ey*l1sy + l1sx**2 + l1sy**2 + sqrt(-c2x**2*l1ey**2 + 2*c2x**2*l1ey*l1sy - c2x**2*l1sy**2 + 2*c2x*c2y*l1ex*l1ey - 2*c2x*c2y*l1ex*l1sy - 2*c2x*c2y*l1ey*l1sx + 2*c2x*c2y*l1sx*l1sy - 2*c2x*l1ex*l1ey*l1sy + 2*c2x*l1ex*l1sy**2 + 2*c2x*l1ey**2*l1sx - 2*c2x*l1ey*l1sx*l1sy - c2y**2*l1ex**2 + 2*c2y**2*l1ex*l1sx - c2y**2*l1sx**2 + 2*c2y*l1ex**2*l1sy - 2*c2y*l1ex*l1ey*l1sx - 2*c2y*l1ex*l1sx*l1sy + 2*c2y*l1ey*l1sx**2 - l1ex**2*l1sy**2 + l1ex**2*radius**2 + 2*l1ex*l1ey*l1sx*l1sy - 2*l1ex*l1sx*radius**2 - l1ey**2*l1sx**2 + l1ey**2*radius**2 - 2*l1ey*l1sy*radius**2 + l1sx**2*radius**2 + l1sy**2*radius**2))/(l1ex**2 - 2*l1ex*l1sx + l1ey**2 - 2*l1ey*l1sy + l1sx**2 + l1sy**2)']
-    print(r1)
-    for rr in r1:
-        #rr = repr(r)
-        print(rr)
-        try:
-            x1 = eval(rr)
-            if 0<=x1<=1:
-                ret.append(point(l1sx + x1 * (l1ex-l1sx), l1sy + x1 * (l1ey-l1sy) ))
-        except ValueError as e:
-            print('value error',e)
+#    r1 = [, ]
+#    print(r1)
+    try:
+        x1 = (c2x*l1ex - c2x*l1sx + c2y*l1ey - c2y*l1sy - l1ex*l1sx - l1ey*l1sy + l1sx**2 + l1sy**2 - sqrt(-c2x**2*l1ey**2 + 2*c2x**2*l1ey*l1sy - c2x**2*l1sy**2 + 2*c2x*c2y*l1ex*l1ey - 2*c2x*c2y*l1ex*l1sy - 2*c2x*c2y*l1ey*l1sx + 2*c2x*c2y*l1sx*l1sy - 2*c2x*l1ex*l1ey*l1sy + 2*c2x*l1ex*l1sy**2 + 2*c2x*l1ey**2*l1sx - 2*c2x*l1ey*l1sx*l1sy - c2y**2*l1ex**2 + 2*c2y**2*l1ex*l1sx - c2y**2*l1sx**2 + 2*c2y*l1ex**2*l1sy - 2*c2y*l1ex*l1ey*l1sx - 2*c2y*l1ex*l1sx*l1sy + 2*c2y*l1ey*l1sx**2 - l1ex**2*l1sy**2 + l1ex**2*radius**2 + 2*l1ex*l1ey*l1sx*l1sy - 2*l1ex*l1sx*radius**2 - l1ey**2*l1sx**2 + l1ey**2*radius**2 - 2*l1ey*l1sy*radius**2 + l1sx**2*radius**2 + l1sy**2*radius**2))/(l1ex**2 - 2*l1ex*l1sx + l1ey**2 - 2*l1ey*l1sy + l1sx**2 + l1sy**2)
+        if 0 <= x1 <= 1:
+            ret.append(point(l1sx + x1 * (l1ex-l1sx), l1sy + x1 * (l1ey-l1sy)))
+    except (ValueError, ZeroDivisionError) as e:
+        print('line_circle', e)
+    try:
+        x1 = (c2x*l1ex - c2x*l1sx + c2y*l1ey - c2y*l1sy - l1ex*l1sx - l1ey*l1sy + l1sx**2 + l1sy**2 + sqrt(-c2x**2*l1ey**2 + 2*c2x**2*l1ey*l1sy - c2x**2*l1sy**2 + 2*c2x*c2y*l1ex*l1ey - 2*c2x*c2y*l1ex*l1sy - 2*c2x*c2y*l1ey*l1sx + 2*c2x*c2y*l1sx*l1sy - 2*c2x*l1ex*l1ey*l1sy + 2*c2x*l1ex*l1sy**2 + 2*c2x*l1ey**2*l1sx - 2*c2x*l1ey*l1sx*l1sy - c2y**2*l1ex**2 + 2*c2y**2*l1ex*l1sx - c2y**2*l1sx**2 + 2*c2y*l1ex**2*l1sy - 2*c2y*l1ex*l1ey*l1sx - 2*c2y*l1ex*l1sx*l1sy + 2*c2y*l1ey*l1sx**2 - l1ex**2*l1sy**2 + l1ex**2*radius**2 + 2*l1ex*l1ey*l1sx*l1sy - 2*l1ex*l1sx*radius**2 - l1ey**2*l1sx**2 + l1ey**2*radius**2 - 2*l1ey*l1sy*radius**2 + l1sx**2*radius**2 + l1sy**2*radius**2))/(l1ex**2 - 2*l1ex*l1sx + l1ey**2 - 2*l1ey*l1sy + l1sx**2 + l1sy**2)
+        if 0 <= x1 <= 1:
+            ret.append(point(l1sx + x1 * (l1ex-l1sx), l1sy + x1 * (l1ey-l1sy)))
+    except (ValueError, ZeroDivisionError) as e:
+        print('line_circle', e)
     return ret
-            
+
 def intersect_circle_circle(c1, c2):
     ret = []
     c1x = c1.cp.x
@@ -873,31 +886,30 @@ def intersect_circle_circle(c1, c2):
     c2x = c2.cp.x
     c2y = c2.cp.y
     radius2 = c2.radius
-    g1 = '(  x  - c1x )**2 + ( y -   + c1y  )**2 - radius1**2'
-    g2 = '(  x  - c2x )**2 + ( y -   + c2y  )**2 - radius2**2'
-    print(g1)
-    print(g2)
+    # g1 = '(  x  - c1x )**2 + ( y -   + c1y  )**2 - radius1**2'
+    # g2 = '(  x  - c2x )**2 + ( y -   + c2y  )**2 - radius2**2'
+#    print(g1)
+#    print(g2)
     #this calculates the r1 and r2
     # r = sym.solve([g1,g2],['x','y'])
     # print(r)
-    
-    r1 = '(-(-c1x**2 - c1y**2 + c2x**2 + c2y**2 + radius1**2 - radius2**2 + (2*c1y - 2*c2y)*(-sqrt(-(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 - 2*radius1*radius2 - radius2**2)*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 + 2*radius1*radius2 - radius2**2))*(c1x - c2x)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)) + (c1x**2*c1y + c1x**2*c2y - 2*c1x*c1y*c2x - 2*c1x*c2x*c2y + c1y**3 - c1y**2*c2y + c1y*c2x**2 - c1y*c2y**2 - c1y*radius1**2 + c1y*radius2**2 + c2x**2*c2y + c2y**3 + c2y*radius1**2 - c2y*radius2**2)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2))))/(2*(c1x - c2x)), -sqrt(-(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 - 2*radius1*radius2 - radius2**2)*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 + 2*radius1*radius2 - radius2**2))*(c1x - c2x)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)) + (c1x**2*c1y + c1x**2*c2y - 2*c1x*c1y*c2x - 2*c1x*c2x*c2y + c1y**3 - c1y**2*c2y + c1y*c2x**2 - c1y*c2y**2 - c1y*radius1**2 + c1y*radius2**2 + c2x**2*c2y + c2y**3 + c2y*radius1**2 - c2y*radius2**2)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)))'
-    r2 = '(-(-c1x**2 - c1y**2 + c2x**2 + c2y**2 + radius1**2 - radius2**2 + (2*c1y - 2*c2y)*(sqrt(-(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 - 2*radius1*radius2 - radius2**2)*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 + 2*radius1*radius2 - radius2**2))*(c1x - c2x)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)) + (c1x**2*c1y + c1x**2*c2y - 2*c1x*c1y*c2x - 2*c1x*c2x*c2y + c1y**3 - c1y**2*c2y + c1y*c2x**2 - c1y*c2y**2 - c1y*radius1**2 + c1y*radius2**2 + c2x**2*c2y + c2y**3 + c2y*radius1**2 - c2y*radius2**2)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2))))/(2*(c1x - c2x)), sqrt(-(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 - 2*radius1*radius2 - radius2**2)*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 + 2*radius1*radius2 - radius2**2))*(c1x - c2x)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)) + (c1x**2*c1y + c1x**2*c2y - 2*c1x*c1y*c2x - 2*c1x*c2x*c2y + c1y**3 - c1y**2*c2y + c1y*c2x**2 - c1y*c2y**2 - c1y*radius1**2 + c1y*radius2**2 + c2x**2*c2y + c2y**3 + c2y*radius1**2 - c2y*radius2**2)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)))'
+
     try:
-        ev1 = eval(r1)
-        ret.append(point(ev1[0],ev1[1]))
+        ev1 = (-(-c1x**2 - c1y**2 + c2x**2 + c2y**2 + radius1**2 - radius2**2 + (2*c1y - 2*c2y)*(-sqrt(-(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 - 2*radius1*radius2 - radius2**2)*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 + 2*radius1*radius2 - radius2**2))*(c1x - c2x)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)) + (c1x**2*c1y + c1x**2*c2y - 2*c1x*c1y*c2x - 2*c1x*c2x*c2y + c1y**3 - c1y**2*c2y + c1y*c2x**2 - c1y*c2y**2 - c1y*radius1**2 + c1y*radius2**2 + c2x**2*c2y + c2y**3 + c2y*radius1**2 - c2y*radius2**2)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2))))/(2*(c1x - c2x)), -sqrt(-(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 - 2*radius1*radius2 - radius2**2)*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 + 2*radius1*radius2 - radius2**2))*(c1x - c2x)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)) + (c1x**2*c1y + c1x**2*c2y - 2*c1x*c1y*c2x - 2*c1x*c2x*c2y + c1y**3 - c1y**2*c2y + c1y*c2x**2 - c1y*c2y**2 - c1y*radius1**2 + c1y*radius2**2 + c2x**2*c2y + c2y**3 + c2y*radius1**2 - c2y*radius2**2)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)))
+        ret.append(point(ev1[0], ev1[1]))
     except ValueError as e:
-        print('value error',e)
+        print('no intersection circle_circle', e)
+
     try:
-        ev2 = eval(r2)
-        ret.append(point(ev2[0],ev2[1]))
+        ev2 = (-(-c1x**2 - c1y**2 + c2x**2 + c2y**2 + radius1**2 - radius2**2 + (2*c1y - 2*c2y)*(sqrt(-(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 - 2*radius1*radius2 - radius2**2)*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 + 2*radius1*radius2 - radius2**2))*(c1x - c2x)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)) + (c1x**2*c1y + c1x**2*c2y - 2*c1x*c1y*c2x - 2*c1x*c2x*c2y + c1y**3 - c1y**2*c2y + c1y*c2x**2 - c1y*c2y**2 - c1y*radius1**2 + c1y*radius2**2 + c2x**2*c2y + c2y**3 + c2y*radius1**2 - c2y*radius2**2)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2))))/(2*(c1x - c2x)), sqrt(-(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 - 2*radius1*radius2 - radius2**2)*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 + 2*radius1*radius2 - radius2**2))*(c1x - c2x)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)) + (c1x**2*c1y + c1x**2*c2y - 2*c1x*c1y*c2x - 2*c1x*c2x*c2y + c1y**3 - c1y**2*c2y + c1y*c2x**2 - c1y*c2y**2 - c1y*radius1**2 + c1y*radius2**2 + c2x**2*c2y + c2y**3 + c2y*radius1**2 - c2y*radius2**2)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)))
+        ret.append(point(ev2[0], ev2[1]))
     except ValueError as e:
-        print('value error',e)
-        
+        print('no intersection circle_circle', e)
+
     return ret
-            
-   
-    
+
+
+
 
 def find_intersections():
     point_list = []
@@ -908,19 +920,19 @@ def find_intersections():
         if isinstance(o1, draw_line):
             for o2 in tmp_draw:
                 if isinstance(o2, draw_line):
-                    point_list += intersect_line_line(o1,o2)
+                    point_list += intersect_line_line(o1, o2)
                 if isinstance(o2, draw_circle):
-                    point_list += intersect_line_circle(o1,o2)
+                    point_list += intersect_line_circle(o1, o2)
         if isinstance(o1, draw_circle):
             for o2 in tmp_draw:
                 if isinstance(o2, draw_line):
-                    point_list += intersect_line_circle(o2,o1)
+                    point_list += intersect_line_circle(o2, o1)
                 if isinstance(o2, draw_circle):
-                    point_list += intersect_circle_circle(o1,o2)
+                    point_list += intersect_circle_circle(o1, o2)
     return point_list
 
 draw_objects = []
-    
+
 w.bind('<ButtonRelease-1>', mouserelease)
 w.bind('<ButtonPress-1>', mousepress)
 w.bind('<B1-Motion>', mousemove)
@@ -936,22 +948,4 @@ w.delete("all")
 for d in menu.get_all_self_and_childs():
     d.draw()
 
-w.create_rectangle(10,10,100,100)
-w.create_arc(-100,-100,100,100, extent=359.99, style=tk.ARC)
 mainloop()
-
-sp = point(2,4)
-ep = point(60,70)
-sp2 = point(20,5)
-ep2 = point(6,7.5)
-l1 = draw_line(sp,ep)
-l2 = draw_line(sp2,ep2)
-c1 = draw_circle(sp,5)
-c2 = draw_circle(sp2,5)
-o=intersect_line_line(l1,l2)
-print(o)
-o=intersect_line_circle(l1,c2)
-print(o)
-o=intersect_circle_circle(c1,c2)
-print(o)
-#mainloop()
