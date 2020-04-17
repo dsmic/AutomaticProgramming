@@ -18,6 +18,7 @@ import subprocess
 import shutil
 import importlib
 import math
+from math import sqrt
 
 import sympy as sym
 # pylint: disable=W0611
@@ -755,16 +756,18 @@ class point():
         self.y=y
         
 class draw_point():
-    def __init__(self, cx, cy):
+    def __init__(self, cx, cy, color='red'):
         self.x = cx
         self.y = cy
+        self.c = color
     
     def draw(self):
         cx = self.x
         cy = self.y
-        w.create_line(cx-5, cy-5, cx+5, cy+5, fill="red")
-        w.create_line(cx-5, cy+5, cx+5, cy-5, fill="red")
-
+        w.create_line(cx-5, cy-5, cx+5, cy+5, fill=self.c)
+        w.create_line(cx-5, cy+5, cx+5, cy-5, fill=self.c)
+        print('indraw',cx,cy)
+        
 class draw_line():
     def __init__(self, sp, ep):
         self.sp = sp
@@ -818,17 +821,17 @@ def intersect_line_line(l1, l2):
     l2sy = l2.sp.y
     l2ex = l2.ep.x
     l2ey = l2.ep.y
-    g1 = str(l1sx) + ' + x1 * '+ str(l1ex-l1sx) + '-('+   str(l2sx) + ' + x2 * '+ str(l2ex-l2sx) +')'
-    g2 = str(l1sy) + ' + x1 * '+ str(l1ey-l1sy) + '-('+   str(l2sy) + ' + x2 * '+ str(l2ey-l2sy) +')'
+    g1 = 'l1sx + x1 * (l1ex-l1sx) - ( l2sx + x2 * (l2ex-l2sx))'
+    g2 = 'l1sy + x1 * (l1ey-l1sy) - ( l2sy + x2 * (l2ey-l2sy))'
     print(g1)
     print(g2)
     try:
-        r = sym.solve([g1,g2])
-        print(r)
-        x1 = N(r[sym.sympify('x1')])
-        x2 = N(r[sym.sympify('x2')])
-        print(l1sx+ x1 * (l1ex-l1sx))
-        print(l1sy+ x1 * (l1ey-l1sy))
+        # r = sym.solve([g1,g2],['x1','x2'])
+        # print(r)
+        x1 = eval('(-(l1sx - l2sx)*(l2ey - l2sy) + (l1sy - l2sy)*(l2ex - l2sx))/((l1ex - l1sx)*(l2ey - l2sy) - (l1ey - l1sy)*(l2ex - l2sx))')
+        x2 = eval('((l1ex - l1sx)*(l1sy - l2sy) - (l1ey - l1sy)*(l1sx - l2sx))/((l1ex - l1sx)*(l2ey - l2sy) - (l1ey - l1sy)*(l2ex - l2sx))')
+        # print(l1sx+ x1 * (l1ex-l1sx))
+        # print(l1sy+ x1 * (l1ey-l1sy))
         if 0<=x1<=1 and 0<=x2<=1:
             return [point(l1sx+ x1 * (l1ex-l1sx), l1sy+ x1 * (l1ey-l1sy))]
     except TypeError:
@@ -846,49 +849,51 @@ def intersect_line_circle(l1, c2):
     c2x = c2.cp.x
     c2y = c2.cp.y
     radius = c2.radius
-    g1 = '(' + str(l1sx) + ' + x1 * '+ str(l1ex-l1sx) + '-' + str(c2x) +')**2 + ' + '(' + str(l1sy) + ' + x1 * '+ str(l1ey-l1sy) + '-' + str(c2y) +')**2 -' + str(radius) + '**2'
+    g1 = '( l1sx + x1 * (l1ex-l1sx) - c2x )**2 + ( l1sy + x1 * (l1ey-l1sy) - c2y )**2 - radius **2'
     print(g1)
-    try:
-        r = sym.solve(g1)
-    except TypeError:
-        return ret
-    print(r)
-    for r1 in r:
+    #r1 = sym.solve(g1,['x1'])
+    r1 = ['(c2x*l1ex - c2x*l1sx + c2y*l1ey - c2y*l1sy - l1ex*l1sx - l1ey*l1sy + l1sx**2 + l1sy**2 - sqrt(-c2x**2*l1ey**2 + 2*c2x**2*l1ey*l1sy - c2x**2*l1sy**2 + 2*c2x*c2y*l1ex*l1ey - 2*c2x*c2y*l1ex*l1sy - 2*c2x*c2y*l1ey*l1sx + 2*c2x*c2y*l1sx*l1sy - 2*c2x*l1ex*l1ey*l1sy + 2*c2x*l1ex*l1sy**2 + 2*c2x*l1ey**2*l1sx - 2*c2x*l1ey*l1sx*l1sy - c2y**2*l1ex**2 + 2*c2y**2*l1ex*l1sx - c2y**2*l1sx**2 + 2*c2y*l1ex**2*l1sy - 2*c2y*l1ex*l1ey*l1sx - 2*c2y*l1ex*l1sx*l1sy + 2*c2y*l1ey*l1sx**2 - l1ex**2*l1sy**2 + l1ex**2*radius**2 + 2*l1ex*l1ey*l1sx*l1sy - 2*l1ex*l1sx*radius**2 - l1ey**2*l1sx**2 + l1ey**2*radius**2 - 2*l1ey*l1sy*radius**2 + l1sx**2*radius**2 + l1sy**2*radius**2))/(l1ex**2 - 2*l1ex*l1sx + l1ey**2 - 2*l1ey*l1sy + l1sx**2 + l1sy**2)', '(c2x*l1ex - c2x*l1sx + c2y*l1ey - c2y*l1sy - l1ex*l1sx - l1ey*l1sy + l1sx**2 + l1sy**2 + sqrt(-c2x**2*l1ey**2 + 2*c2x**2*l1ey*l1sy - c2x**2*l1sy**2 + 2*c2x*c2y*l1ex*l1ey - 2*c2x*c2y*l1ex*l1sy - 2*c2x*c2y*l1ey*l1sx + 2*c2x*c2y*l1sx*l1sy - 2*c2x*l1ex*l1ey*l1sy + 2*c2x*l1ex*l1sy**2 + 2*c2x*l1ey**2*l1sx - 2*c2x*l1ey*l1sx*l1sy - c2y**2*l1ex**2 + 2*c2y**2*l1ex*l1sx - c2y**2*l1sx**2 + 2*c2y*l1ex**2*l1sy - 2*c2y*l1ex*l1ey*l1sx - 2*c2y*l1ex*l1sx*l1sy + 2*c2y*l1ey*l1sx**2 - l1ex**2*l1sy**2 + l1ex**2*radius**2 + 2*l1ex*l1ey*l1sx*l1sy - 2*l1ex*l1sx*radius**2 - l1ey**2*l1sx**2 + l1ey**2*radius**2 - 2*l1ey*l1sy*radius**2 + l1sx**2*radius**2 + l1sy**2*radius**2))/(l1ex**2 - 2*l1ex*l1sx + l1ey**2 - 2*l1ey*l1sy + l1sx**2 + l1sy**2)']
+    print(r1)
+    for rr in r1:
+        #rr = repr(r)
+        print(rr)
         try:
-            x1 = N(r1)
-            print('lösungen',x1)
-            if 0<=r1<=1:
-                ret.append(point(l1sx+ x1 * (l1ex-l1sx), l1sy+ x1 * (l1ey-l1sy)))
-        except TypeError:
-            pass
+            x1 = eval(rr)
+            if 0<=x1<=1:
+                ret.append(point(l1sx + x1 * (l1ex-l1sx), l1sy + x1 * (l1ey-l1sy) ))
+        except ValueError as e:
+            print('value error',e)
     return ret
             
 def intersect_circle_circle(c1, c2):
     ret = []
     c1x = c1.cp.x
     c1y = c1.cp.y
-    radius1 = c2.radius
+    radius1 = c1.radius
     c2x = c2.cp.x
     c2y = c2.cp.y
     radius2 = c2.radius
-    g1 = '(  x  - ' + str(c1x) +')**2 + ( y - '  + str(c1y) + ')**2 - ' + str(radius1)
-    g2 = '(  x  - ' + str(c2x) +')**2 + ( y - '  + str(c2y) + ')**2 - ' + str(radius2)
+    g1 = '(  x  - c1x )**2 + ( y -   + c1y  )**2 - radius1**2'
+    g2 = '(  x  - c2x )**2 + ( y -   + c2y  )**2 - radius2**2'
     print(g1)
     print(g2)
+    #this calculates the r1 and r2
+    # r = sym.solve([g1,g2],['x','y'])
+    # print(r)
+    
+    r1 = '(-(-c1x**2 - c1y**2 + c2x**2 + c2y**2 + radius1**2 - radius2**2 + (2*c1y - 2*c2y)*(-sqrt(-(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 - 2*radius1*radius2 - radius2**2)*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 + 2*radius1*radius2 - radius2**2))*(c1x - c2x)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)) + (c1x**2*c1y + c1x**2*c2y - 2*c1x*c1y*c2x - 2*c1x*c2x*c2y + c1y**3 - c1y**2*c2y + c1y*c2x**2 - c1y*c2y**2 - c1y*radius1**2 + c1y*radius2**2 + c2x**2*c2y + c2y**3 + c2y*radius1**2 - c2y*radius2**2)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2))))/(2*(c1x - c2x)), -sqrt(-(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 - 2*radius1*radius2 - radius2**2)*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 + 2*radius1*radius2 - radius2**2))*(c1x - c2x)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)) + (c1x**2*c1y + c1x**2*c2y - 2*c1x*c1y*c2x - 2*c1x*c2x*c2y + c1y**3 - c1y**2*c2y + c1y*c2x**2 - c1y*c2y**2 - c1y*radius1**2 + c1y*radius2**2 + c2x**2*c2y + c2y**3 + c2y*radius1**2 - c2y*radius2**2)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)))'
+    r2 = '(-(-c1x**2 - c1y**2 + c2x**2 + c2y**2 + radius1**2 - radius2**2 + (2*c1y - 2*c2y)*(sqrt(-(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 - 2*radius1*radius2 - radius2**2)*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 + 2*radius1*radius2 - radius2**2))*(c1x - c2x)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)) + (c1x**2*c1y + c1x**2*c2y - 2*c1x*c1y*c2x - 2*c1x*c2x*c2y + c1y**3 - c1y**2*c2y + c1y*c2x**2 - c1y*c2y**2 - c1y*radius1**2 + c1y*radius2**2 + c2x**2*c2y + c2y**3 + c2y*radius1**2 - c2y*radius2**2)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2))))/(2*(c1x - c2x)), sqrt(-(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 - 2*radius1*radius2 - radius2**2)*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2 - radius1**2 + 2*radius1*radius2 - radius2**2))*(c1x - c2x)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)) + (c1x**2*c1y + c1x**2*c2y - 2*c1x*c1y*c2x - 2*c1x*c2x*c2y + c1y**3 - c1y**2*c2y + c1y*c2x**2 - c1y*c2y**2 - c1y*radius1**2 + c1y*radius2**2 + c2x**2*c2y + c2y**3 + c2y*radius1**2 - c2y*radius2**2)/(2*(c1x**2 - 2*c1x*c2x + c1y**2 - 2*c1y*c2y + c2x**2 + c2y**2)))'
     try:
-        r = sym.solve([g1,g2])
-    except TypeError:
-        return ret
-    print(r)
-    for r1 in r:
-        try:
-            x = N(r1[sym.sympify('x')])
-            print('lösungen x',x)
-            y = N(r1[sym.sympify('y')])
-            print('lösungen y',y)
-            ret.append(point(x,y))
-        except TypeError:
-            pass
+        ev1 = eval(r1)
+        ret.append(point(ev1[0],ev1[1]))
+    except ValueError as e:
+        print('value error',e)
+    try:
+        ev2 = eval(r2)
+        ret.append(point(ev2[0],ev2[1]))
+    except ValueError as e:
+        print('value error',e)
+        
     return ret
             
    
@@ -949,3 +954,4 @@ o=intersect_line_circle(l1,c2)
 print(o)
 o=intersect_circle_circle(c1,c2)
 print(o)
+#mainloop()

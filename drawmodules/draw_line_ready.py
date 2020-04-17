@@ -18,7 +18,7 @@ def call(lp, last_lp):
         print('intersecs', intersecs)
         for l in intersecs:
             print('p', l.x,l.y)
-            m.draw_objects.append(m.draw_point(l.x,l.y))
+            m.draw_objects.append(m.draw_point(l.x,l.y, 'blue'))
         m.markedpoint = None
         m.clickedposition = None
         return True
