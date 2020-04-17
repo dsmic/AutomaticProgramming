@@ -667,6 +667,7 @@ lastpress = None
 lastpoints = None
 last_line_properties = None
 markedpoint = None
+lastradius = None
 clickedposition = None
 
 lastdirect = 0

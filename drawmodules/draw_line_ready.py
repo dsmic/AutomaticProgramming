@@ -31,7 +31,11 @@ def call(lp, last_lp):
                 print('markedpoint set')
                 m.mark = m.draw_mark(m.markedpoint)
             return True # markedpoints or clickpositon set
-
+        if m.markedpoint is not None:
+            # make a circle with the same radius
+            if m.abst(m.markedpoint, lp['start']) < 30:
+                m.draw_objects.append(m.draw_circle(m.markedpoint, m.lastradius))   
+                
         m.markedpoint = None
         m.mark = None
 
@@ -47,6 +51,7 @@ def call(lp, last_lp):
         if pp is None:
             pp = lp['center']
         radius = m.abst(m.markedpoint, pp)
+        m.lastradius = radius
         m.draw_objects.append(m.draw_circle(m.markedpoint, radius))
         m.markedpoint = None
         m.mark = None
