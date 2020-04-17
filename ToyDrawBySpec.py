@@ -684,6 +684,8 @@ def kreuz(a, b, c):
 def direct(a, b):
     return math.atan2(a.y-b.y, a.x-b.x)
 
+def is_parallel(thisdirect, lastdirect):
+    return abs(abs(math.modf((thisdirect-lastdirect)/math.pi)[0])-0.5)*2
 def mouserelease(event):
     global lastdirect, last_line_properties, lastpoints
     print('release', event)
@@ -725,7 +727,7 @@ def mouserelease(event):
     else:
         kr = 0
     line_properties = {'start': start, 'end': end, 'center': ct, 'length': ssum, 'curvature': kr, 'direction': thisdirect,
-                       'parallel_to_last': abs(abs(math.modf((thisdirect-lastdirect)/math.pi)[0])-0.5)*2,
+                       'parallel_to_last': is_parallel(thisdirect, lastdirect),
                        'pointlist': lastpoints}
     done = drawmodules.draw_line_ready.call(line_properties, last_line_properties)
     if done:
@@ -774,11 +776,25 @@ class draw_point():
         print('indraw', cx, cy)
 
 class draw_line():
-    def __init__(self, sp, ep):
+    def __init__(self, sp, ep, sg = False, eg = False):
         self.sp = sp
         self.ep = ep
+        self.sg = sg
+        self.eg = eg
     def draw(self):
-        w.create_line(self.sp.x, self.sp.y, self.ep.x, self.ep.y, fill="red")
+        sx = self.sp.x
+        sy = self.sp.y
+        ex = self.ep.x
+        ey = self.ep.y
+        # Halbgerade statt Strecke
+        if self.eg:
+            ex = ex + 1000*(ex-sx)
+            ey = ey + 1000*(ey-sy)
+        if self.sg:
+            sx = sx + 1000*(sx-ex)
+            sy = sy + 1000*(sy-ey)
+            
+        w.create_line(sx, sy, ex, ey, fill="red")
 
 class draw_polygon():
     def __init__(self, pg):
@@ -824,6 +840,26 @@ def find_point_near(ppoint, dist=None):
         return None
     if dist is None or mindist < dist:
         return minpoint
+    return None
+
+def find_line_near(ppoint, dist=None):
+    mindist = None
+    minline = None
+    for l in draw_objects:
+        if isinstance(l, draw_line):
+            for p in [l.sp, l.ep]:
+                if mindist is None:
+                    mindist = abst(ppoint, p)
+                    minline = l
+                else:
+                    ab = abst(ppoint, p)
+                    if ab < mindist:
+                        mindist = ab
+                        minline = l
+    if minline is None:
+        return None
+    if dist is None or mindist < dist:
+        return minline
     return None
 
 def intersect_line_line(l1, l2):

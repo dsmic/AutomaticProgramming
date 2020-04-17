@@ -31,6 +31,7 @@ def call(lp, last_lp):
                 print('markedpoint set')
                 m.mark = m.draw_mark(m.markedpoint)
             return True # markedpoints or clickpositon set
+
         if m.markedpoint is not None:
             # make a circle with the same radius
             if m.abst(m.markedpoint, lp['start']) < 30:
@@ -72,6 +73,21 @@ def call(lp, last_lp):
         m.draw_objects.append(m.draw_line(sp, ep))
         return True
 
-    # The drawn element is saved
+    # check if we do lengthen a line
+    nl = m.find_line_near(lp['center'], 20)
+    if nl is not None:
+        #check for direction
+        line_direct = m.direct(nl.sp, nl.ep)
+        is_par = m.is_parallel(line_direct, lp['direction'])
+        if is_par > 0.6:
+            print('same direction')
+            if m.abst(nl.sp, lp['center']) < 20:
+                nl.sg = True
+            if m.abst(nl.ep, lp['center']) < 20:
+                nl.eg = True
+        return True        
+    
+
+    # The nad drawn element is saved
     m.draw_objects.append(m.draw_polygon(flatpoint))
     return False
