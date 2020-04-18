@@ -1,4 +1,4 @@
-# pylint: disable=C0301, C0114, C0103, C0116, R0912
+# pylint: disable=C0301, C0114, C0103, C0116, R0912, R0915, R0914, R0911
 import __main__ as m
 def call(lp, last_lp):
     print('implemented', lp, last_lp, m)
@@ -6,6 +6,8 @@ def call(lp, last_lp):
 
     # check for click
     if lp['length'] < 5:
+
+        # check for marking intersections
         if m.clickedposition is not None:
             if m.abst(m.clickedposition, lp['start']) < 30:
                 intersecs = m.find_intersections()
@@ -21,6 +23,7 @@ def call(lp, last_lp):
                 if mindist is not None and mindist < 30:
                     m.draw_objects.append(m.draw_point(minl.x, minl.y, 'blue'))
 
+        # set mark or click position
         if m.markedpoint is None and m.clickedposition is None:
             np = m.find_point_near(lp['start'], 20)
             m.markedpoint = np
@@ -30,16 +33,15 @@ def call(lp, last_lp):
             else:
                 print('markedpoint set')
                 m.mark = m.draw_mark(m.markedpoint)
-            return True # markedpoints or clickpositon set
+            return True
 
+        # create a circle with the same radius
         if m.markedpoint is not None:
-            # make a circle with the same radius
             if m.abst(m.markedpoint, lp['start']) < 30:
-                m.draw_objects.append(m.draw_circle(m.markedpoint, m.lastradius))   
-                
+                m.draw_objects.append(m.draw_circle(m.markedpoint, m.lastradius))
+
         m.markedpoint = None
         m.mark = None
-
         m.clickedposition = None
         return True
 
@@ -77,18 +79,23 @@ def call(lp, last_lp):
     nl_list = m.find_line_near(lp['center'], 20)
     if len(nl_list) > 0:
         for nl in nl_list:
-            #check for direction
+            # check for direction
             line_direct = m.direct(nl.sp, nl.ep)
             is_par = m.is_parallel(line_direct, lp['direction'])
             if is_par > 0.6:
                 print('same direction')
                 if m.abst(nl.sp, lp['center']) < 20:
-                    nl.sg = True
+                    if not nl.sg:
+                        m.draw_objects.append(m.changed_line(nl, nl.sg, nl.eg))
+                        nl.sg = True
                 if m.abst(nl.ep, lp['center']) < 20:
-                    nl.eg = True
-        return True        
-    
+                    if not nl.eg:
+                        m.draw_objects.append(m.changed_line(nl, nl.sg, nl.eg))
+                        nl.eg = True
+                    
+        return True
 
-    # The nad drawn element is saved
+
+    # The hand drawn element is saved
     m.draw_objects.append(m.draw_polygon(flatpoint))
     return False

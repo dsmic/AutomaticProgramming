@@ -6,7 +6,7 @@ Created on Sun Feb 23 18:53:25 2020
 @author: detlef
 edr """
 
-# pylint: disable=C0301, C0103, C0116, C0321, C0115, R0914, R0912, R0915, R1705, R1720, W0122, W0603, W0123, R1702, R0903
+# pylint: disable=C0301, C0103, C0116, C0321, C0115, R0914, R0912, R0915, R1705, R1720, W0122, W0603, W0123, R1702, R0903, C0302
 
 #import tkinter as tk
 from tkinter import Tk, Canvas, mainloop, NW
@@ -497,8 +497,6 @@ class Menu(BaseRules):
         self.priority = ['top', 'right', 'left', 'bottom'] #Later this should be syntactically improved
 
         BaseRules.__init__(self)
-        # self.add_property_setable('top')
-        # self.add_property_setable('right')
         self.menuname = name
         if horizontal:
             self.RestrictionsList = ['lastchild.right = right',
@@ -520,16 +518,6 @@ class Menu(BaseRules):
         l.name = self.menuname + '_' + name
         self.add_child(l)
         return l
-
-# testpage = Page()
-
-# testpage.RestrictionsList.append('left')
-# testpage.RestrictionsList.append('top-200')
-# testpage.RestrictionsList.append('right-400')
-# testpage.RestrictionsList.append('bottom-400')
-
-# actualLine = testpage.addLine()
-# actualWord = actualLine.addWord()
 
 # Toy Manager
 master = Tk()
@@ -684,8 +672,9 @@ def kreuz(a, b, c):
 def direct(a, b):
     return math.atan2(a.y-b.y, a.x-b.x)
 
-def is_parallel(thisdirect, lastdirect):
-    return abs(abs(math.modf((thisdirect-lastdirect)/math.pi)[0])-0.5)*2
+def is_parallel(l1, l2):
+    return abs(abs(math.modf((l1-l2)/math.pi)[0])-0.5)*2
+
 def mouserelease(event):
     global lastdirect, last_line_properties, lastpoints
     print('release', event)
@@ -719,8 +708,6 @@ def mouserelease(event):
             except ValueError:
                 print('ValueError')
     thisdirect = direct(start, end)
-    # print(abs(math.modf((thisdirect-lastdirect)/math.pi)[0]))
-    # print(abs(abs(math.modf((thisdirect-lastdirect)/math.pi)[0])-0.5)*2)
     ct = point((start.x+end.x)/2, (start.y+end.y)/2)
     if ssum > 0:
         kr = krum/ssum
@@ -776,7 +763,7 @@ class draw_point():
         print('indraw', cx, cy)
 
 class draw_line():
-    def __init__(self, sp, ep, sg = False, eg = False):
+    def __init__(self, sp, ep, sg=False, eg=False):
         self.sp = sp
         self.ep = ep
         self.sg = sg
@@ -793,7 +780,7 @@ class draw_line():
         if self.sg:
             sx = sx + 1000*(sx-ex)
             sy = sy + 1000*(sy-ey)
-            
+
         w.create_line(sx, sy, ex, ey, fill="red")
 
 class draw_polygon():
@@ -823,6 +810,17 @@ class draw_mark():
         radius = self.radius
         w.create_oval(cp.x - radius, cp.y - radius, cp.x +  radius, cp.y + radius, fill='green')
 
+class changed_line():
+    def __init__(self, line, sg, eg):
+        self.line = line
+        self.sg = sg
+        self.eg = eg
+    def draw(self):
+        pass
+    def restore(self):
+        self.line.sg = self.sg
+        self.line.eg = self.eg
+        
 def find_point_near(ppoint, dist=None):
     mindist = None
     minpoint = None
@@ -860,6 +858,7 @@ def check_strecke(xx, ll):
     if sg:
         return xx <= 1
     if eg:
+        #pylint: disable=C0122
         return 0 <= xx
     return 0 <= xx <= 1
 
@@ -872,16 +871,16 @@ def intersect_line_line(l1, l2):
     l2sy = l2.sp.y
     l2ex = l2.ep.x
     l2ey = l2.ep.y
-    g1 = 'l1sx + x1 * (l1ex-l1sx) - ( l2sx + x2 * (l2ex-l2sx))'
-    g2 = 'l1sy + x1 * (l1ey-l1sy) - ( l2sy + x2 * (l2ey-l2sy))'
-    print(g1)
-    print(g2)
+    
+    # create the solution coded below
+    # g1 = 'l1sx + x1 * (l1ex-l1sx) - ( l2sx + x2 * (l2ex-l2sx))'
+    # g2 = 'l1sy + x1 * (l1ey-l1sy) - ( l2sy + x2 * (l2ey-l2sy))'
     # r = sym.solve([g1,g2],['x1','x2'])
-    # print(r)
+
     try:
         x1 = (-(l1sx - l2sx)*(l2ey - l2sy) + (l1sy - l2sy)*(l2ex - l2sx))/((l1ex - l1sx)*(l2ey - l2sy) - (l1ey - l1sy)*(l2ex - l2sx))
         x2 = ((l1ex - l1sx)*(l1sy - l2sy) - (l1ey - l1sy)*(l1sx - l2sx))/((l1ex - l1sx)*(l2ey - l2sy) - (l1ey - l1sy)*(l2ex - l2sx))
-        
+
         if check_strecke(x1, l1) and check_strecke(x2, l2):
             return [point(l1sx+ x1 * (l1ex-l1sx), l1sy+ x1 * (l1ey-l1sy))]
     except ZeroDivisionError as e:
@@ -897,19 +896,21 @@ def intersect_line_circle(l1, c2):
     c2x = c2.cp.x
     c2y = c2.cp.y
     radius = c2.radius
-#    g1 = '( l1sx + x1 * (l1ex-l1sx) - c2x )**2 + ( l1sy + x1 * (l1ey-l1sy) - c2y )**2 - radius **2'
-#    r1 = sym.solve(g1,['x1'])
+
+    # create the solution coded below
+    # g1 = '( l1sx + x1 * (l1ex-l1sx) - c2x )**2 + ( l1sy + x1 * (l1ey-l1sy) - c2y )**2 - radius **2'
+    # r1 = sym.solve(g1,['x1'])
 
     try:
         x1 = (c2x*l1ex - c2x*l1sx + c2y*l1ey - c2y*l1sy - l1ex*l1sx - l1ey*l1sy + l1sx**2 + l1sy**2 - sqrt(-c2x**2*l1ey**2 + 2*c2x**2*l1ey*l1sy - c2x**2*l1sy**2 + 2*c2x*c2y*l1ex*l1ey - 2*c2x*c2y*l1ex*l1sy - 2*c2x*c2y*l1ey*l1sx + 2*c2x*c2y*l1sx*l1sy - 2*c2x*l1ex*l1ey*l1sy + 2*c2x*l1ex*l1sy**2 + 2*c2x*l1ey**2*l1sx - 2*c2x*l1ey*l1sx*l1sy - c2y**2*l1ex**2 + 2*c2y**2*l1ex*l1sx - c2y**2*l1sx**2 + 2*c2y*l1ex**2*l1sy - 2*c2y*l1ex*l1ey*l1sx - 2*c2y*l1ex*l1sx*l1sy + 2*c2y*l1ey*l1sx**2 - l1ex**2*l1sy**2 + l1ex**2*radius**2 + 2*l1ex*l1ey*l1sx*l1sy - 2*l1ex*l1sx*radius**2 - l1ey**2*l1sx**2 + l1ey**2*radius**2 - 2*l1ey*l1sy*radius**2 + l1sx**2*radius**2 + l1sy**2*radius**2))/(l1ex**2 - 2*l1ex*l1sx + l1ey**2 - 2*l1ey*l1sy + l1sx**2 + l1sy**2)
-        
+
         if check_strecke(x1, l1):
             ret.append(point(l1sx + x1 * (l1ex-l1sx), l1sy + x1 * (l1ey-l1sy)))
     except (ValueError, ZeroDivisionError) as e:
         print('line_circle', e)
     try:
         x1 = (c2x*l1ex - c2x*l1sx + c2y*l1ey - c2y*l1sy - l1ex*l1sx - l1ey*l1sy + l1sx**2 + l1sy**2 + sqrt(-c2x**2*l1ey**2 + 2*c2x**2*l1ey*l1sy - c2x**2*l1sy**2 + 2*c2x*c2y*l1ex*l1ey - 2*c2x*c2y*l1ex*l1sy - 2*c2x*c2y*l1ey*l1sx + 2*c2x*c2y*l1sx*l1sy - 2*c2x*l1ex*l1ey*l1sy + 2*c2x*l1ex*l1sy**2 + 2*c2x*l1ey**2*l1sx - 2*c2x*l1ey*l1sx*l1sy - c2y**2*l1ex**2 + 2*c2y**2*l1ex*l1sx - c2y**2*l1sx**2 + 2*c2y*l1ex**2*l1sy - 2*c2y*l1ex*l1ey*l1sx - 2*c2y*l1ex*l1sx*l1sy + 2*c2y*l1ey*l1sx**2 - l1ex**2*l1sy**2 + l1ex**2*radius**2 + 2*l1ex*l1ey*l1sx*l1sy - 2*l1ex*l1sx*radius**2 - l1ey**2*l1sx**2 + l1ey**2*radius**2 - 2*l1ey*l1sy*radius**2 + l1sx**2*radius**2 + l1sy**2*radius**2))/(l1ex**2 - 2*l1ex*l1sx + l1ey**2 - 2*l1ey*l1sy + l1sx**2 + l1sy**2)
-        
+
         if check_strecke(x1, l1):
             ret.append(point(l1sx + x1 * (l1ex-l1sx), l1sy + x1 * (l1ey-l1sy)))
     except (ValueError, ZeroDivisionError) as e:
@@ -924,11 +925,10 @@ def intersect_circle_circle(c1, c2):
     c2x = c2.cp.x
     c2y = c2.cp.y
     radius2 = c2.radius
+
+    # create the solution coded below
     # g1 = '(  x  - c1x )**2 + ( y -   + c1y  )**2 - radius1**2'
     # g2 = '(  x  - c2x )**2 + ( y -   + c2y  )**2 - radius2**2'
-#    print(g1)
-#    print(g2)
-    #this calculates the r1 and r2
     # r = sym.solve([g1,g2],['x','y'])
     # print(r)
 
@@ -971,9 +971,11 @@ def find_intersections():
 
 draw_objects = []
 
-def mouseright(event):
+def mouseright(_):
     global mark
-    draw_objects.pop()
+    lo = draw_objects.pop()
+    if isinstance(lo, changed_line):
+        lo.restore()
     mark = None
     w.delete("all")
     for dd in draw_objects:
