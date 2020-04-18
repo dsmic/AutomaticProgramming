@@ -23,7 +23,10 @@ def call(lp, last_lp):
                         minl = l
                 if mindist is not None and mindist < 30:
                     m.draw_objects.append(m.draw_point(minl.x, minl.y, 'blue'))
-                    m.mark = None
+                    #m.mark = None
+                else:
+                    # this allows to draw points by just clicking, not making a cross
+                    m.draw_objects.append(m.draw_point(lp['start'].x, lp['start'].y))
             else:
                 print('mark set')
                 m.mark = m.draw_mark(np)
