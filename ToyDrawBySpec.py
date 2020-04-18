@@ -654,7 +654,7 @@ def click(event):
 lastpress = None
 lastpoints = None
 last_line_properties = None
-markedpoint = None
+
 lastradius = None
 clickedposition = None
 
@@ -805,12 +805,14 @@ class draw_circle():
 
 class draw_mark():
     def __init__(self, cp, radius=3):
-        self.cp = cp
+        self.x = cp.x
+        self.y = cp.y
         self.radius = radius
     def draw(self):
-        cp = self.cp
+        x = self.x
+        y = self.y
         radius = self.radius
-        w.create_oval(cp.x - radius, cp.y - radius, cp.x +  radius, cp.y + radius, fill='green')
+        w.create_oval(x - radius, y - radius, x +  radius, y + radius, fill='green')
 
 class changed_line():
     def __init__(self, line, sg, eg):

@@ -7,56 +7,46 @@ def call(lp, last_lp):
     # check for click
     if lp['length'] < 5:
 
-        # check for marking intersections
-        if m.clickedposition is not None:
-            if m.abst(m.clickedposition, lp['start']) < 30:
+        # set mark or click position
+        if m.mark is None:
+            np = m.find_point_near(lp['start'], 20)
+            if np is None:
                 intersecs = m.find_intersections()
                 print('intersecs', intersecs)
                 mindist = None
                 minl = None
                 for l in intersecs:
                     print('p', l.x, l.y)
-                    dist = m.abst(m.clickedposition, l)
+                    dist = m.abst(lp['start'], l)
                     if mindist is None or dist < mindist:
                         mindist = dist
                         minl = l
                 if mindist is not None and mindist < 30:
                     m.draw_objects.append(m.draw_point(minl.x, minl.y, 'blue'))
-
-        # set mark or click position
-        if m.markedpoint is None and m.clickedposition is None:
-            np = m.find_point_near(lp['start'], 20)
-            m.markedpoint = np
-            if np is None:
-                m.clickedposition = lp['start']
-                print('clickedposition set')
+                    m.mark = None
             else:
-                print('markedpoint set')
-                m.mark = m.draw_mark(m.markedpoint)
+                print('mark set')
+                m.mark = m.draw_mark(np)
             return True
 
         # create a circle with the same radius
-        if m.markedpoint is not None:
-            if m.abst(m.markedpoint, lp['start']) < 30:
-                m.draw_objects.append(m.draw_circle(m.markedpoint, m.lastradius))
+        if m.mark is not None:
+            if m.abst(m.mark, lp['start']) < 30:
+                m.draw_objects.append(m.draw_circle(m.mark, m.lastradius))
 
-        m.markedpoint = None
         m.mark = None
-        m.clickedposition = None
         return True
 
-    m.clickedposition = None
 
     # check for point was marked, now we make a circle from it
-    if m.markedpoint is not None:
+    if m.mark is not None:
         # check if point is near center
         pp = m.find_point_near(lp['center'], 20)
         if pp is None:
             pp = lp['center']
-        radius = m.abst(m.markedpoint, pp)
+        radius = m.abst(m.mark, pp)
         m.lastradius = radius
-        m.draw_objects.append(m.draw_circle(m.markedpoint, radius))
-        m.markedpoint = None
+        m.draw_objects.append(m.draw_circle(m.mark, radius))
         m.mark = None
         return True
 
@@ -76,7 +66,7 @@ def call(lp, last_lp):
         return True
 
     # check if we do lengthen a line
-    nl_list = m.find_line_near(lp['center'], 20)
+    nl_list = m.find_line_near(lp['start'], 20)
     if len(nl_list) > 0:
         print('nl', nl_list)
         for nl in nl_list:
@@ -85,11 +75,11 @@ def call(lp, last_lp):
             is_par = m.is_parallel(line_direct, lp['direction'])
             if is_par > 0.8:
                 print('same direction')
-                if m.abst(nl.sp, lp['center']) < 20:
+                if m.abst(nl.sp, lp['start']) < 20:
                     if not nl.sg:
                         m.draw_objects.append(m.changed_line(nl, nl.sg, nl.eg))
                         nl.sg = True
-                if m.abst(nl.ep, lp['center']) < 20:
+                if m.abst(nl.ep, lp['start']) < 20:
                     if not nl.eg:
                         m.draw_objects.append(m.changed_line(nl, nl.sg, nl.eg))
                         nl.eg = True
