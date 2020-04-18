@@ -78,11 +78,12 @@ def call(lp, last_lp):
     # check if we do lengthen a line
     nl_list = m.find_line_near(lp['center'], 20)
     if len(nl_list) > 0:
+        print('nl', nl_list)
         for nl in nl_list:
             # check for direction
             line_direct = m.direct(nl.sp, nl.ep)
             is_par = m.is_parallel(line_direct, lp['direction'])
-            if is_par > 0.6:
+            if is_par > 0.8:
                 print('same direction')
                 if m.abst(nl.sp, lp['center']) < 20:
                     if not nl.sg:
@@ -92,7 +93,7 @@ def call(lp, last_lp):
                     if not nl.eg:
                         m.draw_objects.append(m.changed_line(nl, nl.sg, nl.eg))
                         nl.eg = True
-                    
+
         return True
 
 

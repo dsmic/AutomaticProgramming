@@ -673,6 +673,8 @@ def direct(a, b):
     return math.atan2(a.y-b.y, a.x-b.x)
 
 def is_parallel(l1, l2):
+    if l2 is None:
+        return 0 # not parallel if nothing before
     return abs(abs(math.modf((l1-l2)/math.pi)[0])-0.5)*2
 
 def mouserelease(event):
@@ -719,7 +721,7 @@ def mouserelease(event):
     done = drawmodules.draw_line_ready.call(line_properties, last_line_properties)
     if done:
         last_line_properties = None
-        lastdirection = None
+        lastdirect = None
         w.delete("all")
         lastpoints = None
     else:
@@ -820,7 +822,7 @@ class changed_line():
     def restore(self):
         self.line.sg = self.sg
         self.line.eg = self.eg
-        
+
 def find_point_near(ppoint, dist=None):
     mindist = None
     minpoint = None
@@ -871,7 +873,7 @@ def intersect_line_line(l1, l2):
     l2sy = l2.sp.y
     l2ex = l2.ep.x
     l2ey = l2.ep.y
-    
+
     # create the solution coded below
     # g1 = 'l1sx + x1 * (l1ex-l1sx) - ( l2sx + x2 * (l2ex-l2sx))'
     # g2 = 'l1sy + x1 * (l1ey-l1sy) - ( l2sy + x2 * (l2ey-l2sy))'
