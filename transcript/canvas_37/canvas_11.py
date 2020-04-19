@@ -121,6 +121,12 @@ def clearCanvas():
     w.ctx.clearRect(0, 0, w.canvas.width, w.canvas.height)
     w.ctx.fillStyle = "rgb(0, 255, 0)"
     w.ctx.fillRect(0, 0, 30, 30)
+    w.ctx.strokeStyle = "rgb(255, 0, 0)"
+    w.ctx.beginPath()
+    w.ctx.moveTo(27, 3)
+    w.ctx.lineTo(3,15)
+    w.ctx.lineTo(27,27)
+    w.ctx.stroke()
     
 
 
