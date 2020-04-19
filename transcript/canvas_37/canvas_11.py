@@ -7,36 +7,63 @@ class Graphics:
         self.canvas_id = canvas_id
         self.canvas = document.getElementById(self.canvas_id)
         self.ctx = self.canvas.getContext('2d')
-        self.canvas.onmouseover = self.drawCanvas
-        self.canvas.onmouseup = self.set_active_false
-        self.canvas.onmousedown = self.set_active_true
+        #self.canvas.onmouseover = self.drawCanvas
+        #self.canvas.onmouseup = self.set_active_false
+        #self.canvas.onmousedown = self.set_active_true
         self.x, self.y = 0, 0 
         # default color
         self.ctx.fillStyle = "rgb(0, 255, 0)"
-        window.addEventListener("mousemove", self.drawCanvas)
+        #self.canvas.addEventListener('pointermove', self.drawCanvas)
+        #self.canvas.addEventListener('pointerdown', self.mousedown)
+        #self.canvas.addEventListener('pointerup', self.mouseup)
+        self.canvas.addEventListener('touchmove', self.drawCanvas)
+        self.canvas.addEventListener('touchstart', self.mousedown)
+        self.canvas.addEventListener('touchend', self.mouseup)
+        self.canvas.addEventListener('mousemove', self.drawCanvas)
+        self.canvas.addEventListener('mousedown', self.mousedown)
+        self.canvas.addEventListener('mouseup', self.mouseup)
+        console.log('--------------------------------------------------------------------')
 
     def drawCanvas(self, event):
         # draw
-        self.x = event.clientX-self.canvas.offsetLeft
-        self.y = event.clientY-self.canvas.offsetTop
+        self.x = event.pageX-self.canvas.offsetLeft
+        self.y = event.pageY-self.canvas.offsetTop
         # print (self.x, self.y)
         if self.active:
 #            self.ctx.fillRect(self.x, self.y, 10, 10)
-            event = point(self.x, self.y)
+            eee = point(self.x, self.y)
             console.log("Hello world!")
-            mousemove(event)
-
+            mousemove(eee)
+            event.preventDefault()
+            
+    def mousedown(self, event):
+        self.x = event.pageX-self.canvas.offsetLeft
+        self.y = event.pageY-self.canvas.offsetTop
+        if self.x < 30 and self.y < 30:
+            mouseright(None)
+            return
+        self.set_active_true()
+        event.preventDefault()
+        
+    def mouseup(self, event):
+        self.x = event.pageX-self.canvas.offsetLeft
+        self.y = event.pageY-self.canvas.offsetTop
+        self.set_active_false()
+        event.preventDefault()
+        
     def set_active_true(self):
         # print ("true")
-        self.active = True
-        event = point(self.x, self.y)
-        mousepress(event)
+        if not self.active:
+            self.active = True
+            event = point(self.x, self.y)
+            mousepress(event)
 
     def set_active_false(self):
         # print ("false")
-        self.active = False
-        event = point(self.x, self.y)
-        mouserelease(event)
+        if self.active:
+            self.active = False
+            event = point(self.x, self.y)
+            mouserelease(event)
     
     def set_fillStyle(self, color):
         if color == 'black':
@@ -88,9 +115,12 @@ w = None
 def init():
     global w
     w = Graphics('graphics')
+    clearCanvas()
 
-def clearCanvas(self):
+def clearCanvas():
     w.ctx.clearRect(0, 0, w.canvas.width, w.canvas.height)
+    w.ctx.fillStyle = "rgb(0, 255, 0)"
+    w.ctx.fillRect(0, 0, 30, 30)
     
 
 
@@ -214,7 +244,7 @@ class point():
         self.y = y
 
 class draw_point():
-    def __init__(self, cx, cy, color='red'):
+    def __init__(self, cx, cy, color):
         self.x = cx
         self.y = cy
         self.c = color
@@ -446,6 +476,7 @@ def mouseright(_):
         lo.restore()
     mark = None
 #    w.delete("all")
+    clearCanvas()
     for dd in draw_objects:
         print('draw', dd)
         dd.draw()
@@ -465,7 +496,7 @@ def mcall(lp, last_lp):
     flatpoint = [p for s in lp['pointlist'] for p in (s.x, s.y)]
 
     # check for click
-    if lp['length'] < 5:
+    if lp['length'] < 10:
 
         # set mark or click position
         if mark is None:
@@ -486,7 +517,7 @@ def mcall(lp, last_lp):
                     #mark = None
                 else:
                     # this allows to draw points by just clicking, not making a cross
-                    draw_objects.append(draw_point(lp['start'].x, lp['start'].y))
+                    draw_objects.append(draw_point(lp['start'].x, lp['start'].y, 'red'))
             else:
                 print('mark set')
                 mark = draw_mark(np)
@@ -518,7 +549,7 @@ def mcall(lp, last_lp):
         cx = (last_lp['start'].x + last_lp['end'].x + lp['start'].x + lp['end'].x) / 4
         cy = (last_lp['start'].y + last_lp['end'].y + lp['start'].y + lp['end'].y) / 4
         draw_objects.pop()
-        draw_objects.append(draw_point(cx, cy))
+        draw_objects.append(draw_point(cx, cy, 'red'))
         return True
 
     # check for a line between points
