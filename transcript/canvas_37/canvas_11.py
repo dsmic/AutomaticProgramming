@@ -7,10 +7,11 @@ class Graphics:
         self.canvas_id = canvas_id
         self.canvas = document.getElementById(self.canvas_id)
         self.ctx = self.canvas.getContext('2d')
+        self.actve = False
         #self.canvas.onmouseover = self.drawCanvas
         #self.canvas.onmouseup = self.set_active_false
         #self.canvas.onmousedown = self.set_active_true
-        self.x, self.y = 0, 0 
+        self.x, self.y = 0, 0
         # default color
         self.ctx.fillStyle = "rgb(0, 255, 0)"
         #self.canvas.addEventListener('pointermove', self.drawCanvas)
@@ -35,22 +36,25 @@ class Graphics:
             console.log("Hello world!")
             mousemove(eee)
             event.preventDefault()
-            
+
     def mousedown(self, event):
         self.x = event.pageX-self.canvas.offsetLeft
         self.y = event.pageY-self.canvas.offsetTop
         if self.x < 30 and self.y < 30:
             mouseright(None)
             return
+        if 60 < self.x < 90 and self.y < 30:
+            clean_all(None)
+            return
         self.set_active_true()
         event.preventDefault()
-        
+
     def mouseup(self, event):
         self.x = event.pageX-self.canvas.offsetLeft
         self.y = event.pageY-self.canvas.offsetTop
         self.set_active_false()
         event.preventDefault()
-        
+
     def set_active_true(self):
         # print ("true")
         if not self.active:
@@ -64,36 +68,36 @@ class Graphics:
             self.active = False
             event = point(self.x, self.y)
             mouserelease(event)
-    
+
     def set_fillStyle(self, color):
         if color == 'black':
             self.ctx.fillStyle = "rgb(0, 0, 0)"
             self.ctx.strokeStyle = "rgb(0, 0, 0)"
         elif color == 'red':
-            self.ctx.fillStyle ="rgb(255, 0, 0)"
-            self.ctx.strokeStyle ="rgb(255, 0, 0)"
+            self.ctx.fillStyle = "rgb(255, 0, 0)"
+            self.ctx.strokeStyle = "rgb(255, 0, 0)"
         elif color == 'blue':
             self.ctx.fillStyle = "rgb(0, 0, 255)"
             self.ctx.strokeStyle = "rgb(0, 0, 255)"
         elif color == 'green':
             self.ctx.fillStyle = "rgb(0, 255, 0)"
             self.ctx.strokeStyle = "rgb(0, 255, 0)"
-            
+
     def create_line(self, x1, y1, x2, y2, fill):
         self.set_fillStyle(fill)
-        self.ctx.beginPath();
-        self.ctx.moveTo(x1, y1);
-        self.ctx.lineTo(x2, y2);
-        self.ctx.stroke();
-        
+        self.ctx.beginPath()
+        self.ctx.moveTo(x1, y1)
+        self.ctx.lineTo(x2, y2)
+        self.ctx.stroke()
+
     def create_polygon(self, xx,  fill):
         self.set_fillStyle(fill)
-        self.ctx.beginPath();
-        self.ctx.moveTo(xx[0], xx[1]);
+        self.ctx.beginPath()
+        self.ctx.moveTo(xx[0], xx[1])
         for i in range(2, len(xx), 2):
-            self.ctx.lineTo(xx[i], xx[i+1]);
-        self.ctx.stroke();
-        
+            self.ctx.lineTo(xx[i], xx[i+1])
+        self.ctx.stroke()
+
     def create_oval(self, x1, y1, x2, y2, fill, outline):
         console.log(fill)
         if fill is not None:
@@ -108,26 +112,44 @@ class Graphics:
             self.ctx.ellipse((x1+x2)/2, (y1+y2)/2, (x2-x1)/2, (x2-x1)/2, 0, 0, 2*Math.PI, True)
             self.ctx.stroke()
             console.log('mark')
-        
+    def delete(self, _):
+        self.ctx.clearRect(0, 0, w.canvas.width, w.canvas.height)
+        self.ctx.fillStyle = "rgb(0, 255, 0)"
+        self.ctx.fillRect(0, 0, 30, 30)
+        self.ctx.strokeStyle = "rgb(255, 0, 0)"
+        self.ctx.beginPath()
+        self.ctx.moveTo(27, 3)
+        self.ctx.lineTo(3, 15)
+        self.ctx.lineTo(27, 27)
+        self.ctx.stroke()
+        self.ctx.fillStyle = "rgb(255, 0, 0)"
+        self.ctx.fillRect(60, 0, 30, 30)
+        self.ctx.strokeStyle = "rgb(0, 0, 0)"
+        self.ctx.beginPath()
+        self.ctx.moveTo(63, 3)
+        self.ctx.lineTo(87, 27)
+        self.ctx.moveTo(87, 3)
+        self.ctx.lineTo(63, 27)
+        self.ctx.stroke()
 
 w = None
 
 def init():
     global w
     w = Graphics('graphics')
-    clearCanvas()
+    w.delete(None)
 
-def clearCanvas():
-    w.ctx.clearRect(0, 0, w.canvas.width, w.canvas.height)
-    w.ctx.fillStyle = "rgb(0, 255, 0)"
-    w.ctx.fillRect(0, 0, 30, 30)
-    w.ctx.strokeStyle = "rgb(255, 0, 0)"
-    w.ctx.beginPath()
-    w.ctx.moveTo(27, 3)
-    w.ctx.lineTo(3,15)
-    w.ctx.lineTo(27,27)
-    w.ctx.stroke()
-    
+# def clearCanvas():
+#     w.ctx.clearRect(0, 0, w.canvas.width, w.canvas.height)
+#     w.ctx.fillStyle = "rgb(0, 255, 0)"
+#     w.ctx.fillRect(0, 0, 30, 30)
+#     w.ctx.strokeStyle = "rgb(255, 0, 0)"
+#     w.ctx.beginPath()
+#     w.ctx.moveTo(27, 3)
+#     w.ctx.lineTo(3,15)
+#     w.ctx.lineTo(27,27)
+#     w.ctx.stroke()
+
 
 
 # pylint: disable=C0301, C0103, C0116, C0321, C0115, R0914, R0912, R0915, R1705, R1720, W0122, W0603, W0123, R1702, R0903, C0302
@@ -215,8 +237,8 @@ def mouserelease(event):
     if done:
         last_line_properties = None
         lastdirect = None
-        # w.delete("all")
-        clearCanvas()
+        w.delete("all")
+        # clearCanvas()
         lastpoints = None
     else:
         last_line_properties = line_properties #.copy()
@@ -481,11 +503,21 @@ def mouseright(_):
     if isinstance(lo, changed_line):
         lo.restore()
     mark = None
-#    w.delete("all")
-    clearCanvas()
+    w.delete("all")
+    # clearCanvas()
     for dd in draw_objects:
         print('draw', dd)
         dd.draw()
+        
+def clean_all():
+    global mark
+    draw_objects.clear()
+    w.delete("all")
+    # clearCanvas()
+    # for dd in draw_objects:
+    #     print('draw', dd)
+    #     dd.draw()
+    
 
 #w.bind('<ButtonRelease-1>', mouserelease)
 #w.bind('<ButtonPress-1>', mousepress)
@@ -507,26 +539,31 @@ def mcall(lp, last_lp):
         # set mark or click position
         if mark is None:
             np = find_point_near(lp['start'], 20)
-            if np is None:
-                intersecs = find_intersections()
-                print('intersecs', intersecs)
-                mindist = None
-                minl = None
-                for l in intersecs:
-                    print('p', l.x, l.y)
-                    dist = abst(lp['start'], l)
-                    if mindist is None or dist < mindist:
-                        mindist = dist
-                        minl = l
-                if mindist is not None and mindist < 30:
-                    draw_objects.append(draw_point(minl.x, minl.y, 'blue'))
-                    #mark = None
-                else:
-                    # this allows to draw points by just clicking, not making a cross
-                    draw_objects.append(draw_point(lp['start'].x, lp['start'].y, 'red'))
-            else:
+            if np is not None:
+                np_dist = abst(lp['start'], np)
+            #if np is None:
+            intersecs = find_intersections()
+            print('intersecs', intersecs)
+            mindist = None
+            minl = None
+            for l in intersecs:
+                print('p', l.x, l.y)
+                dist = abst(lp['start'], l)
+                if mindist is None or dist < mindist:
+                    mindist = dist
+                    minl = l
+            if mindist is not None and mindist < 30 and (np is None or mindist < np_dist):
+                draw_objects.append(draw_point(minl.x, minl.y, 'blue'))
+                #mark = None
+            elif np is not None:
                 print('mark set')
                 mark = draw_mark(np)
+            else:
+                # this allows to draw points by just clicking, not making a cross
+                draw_objects.append(draw_point(lp['start'].x, lp['start'].y, 'red'))
+            # else:
+            #     print('mark set')
+            #     mark = draw_mark(np)
             return True
 
         # create a circle with the same radius
@@ -589,7 +626,7 @@ def mcall(lp, last_lp):
 
     # The hand drawn element is saved
     draw_objects.append(draw_polygon(flatpoint))
-    return False
+    return True
 
 #mainloop()
 
