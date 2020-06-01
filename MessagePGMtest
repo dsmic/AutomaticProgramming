@@ -6,17 +6,37 @@ Created on Mon Jun  1 09:38:16 2020
 @author: detlef
 """
 
+
 class BaseClassMSG:
     def __init__(self, parent):
         self.parent = parent
+        self.childs = []
         pass
     
-    def process_msg(self, msg):
-        self.msg_from_parent(msg)
-        if self.parent is not None:
-            self.parent.process_msg(msg)
+    def process_msgs(self, msgs):
+        (msgs_all_handled, msgs_all_added) = self.msgs_from_parent(msgs)
+        msgs_to_childs = msgs[:]
+        for msg_handled in msgs_all_handled:
+            msgs_to_childs.remove(msg_handled)
+            
+        for child_object in msgs_to_childs:
+            (msgs_handled, msgs_added) = child_object.process_msg(msgs_to_childs) #it might be a good idea, that msgs_all_added is passed, than the subchilds can proces output from the subchilds before ?!
+            msgs_all_handled.update(msgs_handled)
+            msgs_all_added += msgs_added
+        
+        # call self.msgs_from_parent a second time? with msgs_all_added and leave the rest????
+        msgs_second_call = msgs_to_childs + msgs_all_added
+        (msgs_second_handled, msgs_second_added) = self.msg_from_parent(msgs_second_call)
+        rest_added_msgs = []
+        for tmp_msg in msgs_all_added:
+            if tmp_msg not in msgs_second_handled:
+                rest_added_msgs.append(tmp_msg)
+                
+        return (msgs_handled.update(msgs_second_handled), rest_added_msgs)
+        
     
     # overwrite
-    # remove the messages from msg, which are handled, the rest is kept
-    def msg_from_parent(self, msg):
-        pass
+    # remove the messages from msg, which are handled (maybe also by the childs??), the rest is kept
+    def msg_from_parent(self, msgs):
+        return ({},[]) #return msgs set that where handled and new Messages
+    
