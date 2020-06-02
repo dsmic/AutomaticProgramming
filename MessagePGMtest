@@ -59,6 +59,8 @@ class TestAdd(BaseClassMSG):
             if msg_type == 'float':
                 handled.add(msg)
                 summe += value
+        if len(handled) == 0:
+            return (handled, [])
         return (handled, [('result', summe)])
     
     
