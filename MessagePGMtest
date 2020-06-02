@@ -50,7 +50,6 @@ class TestMessage(BaseClassMSG):
         print(msgs)
         return (set(), MyList([])) #return msgs set that where handled and new Messages
         
-        
 class TestAdd(BaseClassMSG):
     def msgs_receive(self, msgs):
         summe = 0
@@ -60,7 +59,7 @@ class TestAdd(BaseClassMSG):
             if msg_type == 'float':
                 handled.add(msg)
                 summe += value
-        return (handled, [('float', summe)])
+        return (handled, [('result', summe)])
     
     
 test = TestMessage(None)
@@ -69,6 +68,8 @@ summer = TestAdd(test)
 
 test.childs = [summer]
 
-test.process_msgs(MyList([('float',2), ('float',3)]))
+l = test.process_msgs(MyList([('float',2), ('float',3)]))
+
+print(l)
 
 
