@@ -12,7 +12,16 @@ class MyList(list):
             if el in self:
                 self.remove(el)
 
-class BaseClassMSG:
+class Meta(type):
+     def __new__(cls, name, bases, dct):
+         x = super().__new__(cls, name, bases, dct)
+         print('META',name, bases, dct, x.msg_string())
+         if x.msg_string() is not None:
+             x.create_msgs[x.msg_string()] = x
+         return x        
+
+class BaseClassMSG(metaclass=Meta):
+    create_msgs = {}
     def __init__(self, parent):
         self.parent = parent
         self.childs = [] # this are the childs, which get the messages
@@ -58,11 +67,17 @@ class BaseClassMSG:
         print(type(self), 'msgs_received', msgs)
         return (set(), MyList([])) #return msgs set that where handled and new Messages
     
+    def msg_string():
+        return None
+    
 
 class TestMessage(BaseClassMSG):
     def msgs_receive(self, msgs):
         print(type(self), 'msgs_received', msgs)
         return (set(), MyList([])) #return msgs set that where handled and new Messages
+
+    def msg_string():
+        return 'create_TestMessage'
         
 class TestAdd(BaseClassMSG):
     def msgs_receive(self, msgs):
@@ -77,6 +92,9 @@ class TestAdd(BaseClassMSG):
         if len(handled) == 0:
             return (handled, [])
         return (handled, [('result', summe)])
+
+    def msg_string():
+        return 'create_TestAdd'
 
 class testList(BaseClassMSG):
     def __init__(self, parent):
