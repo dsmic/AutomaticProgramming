@@ -30,27 +30,31 @@ class BaseClassMSG(metaclass=Meta):
     
     def process_msgs(self, msgs):
         print(type(self), 'process_msgs', msgs)
-        (msgs_all_handled, msgs_all_added) = self.msgs_receive(msgs)
-        if len(self.childs) == 0:
-            return  (msgs_all_handled, msgs_all_added) # no childs, no further handling
-
-        msgs_to_childs = MyList(msgs[:])
-        msgs_to_childs.remove_set(msgs_all_handled)
-        
-        if len(self.subobjects) > 0:
-            subobjects = self.subobjects
-            for sub in subobjects:
-                sub.childs = self.childs # prepare the subobjects with the childs
-        else:
-            subobjects = self.childs
+        while True:
+            (msgs_all_handled, msgs_all_added) = self.msgs_receive(msgs)
+            if len(self.childs) == 0:
+                return  (msgs_all_handled, msgs_all_added) # no childs, no further handling
+    
+            msgs_to_childs = MyList(msgs[:])
+            msgs_to_childs.remove_set(msgs_all_handled)
             
-        
-        for child_object in subobjects:
-            (msgs_handled, msgs_added) = child_object.process_msgs(msgs_to_childs + msgs_all_added) #it might be a good idea, that msgs_all_added is passed, than the subchilds can proces output from the subchilds before ?!
-            msgs_all_added.remove_set(msgs_handled)
-            msgs_all_added += msgs_added
-            msgs_all_handled.update(msgs_handled)
-        
+            if len(self.subobjects) > 0:
+                subobjects = self.subobjects
+                for sub in subobjects:
+                    sub.childs = self.childs # prepare the subobjects with the childs
+            else:
+                subobjects = self.childs
+                
+            
+            for child_object in subobjects:
+                (msgs_handled, msgs_added) = child_object.process_msgs(msgs_to_childs + msgs_all_added) #it might be a good idea, that msgs_all_added is passed, than the subchilds can proces output from the subchilds before ?!
+                msgs_all_added.remove_set(msgs_handled)
+                msgs_all_added += msgs_added
+                msgs_all_handled.update(msgs_handled)
+            msgs_to_childs.remove_set(msgs_all_handled)
+            if len(msgs_all_added) == 0:
+                break
+            msgs = msgs_to_childs + msgs_added
         # call self.msgs_receive a second time? with msgs_all_added and leave the rest????
         (msgs_second_handled, msgs_second_added) = self.msgs_receive(msgs_to_childs + msgs_all_added)
         
