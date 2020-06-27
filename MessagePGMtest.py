@@ -30,8 +30,9 @@ class BaseClassMSG(metaclass=Meta):
     
     def process_msgs(self, msgs):
         print(type(self), 'process_msgs', msgs)
+        goon = True
         while True:
-            (msgs_all_handled, msgs_all_added) = self.msgs_receive(msgs)
+            (msgs_all_handled, msgs_all_added, goon) = self.msgs_receive(msgs, goon)
             if len(self.childs) == 0:
                 return  (msgs_all_handled, msgs_all_added) # no childs, no further handling
     
@@ -52,11 +53,12 @@ class BaseClassMSG(metaclass=Meta):
                 msgs_all_added += msgs_added
                 msgs_all_handled.update(msgs_handled)
             msgs_to_childs.remove_set(msgs_all_handled)
-            if len(msgs_all_added) == 0:
-                break
             msgs = msgs_to_childs + msgs_added
+            if not goon:
+                break
+            
         # call self.msgs_receive a second time? with msgs_all_added and leave the rest????
-        (msgs_second_handled, msgs_second_added) = self.msgs_receive(msgs_to_childs + msgs_all_added)
+        (msgs_second_handled, msgs_second_added, goon) = self.msgs_receive(msgs_to_childs + msgs_all_added, goon)
         
         rest_added_msgs = MyList(msgs_all_added + msgs_second_added)
         msgs_all_handled.update(msgs_second_handled)
@@ -67,25 +69,25 @@ class BaseClassMSG(metaclass=Meta):
     
     # overwrite
     # remove the messages from msg, which are handled (maybe also by the childs??), the rest is kept
-    def msgs_receive(self, msgs):
-        print(type(self), 'msgs_received', msgs)
-        return (set(), MyList([])) #return msgs set that where handled and new Messages
+    def msgs_receive(self, msgs, goon):
+        print(type(self), 'msgs_received', msgs, goon)
+        return (set(), MyList([]), False) #return msgs set that where handled and new Messages
     
     def msg_string():
         return None
     
 
 class TestMessage(BaseClassMSG):
-    def msgs_receive(self, msgs):
-        print(type(self), 'msgs_received', msgs)
-        return (set(), MyList([])) #return msgs set that where handled and new Messages
+    def msgs_receive(self, msgs, goon):
+        print(type(self), 'msgs_received', msgs, goon)
+        return (set(), MyList([]), False) #return msgs set that where handled and new Messages
 
     def msg_string():
         return 'create_TestMessage'
         
 class TestAdd(BaseClassMSG):
-    def msgs_receive(self, msgs):
-        print(type(self), 'msgs_received', msgs)
+    def msgs_receive(self, msgs, goon):
+        print(type(self), 'msgs_received', msgs, goon)
         summe = 0
         handled = set()
         for msg in msgs:
@@ -94,8 +96,8 @@ class TestAdd(BaseClassMSG):
                 handled.add(msg)
                 summe += value
         if len(handled) == 0:
-            return (handled, [])
-        return (handled, [('result', summe)])
+            return (handled, [], False)
+        return (handled, [('result', summe)], False)
 
     def msg_string():
         return 'create_TestAdd'
@@ -105,8 +107,8 @@ class testList(BaseClassMSG):
         super.__init__(self, parent)
         self.list_objects = []
     
-    def msgs_receive(self, msgs):
-        print(type(self), 'msgs_received', msgs)
+    def msgs_receive(self, msgs, goon):
+        print(type(self), 'msgs_received', msgs, goon)
         handled = set()
         msgs_to_childs = []
         for msg in msgs:
@@ -114,10 +116,7 @@ class testList(BaseClassMSG):
             if msg_type == 'float':
                 handled.add(msg)
                 msgs_to_childs.append(msg)
-                
-                
-                
-        return (set(), MyList([])) #return msgs set that where handled and new Messages
+        return (set(), MyList([]), False) #return msgs set that where handled and new Messages
         
 test = TestMessage(None)
 
