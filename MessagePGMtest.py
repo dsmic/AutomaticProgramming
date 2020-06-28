@@ -22,8 +22,7 @@ class Meta(type):
 
 class BaseClassMSG(metaclass=Meta):
     create_msgs = {}
-    def __init__(self, parent):
-        self.parent = parent
+    def __init__(self):
         self.childs = [] # this are the childs, which get the messages
         self.subobjects = [] # objects, for with the childs are handled
         pass
@@ -86,45 +85,67 @@ class TestMessage(BaseClassMSG):
         return 'create_TestMessage'
         
 class TestAdd(BaseClassMSG):
+    def __init__(self):
+        super().__init__()
+        self.summe = 0
+        
     def msgs_receive(self, msgs, goon):
         print(type(self), 'msgs_received', msgs, goon)
-        summe = 0
+        #summe = 0
         handled = set()
         for msg in msgs:
             (msg_type, value) = msg
+            if msg_type == 'init':
+                self.summe = 0
             if msg_type == 'float':
                 handled.add(msg)
-                summe += value
+                self.summe += value
         if len(handled) == 0:
             return (handled, [], False)
-        return (handled, [('result', summe)], False)
+        return (handled, [('result', self.summe)], False)
 
     def msg_string():
         return 'create_TestAdd'
 
 class testList(BaseClassMSG):
-    def __init__(self, parent):
-        super.__init__(self, parent)
+    def __init__(self):
+        super().__init__()
         self.list_objects = []
+        self.position = 0
     
     def msgs_receive(self, msgs, goon):
         print(type(self), 'msgs_received', msgs, goon)
         handled = set()
         msgs_to_childs = []
+        if self.position == 0:
+            msgs_to_childs.append(('init', 0))
         for msg in msgs:
             (msg_type, value) = msg
-            if msg_type == 'float':
+            if msg_type == 'init':
+                self.list_objects = value
+                self.position = 0
+            if goon and msg_type == 'result':
                 handled.add(msg)
-                msgs_to_childs.append(msg)
-        return (set(), MyList([]), False) #return msgs set that where handled and new Messages
+        if self.position < len(self.list_objects):
+            msgs_to_childs.append(self.list_objects[self.position])
+            self.position += 1
+        return (handled, MyList(msgs_to_childs), self.position < len(self.list_objects)) #return msgs set that where handled and new Messages
         
-test = TestMessage(None)
+test = TestMessage()
 
-summer = TestAdd(test)
+summer = TestAdd()
 
 test.childs = [summer]
 
 l = test.process_msgs(MyList([('float', 2), ('float', 3), ('float', 7)]))
+
+print(l)
+
+t = testList()
+t.list_objects = [('float', 1), ('float', 2), ('float', 3), ('float', 4)]
+
+t.childs = [summer]
+l = t.process_msgs(MyList([]))
 
 print(l)
 
