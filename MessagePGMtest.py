@@ -93,7 +93,7 @@ class TestAdd(BaseClassMSG):
         print(type(self), 'msgs_received', msgs, goon)
         #summe = 0
         handled = set()
-        for msg in msgs:
+        for msg in reversed(msgs):
             (msg_type, value) = msg
             if msg_type == 'init':
                 self.summe = 0
@@ -119,7 +119,7 @@ class testList(BaseClassMSG):
         msgs_to_childs = []
         if self.position == 0:
             msgs_to_childs.append(('init', 0))
-        for msg in msgs:
+        for msg in reversed(msgs):
             (msg_type, value) = msg
             if msg_type == 'init':
                 self.list_objects = value
