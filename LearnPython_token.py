@@ -5,6 +5,7 @@ Created on Mon Oct 21 10:04:58 2019
 
 @author: detlef
 """
+import os
 import pickle
 import argparse
 import tensorflow as tf
@@ -60,7 +61,7 @@ parser.add_argument('--enable_pretokenized_files', dest='enable_pretokenized_fil
 
 parser.add_argument('--benchmark_parsing', dest='benchmark_parsing',   type=int, default=0)
 
-parser.add_argument('--save_tokens', dest='save_tokens',  type=int, default=0)
+parser.add_argument('--save_tokens_file_num', dest='save_tokens_file_num',  type=int, default=1000) #default, as it is much better than the other tests at the moment
 parser.add_argument('--save_tokens_min_num', dest='save_tokens_min_num',  type=int, default=100)
 
 args = parser.parse_args()
@@ -163,7 +164,7 @@ class Token_translate:
     def translate(self,token):
         # seems to be called by different threads?!
         with self.lock:
-            if args.save_tokens != 0:
+            if args.save_tokens_file_num != 0:
                 if (token[0], token[1]) in saved_tokens:
                     return saved_tokens[(token[0], token[1])]
                 if (token[0]) in saved_tokens:
@@ -233,7 +234,7 @@ def read_file(file_name):
     return [line.strip('\n') for line in txt_file]
 
 all_tokens = {}
-def load_dataset(file_names, save_tokens = 0):
+def load_dataset(file_names, save_tokens_file_num = 0):
     global num_ord
     data_set = []
     count = 0
@@ -242,14 +243,14 @@ def load_dataset(file_names, save_tokens = 0):
         count += 1
         if args.limit_files >0 and count > args.limit_files:
             break
-        if save_tokens > 0 and count > save_tokens:
+        if save_tokens_file_num > 0 and count > save_tokens_file_num:
             break
         try:
             python_file = open(file_name)
             py_program = tokenize.generate_tokens(python_file.readline) # just check if no errors accure
             #list(py_program) #force tokenizing to check for errors
             #program_lines = []
-            if save_tokens != 0:
+            if save_tokens_file_num != 0:
                 for py_token in py_program:
                     if py_token[0] not in all_tokens:
                         all_tokens[py_token[0]] = {}
@@ -277,9 +278,9 @@ else:
     
 saved_tokens = {}
 saved_pos = 0    
-if args.save_tokens != 0:
-    load_dataset(read_file('python100k_train.txt_random'), args.save_tokens)
-    print('used for counting',args.save_tokens, 'min num', args.save_tokens_min_num)
+if args.save_tokens_file_num != 0:
+    load_dataset(read_file('python100k_train.txt_random'), args.save_tokens_file_num)
+    print('used for counting',args.save_tokens_file_num, 'min num', args.save_tokens_min_num)
     for i in all_tokens:
         t = all_tokens[i]
         c = 0
@@ -294,12 +295,26 @@ if args.save_tokens != 0:
     max_output = saved_pos + 1
 for l in saved_tokens:
     print(l, saved_tokens[l])
-    
-train_data_set = load_dataset(read_file('python100k_train.txt'+file_append))    
 
+if os.path.exists('train.ddddd'):
+    print('use preloaded train list !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+    with open('train.ddddd','rb') as fb:
+        train_data_set = pickle.load(fb)
+else:    
+    train_data_set = load_dataset(read_file('python100k_train.txt'+file_append))    
+    with open('train.ddddd','wb') as fb:
+        pickle.dump(train_data_set, fb)
+    
 print(len(train_data_set))
 
-test_data_set = load_dataset(read_file('python50k_eval.txt'+file_append))    
+if os.path.exists('test.ddddd'):
+    print('use preloaded test list !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+    with open('test.ddddd','rb') as fb:
+        test_data_set = pickle.load(fb)
+else:    
+    test_data_set = load_dataset(read_file('python50k_eval.txt'+file_append))    
+    with open('test.ddddd','wb') as fb:
+        pickle.dump(train_data_set, fb)
 
 print(len(test_data_set))
     
@@ -403,7 +418,6 @@ if args.benchmark_parsing > 0:
     sys.exit()
 
 print("starting",args)
-import os
 class TerminateKey(Callback):
     def on_epoch_end(self, batch, logs=None):
         if os.path.exists(args.EarlyStop):
