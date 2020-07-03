@@ -5,7 +5,7 @@ Created on Mon Oct 21 10:04:58 2019
 
 @author: detlef
 """
-
+import pickle
 import argparse
 import tensorflow as tf
 from tensorflow.keras import Model
@@ -24,7 +24,7 @@ from threading import Lock
 
 parser = argparse.ArgumentParser(description='train recurrent net.')
 parser.add_argument('--lr', dest='lr',  type=float, default=1e-3)
-parser.add_argument('--epochs', dest='epochs',  type=int, default=50)
+parser.add_argument('--epochs', dest='epochs',  type=int, default=500)
 parser.add_argument('--hidden_size', dest='hidden_size',  type=int, default=50)
 parser.add_argument('--final_name', dest='final_name',  type=str, default='final_model')
 parser.add_argument('--pretrained_name', dest='pretrained_name',  type=str, default=None)
@@ -41,6 +41,7 @@ parser.add_argument('--rand_files', dest='rand_files', action='store_true')
 parser.add_argument('--float_type', dest='float_type',  type=str, default='float32')
 parser.add_argument('--load_weights_name', dest='load_weights_name',  type=str, default=None)
 
+
 parser.add_argument('--limit_files', dest='limit_files',  type=int, default=0)
 parser.add_argument('--epoch_size', dest='epoch_size',  type=int, default=1000)
 parser.add_argument('--max_length', dest='max_length',  type=int, default=20000)
@@ -54,8 +55,13 @@ parser.add_argument('--only_token_type', dest='only_token_type', action='store_t
 parser.add_argument('--remove_comments', dest='remove_comments', action='store_true')
 parser.add_argument('--only_token_detail', dest='only_token_detail', action='store_true')
 parser.add_argument('--only_token_detail_name', dest='only_token_detail_name', action='store_true')
+parser.add_argument('--no_string_details', dest='no_string_details', action='store_true')
+parser.add_argument('--enable_pretokenized_files', dest='enable_pretokenized_files', action='store_true')
 
 parser.add_argument('--benchmark_parsing', dest='benchmark_parsing',   type=int, default=0)
+
+parser.add_argument('--save_tokens', dest='save_tokens',  type=int, default=0)
+parser.add_argument('--save_tokens_min_num', dest='save_tokens_min_num',  type=int, default=100)
 
 args = parser.parse_args()
 
@@ -152,15 +158,24 @@ class Token_translate:
         self.lock = Lock()
         self.found = 0
         self.calls = 0
+        self.removed_numbers = {}
         
     def translate(self,token):
         # seems to be called by different threads?!
         with self.lock:
+            if args.save_tokens != 0:
+                if (token[0], token[1]) in saved_tokens:
+                    return saved_tokens[(token[0], token[1])]
+                if (token[0]) in saved_tokens:
+                    return saved_tokens[(token[0])]
+                if token[0] != 54: #ERRORtokens may appear
+                    print('should not happen?', token, 'return', saved_pos)
+                return saved_pos
             backok = False
             if args.remove_comments and (token[0] == tokenize.COMMENT or token[0] == tokenize.NL):
                 #print('comment removed')
                 return None
-            if args.only_token_type or (args.only_token_detail and token[0] != tokenize.OP) or (args.only_token_detail_name and token[0] != tokenize.OP and token[0] != tokenize.NAME):
+            if args.only_token_type or (args.only_token_detail and token[0] != tokenize.OP) or (args.only_token_detail_name and token[0] != tokenize.OP and token[0] != tokenize.NAME) or (args.no_string_details and token[0] == tokenize.STRING):
                 used_part = (token[0]) # (type , string ) of the tokenizer
             else:
                 used_part = (token[0],token[1]) # (type , string ) of the tokenizer
@@ -173,12 +188,13 @@ class Token_translate:
             if used_part in self.used:
                 self.used_sorted.delete(used_part)
                 self.used[used_part] += 1
-                if self.used[used_part] > args.token_number / 10:
-                    self.used[used_part] = args.token_number / 10
+                if self.used[used_part] > args.token_number / 2:
+                    self.used[used_part] = args.token_number / 2
                 #assert(self.used_sorted.check_order())
             else:
                 self.used[used_part] = 1
             self.used_sorted.add(used_part)
+            #print(token)
             self.calls += 1
             if used_part not in self.data:
                 if len(self.free_numbers) == 0:
@@ -186,8 +202,9 @@ class Token_translate:
                     oldest = self.used_sorted.pop_lowest()
                     #assert(oldest == oldest_old)
                     self.free_numbers = [self.data[oldest]]
+                    self.removed_numbers[self.data[oldest]] = 1
                     if args.debug:
-                        print('deleted', oldest, self.used[oldest])
+                        print('deleted', oldest, self.used[oldest], self.data[oldest], len(self.removed_numbers))
                     #self.used_sorted.delete(oldest) already deleted with pop
                     del(self.used[oldest])
                     del(self.data[oldest])
@@ -214,36 +231,70 @@ translator = Token_translate(max_output)
 def read_file(file_name):
     txt_file = open(file_name)
     return [line.strip('\n') for line in txt_file]
-    
-def load_dataset(file_names):
+
+all_tokens = {}
+def load_dataset(file_names, save_tokens = 0):
     global num_ord
     data_set = []
     count = 0
+    py_programs = []    
     for file_name in file_names:
         count += 1
         if args.limit_files >0 and count > args.limit_files:
             break
+        if save_tokens > 0 and count > save_tokens:
+            break
         try:
             python_file = open(file_name)
             py_program = tokenize.generate_tokens(python_file.readline) # just check if no errors accure
-            [x for x in py_program] #force tokenizing to check for errors
+            #list(py_program) #force tokenizing to check for errors
             #program_lines = []
-            #for py_token in py_program:
-                #print(py_token)
-                #token_number = translator.translate(py_token)
-                #print("---",token_number, '- ' + translator.get_string(token_number)+' -')
+            if save_tokens != 0:
+                for py_token in py_program:
+                    if py_token[0] not in all_tokens:
+                        all_tokens[py_token[0]] = {}
+                    in_tokens = all_tokens[py_token[0]]
+                    if py_token[1] not in in_tokens:
+                        in_tokens[py_token[1]] = 0
+                    in_tokens[py_token[1]] += 1
+                    #print(py_token)
+                    #token_number = translator.translate(py_token)
+                    #print("---",token_number, '- ' + translator.get_string(token_number)+' -')
+            else:
+                list(py_program) #force tokenizing to check for errors
             data_set.append(file_name)
         except UnicodeDecodeError as e:
             print(file_name + '\n  wrong encoding ' + str(e))
         except tokenize.TokenError as e:
             print(file_name + '\n  token error ' + str(e))
-            
+#    return py_programs            
     return data_set
 
 if args.rand_files:
     file_append="_random"
 else:
     file_append=""
+    
+saved_tokens = {}
+saved_pos = 0    
+if args.save_tokens != 0:
+    load_dataset(read_file('python100k_train.txt_random'), args.save_tokens)
+    print('used for counting',args.save_tokens, 'min num', args.save_tokens_min_num)
+    for i in all_tokens:
+        t = all_tokens[i]
+        c = 0
+        saved_tokens[(i)] = saved_pos
+        saved_pos += 1
+        for l in t:
+            if t[l] > args.save_tokens_min_num:
+                saved_tokens[(i,l)] = saved_pos
+                saved_pos += 1
+                c +=1
+        print(i, len(all_tokens[i]), c, len(saved_tokens))
+    max_output = saved_pos + 1
+for l in saved_tokens:
+    print(l, saved_tokens[l])
+    
 train_data_set = load_dataset(read_file('python100k_train.txt'+file_append))    
 
 print(len(train_data_set))
@@ -251,7 +302,8 @@ print(len(train_data_set))
 test_data_set = load_dataset(read_file('python50k_eval.txt'+file_append))    
 
 print(len(test_data_set))
-
+    
+files_prepared = {}
 class KerasBatchGenerator(object):
     # data_set contains train or test data_set
     # vocabin 
@@ -260,28 +312,41 @@ class KerasBatchGenerator(object):
             
     def generate(self):
         while True:
+            #for py_program in self.data_set: 
             for python_file in self.data_set:
                 #print(python_file)
-                py_program = tokenize.generate_tokens(open(python_file.strip()).readline)
-                full_python_file_string = []
-                for x in py_program:
-                    transl = translator.translate(x)
-                    if transl is not None:
-                        full_python_file_string.append(transl)
-                    #else:
-                    #    print('and not used')
+                if not python_file in files_prepared:
+                    py_program = tokenize.generate_tokens(open(python_file).readline)
+                    full_python_file_string = []
+                    for x in py_program:
+                        #print(x)
+                        transl = translator.translate(x)
+                        if transl is not None:
+                            full_python_file_string.append(transl)
+                        #else:
+                        #    print('and not used')
+                    if args.enable_pretokenized_files:
+                        with open(python_file+'.ddddd','wb') as fb:
+                            pickle.dump(full_python_file_string, fb)
+                        files_prepared[python_file] = 1
+                else:
+                     with open(python_file+'.ddddd','rb') as fb:
+                         full_python_file_string = pickle.load(fb)
                 position=0
                 model.reset_states()
-                if args.debug:
-                    print("\nnext file used "+ python_file.strip())
-                while position * args.max_length < len(full_python_file_string)-1:
+#                if args.debug:
+#                    print("\nnext file used "+ python_file.strip())
+                while position * args.max_length < len(full_python_file_string)-2:
                     end_is = (position+1)*args.max_length
-                    if end_is >= len(full_python_file_string)-1:
-                        end_is = len(full_python_file_string)-1
+                    if end_is >= len(full_python_file_string)-2:
+                        end_is = len(full_python_file_string)-2
                     tmp_x = np.array([full_python_file_string[position*args.max_length:end_is]], dtype=int)
                     tmp_y = np.array([full_python_file_string[position*args.max_length+1:end_is+1]], dtype=int)
                     position += 1
-                    yield tmp_x, to_categorical(tmp_y, num_classes=max_output)
+                    ret = tmp_x, to_categorical(tmp_y, num_classes=max_output).reshape(1,-1,max_output) #wrong shape if exactly one is in
+                    if len(ret[1].shape) != 3:
+                        print(ret)
+                    yield ret
 
 train_data_generator = KerasBatchGenerator(train_data_set)
 test_data_generator = KerasBatchGenerator(test_data_set)
