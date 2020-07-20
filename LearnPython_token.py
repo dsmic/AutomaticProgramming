@@ -277,6 +277,8 @@ else:
     file_append=""
     
 saved_tokens = {}
+saved_tokens_howoften = {}
+saved_tokens_howoften_id = {}
 saved_pos = 0    
 if args.save_tokens_file_num != 0:
     load_dataset(read_file('python100k_train.txt_random'), args.save_tokens_file_num)
@@ -286,13 +288,26 @@ if args.save_tokens_file_num != 0:
         c = 0
         saved_tokens[(i)] = saved_pos
         saved_pos += 1
+        s = 0
         for l in t:
+            s += t[l]
             if t[l] > args.save_tokens_min_num:
                 saved_tokens[(i,l)] = saved_pos
+                saved_tokens_howoften[(i, l)] = t[l] 
                 saved_pos += 1
                 c +=1
+        saved_tokens_howoften_id[(i)] = s
         print(i, len(all_tokens[i]), c, len(saved_tokens))
     max_output = saved_pos + 1
+    
+summe = sum(saved_tokens_howoften_id.values())
+print('numer of tokens for dictionary', summe)
+for l in sorted(saved_tokens_howoften.items(), key=lambda x: x[1], reverse=False):
+    print(l[0], l[1] / summe)
+
+for l in sorted(saved_tokens_howoften_id.items(), key=lambda x: x[1], reverse=False):
+    print(l[0], l[1] / summe)
+
 for l in saved_tokens:
     print(l, saved_tokens[l])
 
