@@ -13,21 +13,24 @@ import numpy as np # helps with the math
 import matplotlib.pyplot as plt # to plot error during training
 
 
-lr = 0.1
-hidden_size = 3
-lm_w = 1
+lr = 0.001
+hidden_size = 5
+
+lm_w = 5
 
 np.seterr(under='ignore', over='ignore')
 
 # input data
-inputs = np.array([[0, 1, 0],
+inputs = np.array([[0, 0, 0],
+                   [0, 0, 1],
+                   [0, 1, 0],
                    [0, 1, 1],
-                   [0, 0, 0],
                    [1, 0, 0],
-                   [1, 1, 1],
-                   [1, 0, 1]])
+                   [1, 0, 1],
+                   [1, 1, 0],
+                   [1, 1, 1]])
 # output data
-outputs = np.array([[0], [1], [1], [1], [0], [1]])
+outputs = np.array([[0], [0], [1], [0], [1], [1], [1], [1]])
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
@@ -65,13 +68,13 @@ class NeuralNetwork:
         self.weights1 += d_weights1 * lr
         self.weights2 += d_weights2 * lr
         
-        self.weights1.clip(-lm_w, lm_w)
-        self.weights2.clip(-lm_w, lm_w)
+        self.weights1 = self.weights1.clip(-lm_w, lm_w)
+        self.weights2 = self.weights2.clip(-lm_w, lm_w)
         
         #print(d_weights1)
         
     # train the neural net for 25,000 iterations
-    def train(self, epochs=200000):
+    def train(self, epochs=100000):
         for epoch in range(epochs):
             # flow forward and produce an output
             self.feed_forward()
@@ -103,3 +106,43 @@ plt.ylabel('Error')
 plt.show()
 
 print('Error',NN.error_history[-1])
+
+minimum = 100
+
+more = True
+
+next = {}
+next[-lm_w] = 0
+next[0] = lm_w
+
+
+w1_size = NN.weights1.size
+w2_size = NN.weights2.size
+all_size = w1_size + w2_size
+print('all_size', all_size)
+
+w = [-lm_w] * all_size
+
+while more:
+    pos = 0
+    while w[pos] == lm_w: # end reached
+        w[pos] = -lm_w
+        pos += 1           
+        if pos == all_size:
+            break
+    if pos == all_size:
+        break    
+    w[pos] = next[w[pos]]
+    
+    NN.weights1.flat[:] = w[:w1_size]
+    NN.weights2.flat[:] = w[w1_size:]
+    errsum = np.sum((NN.predict(inputs)-outputs)**2)
+    if errsum < minimum:
+        minimum = errsum
+        for i in range(all_size):
+            print(w[i],end=' ')
+        
+        print(errsum)
+        for i in range(len(inputs)):
+            print(NN.predict(inputs[i]), 'correct', outputs[i])
+        #print(np.sum((NN.predict(inputs)-outputs)**2))
