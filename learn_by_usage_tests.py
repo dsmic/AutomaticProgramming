@@ -114,7 +114,7 @@ class DrawNet():
         
 
 lr = 0.001
-hidden_size = 4
+hidden_size = 5
 
 lm_w = 8
 
@@ -268,7 +268,7 @@ class NeuralNetwork:
             
             
                 network.add_layer(3, weights1, np.round(new_input))
-                network.add_layer(4, weights2, np.round(self.layer1))
+                network.add_layer(hidden_size, weights2, np.round(self.layer1))
                 network.add_layer(1, None, np.round(self.prediction))
                 network.draw()
         return self.prediction
