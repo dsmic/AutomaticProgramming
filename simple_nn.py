@@ -63,7 +63,7 @@ class NeuralNetwork:
         self.error = self.y - self.output
         
         d_weights2 = np.dot(self.layer1.T, (2 * self.error * sigmoid_derivative(self.output)))
-        d_layer1 = np.dot((self.error) * sigmoid_derivative(self.output), self.weights2.T)
+        d_layer1 = np.dot(self.error * sigmoid_derivative(self.output), self.weights2.T)
         
         d_weights1 = np.dot(self.inputs.T,  (2 * d_layer1 * sigmoid_derivative(self.layer1)))
 

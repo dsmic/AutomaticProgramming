@@ -24,6 +24,16 @@ from matplotlib import pyplot
 from math import cos, sin, atan
 #import numpy as np
 
+def sigmoid(x):
+    xx = x - 2
+    return 1 / (1 + np.exp(-xx))
+
+def sigmoid_derivative(x):
+    xx = x - 2
+    return (np.exp(-xx) / (np.exp(-xx) + 1) ** 2) #x * (1 - x) # this was an optimized derivative using the self.hidden
+
+
+
 vertical_distance_between_layers = 6
 horizontal_distance_between_neurons = 2
 neuron_radius = 0.5
@@ -49,6 +59,7 @@ class Layer():
         self.neurons = self.__intialise_neurons(number_of_neurons)
         self.weights = weights
         self.values = values
+        self.post_layer = None
 
     def __intialise_neurons(self, number_of_neurons):
         neurons = []
@@ -97,20 +108,24 @@ class Layer():
                     weight = self.previous_layer.weights[previous_layer_neuron_index, this_layer_neuron_index]
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, weight)
                     
-    def back_layer(pre_layer, post_layer, post_error):
-        pre_error = 0
-        d_weights = 0
+    def backward(self, pre_layer, post_error):
+        pre_error = np.dot(post_error * sigmoid_derivative(self.post_layer), self.weights.T)
+        d_weights = np.dot(pre_layer.T, (2 * post_error * sigmoid_derivative(self.post_layer)))
         
-        # this is from simple_nn
+        # this is tested from simple_nn
         # d_weights2 = np.dot(self.layer1.T, (2 * self.error * sigmoid_derivative(self.output)))
-        # d_layer1 = np.dot((self.error) * sigmoid_derivative(self.output), self.weights2.T)
+        # d_layer1 = np.dot(self.error * sigmoid_derivative(self.output), self.weights2.T)
 
-        return (pre_error, d_weights) # first idea to the layer backpropergation
+        self.change_weights(d_weights)
+        return pre_error # first idea to the layer backpropergation
     
-    def forware_layer(pre_layer):
-        post_layer = 0
-        return post_layer
+    def forward(self, pre_layer):
+        self.post_layer = sigmoid(np.dot(self.pre_layer, self.weights))
+        return self.post_layer
         
+    def change_weights(self, d_weights):
+        # d_weights must be handled here !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        pass
 
 class DrawNet():
     def __init__(self):
@@ -119,7 +134,23 @@ class DrawNet():
     def add_layer(self, number_of_neurons, weights=None, values=None):
         layer = Layer(self, number_of_neurons, weights, values)
         self.layers.append(layer)
-
+    
+    def forward(self, inp):
+        outp = inp
+        for layer in self.layers:
+            outp = layer.forward(outp)
+        return outp
+    
+    def backward(self, inp, outp):
+        pre_error = self.layers[-1].post_layer - outp
+        for i in range(len(self.layer), 1, -1):
+            (pre_error, d_weights) = self.layers[i].backward(self.layers[i-1], pre_error)
+        
+        (pre_error, d_weights) = self.layers[0].backward(inp, pre_error)
+        
+        return pre_error
+    
+    
     def draw(self, result):
         for layer in self.layers:
             layer.draw()
@@ -153,13 +184,6 @@ inputs = np.array([[0, 0, 0],
 # output data
 outputs = np.array([[0], [0], [1], [0], [1], [0], [0], [1]])
 
-def sigmoid(x):
-    xx = x - 2
-    return 1 / (1 + np.exp(-xx))
-
-def sigmoid_derivative(x):
-    xx = x - 2
-    return (np.exp(-xx) / (np.exp(-xx) + 1) ** 2) #x * (1 - x) # this was an optimized derivative using the self.hidden
 
 # create NeuralNetwork class
 class NeuralNetwork:
