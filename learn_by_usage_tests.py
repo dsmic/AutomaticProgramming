@@ -96,6 +96,20 @@ class Layer():
                     previous_layer_neuron = self.previous_layer.neurons[previous_layer_neuron_index]
                     weight = self.previous_layer.weights[previous_layer_neuron_index, this_layer_neuron_index]
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, weight)
+                    
+    def back_layer(pre_layer, post_layer, post_error):
+        pre_error = 0
+        d_weights = 0
+        
+        # this is from simple_nn
+        # d_weights2 = np.dot(self.layer1.T, (2 * self.error * sigmoid_derivative(self.output)))
+        # d_layer1 = np.dot((self.error) * sigmoid_derivative(self.output), self.weights2.T)
+
+        return (pre_error, d_weights) # first idea to the layer backpropergation
+    
+    def forware_layer(pre_layer):
+        post_layer = 0
+        return post_layer
         
 
 class DrawNet():
