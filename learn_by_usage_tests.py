@@ -35,7 +35,7 @@ class Neuron():
 
     def draw(self, v):
         if v > 0:
-            circle = pyplot.Circle((self.x, self.y), radius=neuron_radius, fill=False, color='red')
+            circle = pyplot.Circle((self.x, self.y), radius=neuron_radius, fill=False, color='green')
         else:
             circle = pyplot.Circle((self.x, self.y), radius=neuron_radius, fill=False, color='gray')
             
@@ -81,7 +81,7 @@ class Layer():
         line_x_data = (neuron1.x - x_adjustment, neuron2.x + x_adjustment)
         line_y_data = (neuron1.y - y_adjustment, neuron2.y + y_adjustment)
         if linewidth > 0:
-            c = 'blue'
+            c = 'green'
         else:
             c = 'red'
         line = pyplot.Line2D(line_x_data, line_y_data, linewidth=np.sign(abs(linewidth)), color = c)
@@ -94,9 +94,9 @@ class Layer():
             if self.previous_layer:
                 for previous_layer_neuron_index in range(len(self.previous_layer.neurons)):
                     previous_layer_neuron = self.previous_layer.neurons[previous_layer_neuron_index]
-                    weight = self.previous_layer.weights[this_layer_neuron_index, previous_layer_neuron_index]
+                    weight = self.previous_layer.weights[previous_layer_neuron_index, this_layer_neuron_index]
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, weight)
-
+        
 
 class DrawNet():
     def __init__(self):
@@ -106,17 +106,24 @@ class DrawNet():
         layer = Layer(self, number_of_neurons, weights, values)
         self.layers.append(layer)
 
-    def draw(self):
+    def draw(self, result):
         for layer in self.layers:
             layer.draw()
+        if result is not None:
+            if result[0] > 0:
+                circle = pyplot.Circle((self.layers[-1].neurons[0].x, self.layers[-1].neurons[0].y), radius=neuron_radius+0.3, fill=False, color='green')
+            else:
+                circle = pyplot.Circle((self.layers[-1].neurons[0].x, self.layers[-1].neurons[0].y), radius=neuron_radius+0.3, fill=False, color='gray')
+            pyplot.gca().add_patch(circle)
         pyplot.axis('scaled')
         pyplot.show()
         
 
 lr = 0.001
-hidden_size = 5
+hidden_size = 4
 
 lm_w = 8
+m_lm_w = -5
 
 np.seterr(under='ignore', over='ignore')
 
@@ -133,11 +140,11 @@ inputs = np.array([[0, 0, 0],
 outputs = np.array([[0], [0], [1], [0], [1], [0], [0], [1]])
 
 def sigmoid(x):
-    xx = x - 1
+    xx = x - 2
     return 1 / (1 + np.exp(-xx))
 
 def sigmoid_derivative(x):
-    xx = x - 1
+    xx = x - 2
     return (np.exp(-xx) / (np.exp(-xx) + 1) ** 2) #x * (1 - x) # this was an optimized derivative using the self.hidden
 
 # create NeuralNetwork class
@@ -171,8 +178,8 @@ class NeuralNetwork:
         self.weights1 += d_weights1 * lr
         self.weights2 += d_weights2 * lr
         
-        self.weights1 = self.weights1.clip(-lm_w, lm_w)
-        self.weights2 = self.weights2.clip(-lm_w, lm_w)
+        self.weights1 = self.weights1.clip(m_lm_w, lm_w)
+        self.weights2 = self.weights2.clip(m_lm_w, lm_w)
         
         #print(d_weights1)
         
@@ -199,12 +206,12 @@ class NeuralNetwork:
         init_nonzero = 0.1
         for l in range(len(NN.weights1.flat)):
             if random.random() < init_nonzero:
-                NN.weights1.flat[l] = random.choice([-lm_w, lm_w])
+                NN.weights1.flat[l] = random.choice([m_lm_w, lm_w])
             else:
                 NN.weights1.flat[l] = 0
         for l in range(len(NN.weights2.flat)):
             if random.random() < init_nonzero:
-                NN.weights2.flat[l] = random.choice([-lm_w, lm_w])
+                NN.weights2.flat[l] = random.choice([m_lm_w, lm_w])
             else:
                 NN.weights2.flat[l] = 0
     def print_stats(self):
@@ -216,12 +223,12 @@ class NeuralNetwork:
         print()
     
     def learn_test(self, limit = 0.05):
-        init_nonzero = 0.01
+        init_nonzero = 0.2
         clear_nonzero = 0.01
         for l in range(len(NN.weights1.flat)):
             if NN.stats1.flat[l] < limit:
                 if random.random() < init_nonzero:
-                    NN.weights1.flat[l] = random.choice([-lm_w, lm_w])
+                    NN.weights1.flat[l] = random.choice([m_lm_w, lm_w])
                 else:
                     NN.weights1.flat[l] = 0
             else:
@@ -231,7 +238,7 @@ class NeuralNetwork:
         for l in range(len(NN.weights2.flat)):    
             if NN.stats2.flat[l] < limit:
                 if random.random() < init_nonzero:
-                    NN.weights2.flat[l] = random.choice([-lm_w, lm_w])
+                    NN.weights2.flat[l] = random.choice([m_lm_w, lm_w])
                 else:
                     NN.weights2.flat[l] = 0
             else:
@@ -259,18 +266,18 @@ class NeuralNetwork:
         if drawit:
                 network = DrawNet()
                 # weights to convert from 10 outputs to 4 (decimal digits to their binary representation)
-                weights1 = self.weights1.T #np.array([\
+                weights1 = self.weights1 #.T #np.array([\
                                      #[0,0,0],\
                                      #[0,0,0],\
                                      #[0,0,-8],\
                                      #[0,1,0]])
-                weights2 = self.weights2.T #np.array([[1,1,1,1]])
+                weights2 = self.weights2 #.T #np.array([[1,1,1,1]])
             
             
                 network.add_layer(3, weights1, np.round(new_input))
                 network.add_layer(hidden_size, weights2, np.round(self.layer1))
                 network.add_layer(1, None, np.round(self.prediction))
-                network.draw()
+                network.draw(oo)
         return self.prediction
 
 # create neural network   
@@ -304,8 +311,11 @@ print(NN.weights2)
 
 test_min = 100
 for _ in range(1000):
-    NN.learn_test()
-    rr = NN.predict(inputs, outputs)
+    rr = [0] * len(inputs)
+    for i in range(len(inputs)):
+        NN.learn_test()
+        rr[i] = NN.predict(inputs[i], outputs[i], drawit=False)
+        #inp = input('-')
     NN.scale_stats()
     err = sum((rr-outputs)**2)
     if err < test_min:
@@ -317,13 +327,13 @@ for i in range(len(inputs)):
     print(NN.predict(inputs[i], outputs[i], drawit=True), 'correct', outputs[i])
 
 
-"""
+
 minimum = 100
 
 more = True
 
 next = {}
-next[-lm_w] = 0
+next[m_lm_w] = 0
 next[0] = lm_w
 
 
@@ -332,12 +342,12 @@ w2_size = NN.weights2.size
 all_size = w1_size + w2_size
 print('all_size', all_size)
 
-w = [-lm_w] * all_size
+w = [m_lm_w] * all_size
 
 while more:
     pos = 0
     while w[pos] == lm_w: # end reached
-        w[pos] = -lm_w
+        w[pos] = m_lm_w
         pos += 1           
         if pos == all_size:
             break
@@ -355,8 +365,7 @@ while more:
         
         print(errsum)
         for i in range(len(inputs)):
-            print(NN.predict(inputs[i]), 'correct', outputs[i])
+            print(NN.predict(inputs[i], drawit=True, oo=outputs[i]), 'correct', outputs[i])
         #print(np.sum((NN.predict(inputs)-outputs)**2))
         
         
-"""

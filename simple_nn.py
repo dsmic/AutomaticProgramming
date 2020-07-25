@@ -61,8 +61,11 @@ class NeuralNetwork:
     def backpropagation(self):
         # application of the chain rule to find derivative of the loss function with respect to weights2 and weights1
         self.error = self.y - self.output
-        d_weights2 = np.dot(self.layer1.T, (2*(self.error) * sigmoid_derivative(self.output)))
-        d_weights1 = np.dot(self.inputs.T,  (np.dot(2*(self.error) * sigmoid_derivative(self.output), self.weights2.T) * sigmoid_derivative(self.layer1)))
+        
+        d_weights2 = np.dot(self.layer1.T, (2 * self.error * sigmoid_derivative(self.output)))
+        d_layer1 = np.dot((self.error) * sigmoid_derivative(self.output), self.weights2.T)
+        
+        d_weights1 = np.dot(self.inputs.T,  (2 * d_layer1 * sigmoid_derivative(self.layer1)))
 
         # update the weights with the derivative (slope) of the loss function
         self.weights1 += d_weights1 * lr
@@ -107,6 +110,7 @@ plt.show()
 
 print('Error',NN.error_history[-1])
 
+"""
 minimum = 100
 
 more = True
@@ -146,3 +150,5 @@ while more:
         for i in range(len(inputs)):
             print(NN.predict(inputs[i]), 'correct', outputs[i])
         #print(np.sum((NN.predict(inputs)-outputs)**2))
+        
+"""
