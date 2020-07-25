@@ -136,8 +136,8 @@ class DrawNet():
         self.layers.append(layer)
     
     def forward(self, inp):
-        outp = inp
-        for layer in self.layers:
+        outp = self.layers[0].post_layer = inp
+        for layer in self.layers[1:]:
             outp = layer.forward(outp)
         return outp
     
@@ -145,8 +145,6 @@ class DrawNet():
         pre_error = self.layers[-1].post_layer - outp
         for i in range(len(self.layer), 1, -1):
             (pre_error, d_weights) = self.layers[i].backward(self.layers[i-1], pre_error)
-        
-        (pre_error, d_weights) = self.layers[0].backward(inp, pre_error)
         
         return pre_error
     
