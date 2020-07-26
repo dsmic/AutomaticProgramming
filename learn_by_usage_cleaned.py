@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt # to plot error during training
 from matplotlib import pyplot
 from math import cos, sin, atan
 
+pyplot.rcParams['figure.dpi'] = 300
 
 lr = 0.9
 hidden_size = 4
@@ -105,6 +106,9 @@ class Layer():
         else:
             c = 'red'
         if graylevel is not None:
+            if graylevel < 0: graylevel = 0
+            if graylevel > 1: graylevel = 1
+            
             c = (1-graylevel, 1-graylevel, 1-graylevel)
         line = pyplot.Line2D(line_x_data, line_y_data, linewidth=np.abs(linewidth * scale_linewidth), color = c)
         pyplot.gca().add_line(line)
@@ -196,7 +200,7 @@ class DrawNet():
                 circle = pyplot.Circle((self.layers[-1].neurons[0].x, self.layers[-1].neurons[0].y), radius=neuron_radius+0.3, fill=False, color='gray')
             pyplot.gca().add_patch(circle)
         pyplot.axis('scaled')
-        pyplot.show(dpi=1200)
+        pyplot.show()
         
     def predict(self, new_input, oo = None, drawit=False):
         self.set_input(new_input, oo)
