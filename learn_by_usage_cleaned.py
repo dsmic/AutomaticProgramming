@@ -16,7 +16,8 @@ from math import cos, sin, atan
 
 lr = 0.9
 hidden_size = 4
-lll = 0.01
+float_mean = 0.01
+scale_linewidth = 0.1
 
 # input data
 inputs = np.array([[0, 0, 0],
@@ -103,7 +104,7 @@ class Layer():
             c = 'green'
         else:
             c = 'red'
-        line = pyplot.Line2D(line_x_data, line_y_data, linewidth=np.abs(linewidth), color = c)
+        line = pyplot.Line2D(line_x_data, line_y_data, linewidth=np.abs(linewidth * scale_linewidth), color = c)
         pyplot.gca().add_line(line)
 
     def draw(self):
@@ -132,12 +133,12 @@ class Layer():
             post_l = transform_01_mp(np.expand_dims(post_layer,-2))
             pre_l = transform_01_mp(np.expand_dims(pre_layer, -2))
             #print(np.transpose(post_l[2]), pre_l[2])
-            stability = sigmoid(np.matmul(pre_l.swapaxes(-1,-2), post_l)*self.weights * 100)
+            stability = np.matmul(pre_l.swapaxes(-1,-2), post_l)*np.tanh(self.weights)
             if len(stability.shape) == 2:
                 stability = np.expand_dims(stability, 0) # handle single and multi inputs
             stability = np.sum(stability, axis = 0) / len(stability)
             print(stability)
-            self.stats = lll * stability + (1-lll) * self.stats
+            self.stats = float_mean * stability + (1-float_mean) * self.stats
         return post_layer
         
     def change_weights(self, d_weights):
@@ -166,7 +167,7 @@ class DrawNet():
             pre_error = self.layers[i].backward(self.layers[i+1].values, pre_error)
         return pre_error
     
-    def train(self, epochs=100):
+    def train(self, epochs=1000):
         for epoch in range(epochs):
             # flow forward and produce an output
             self.forward(True)
@@ -220,4 +221,4 @@ plt.ylabel('Error')
 plt.show()
 
 print('Error',NN2.error_history[-1])
-
+print(NN2.layers[0].stats, NN2.layers[1].stats)
