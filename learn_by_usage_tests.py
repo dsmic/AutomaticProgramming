@@ -101,16 +101,16 @@ class Layer():
     def draw(self):
         for this_layer_neuron_index in range(len(self.neurons)):
             neuron = self.neurons[this_layer_neuron_index]
-            neuron.draw(self.values[this_layer_neuron_index])
+            neuron.draw(round(self.values[this_layer_neuron_index]))
             if self.previous_layer:
                 for previous_layer_neuron_index in range(len(self.previous_layer.neurons)):
                     previous_layer_neuron = self.previous_layer.neurons[previous_layer_neuron_index]
                     weight = self.previous_layer.weights[previous_layer_neuron_index, this_layer_neuron_index]
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, weight)
                     
-    def backward(self, pre_layer, post_error):
+    def backward(self, post_error):
         pre_error = np.dot(post_error * sigmoid_derivative(self.post_layer), self.weights.T)
-        d_weights = np.dot(pre_layer.T, (2 * post_error * sigmoid_derivative(self.post_layer)))
+        d_weights = np.dot(self.values.T, (2 * post_error * sigmoid_derivative(self.post_layer)))
         
         # this is tested from simple_nn
         # d_weights2 = np.dot(self.layer1.T, (2 * self.error * sigmoid_derivative(self.output)))
@@ -120,8 +120,11 @@ class Layer():
         return pre_error # first idea to the layer backpropergation
     
     def forward(self, pre_layer):
-        self.post_layer = sigmoid(np.dot(self.pre_layer, self.weights))
-        return self.post_layer
+        self.values = pre_layer
+        if self.weights is None:
+            return pre_layer
+        post_layer = sigmoid(np.dot(pre_layer, self.weights))
+        return post_layer
         
     def change_weights(self, d_weights):
         # d_weights must be handled here !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -135,17 +138,17 @@ class DrawNet():
         layer = Layer(self, number_of_neurons, weights, values)
         self.layers.append(layer)
     
-    def forward(self, inp):
-        outp = self.layers[0].post_layer = inp
-        for layer in self.layers[1:]:
+    def forward(self):
+        outp = self.layers[0].values
+        for layer in self.layers:
             outp = layer.forward(outp)
+        #self.layers[-1].values = outp
         return outp
     
     def backward(self, inp, outp):
-        pre_error = self.layers[-1].post_layer - outp
-        for i in range(len(self.layer), 1, -1):
-            (pre_error, d_weights) = self.layers[i].backward(self.layers[i-1], pre_error)
-        
+        pre_error = self.layers[-1].pre_layer - outp
+        for i in range(len(self.layer)-1, 0, -1):
+            (pre_error, d_weights) = self.layers[i].backward(self.layers[i-1], pre_error)        
         return pre_error
     
     
@@ -196,7 +199,11 @@ class NeuralNetwork:
         self.error_history = []
         self.epoch_list = []
         self.calls = None
-
+        self.network = DrawNet()
+        self.network.add_layer(3, self.weights1, None)
+        self.network.add_layer(hidden_size, self.weights2, None)
+        self.network.add_layer(1, None, None)
+             
     # data will flow through the neural network.
     def feed_forward(self):
         self.layer1 = sigmoid(np.dot(self.inputs, self.weights1))
@@ -300,6 +307,7 @@ class NeuralNetwork:
                     for i in range(len(self.layer1[j])):
                         self.stats2[i] += np.sign(abs(self.weights2[i])) * np.sign(round(self.layer1[j][i]))  * round(abs(oo[j][0]-self.prediction[j][0]))
         if drawit:
+                """
                 network = DrawNet()
                 # weights to convert from 10 outputs to 4 (decimal digits to their binary representation)
                 weights1 = self.weights1 #.T #np.array([\
@@ -310,9 +318,13 @@ class NeuralNetwork:
                 weights2 = self.weights2 #.T #np.array([[1,1,1,1]])
             
             
-                network.add_layer(3, weights1, np.round(new_input))
-                network.add_layer(hidden_size, weights2, np.round(self.layer1))
-                network.add_layer(1, None, np.round(self.prediction))
+                network.add_layer(3, weights1, new_input)
+                network.add_layer(hidden_size, weights2, self.layer1)
+                network.add_layer(1, None, self.prediction)
+                """
+                network = self.network
+                network.layers[0].values = new_input
+                print('checking',network.forward(), self.prediction)
                 network.draw(oo)
         return self.prediction
 
