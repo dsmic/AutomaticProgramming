@@ -97,7 +97,7 @@ class Layer():
             c = 'green'
         else:
             c = 'red'
-        line = pyplot.Line2D(line_x_data, line_y_data, linewidth=np.sign(abs(linewidth)), color = c)
+        line = pyplot.Line2D(line_x_data, line_y_data, linewidth=np.abs(linewidth), color = c)
         pyplot.gca().add_line(line)
 
     def draw(self):
