@@ -208,17 +208,29 @@ NN2.add_layer(1, None, None)
 NN2.set_input(inputs, outputs)
 
 # train neural network
-NN2.train()
+#NN2.train()
+
+
+#testing single inputs for few shot learning
+error_history = []
+epoch_list = []
+for epoch in range(1000):
+    for i in range(len(inputs)):
+        NN2.set_input(inputs[i:i+1], outputs[i:i+1])
+        NN2.forward(True)
+        NN2.backward()
+        error_history.append(sum(np.square(NN2.error)))
+        epoch_list.append(epoch)
 
 for i in range(len(inputs)):
     print(NN2.predict(inputs[i], outputs[i], drawit=True), 'correct', outputs[i])
 
 # plot the error over the entire training duration
 plt.figure(figsize=(15,5))
-plt.plot(NN2.epoch_list, NN2.error_history)
+plt.plot(epoch_list, error_history)
 plt.xlabel('Epoch')
 plt.ylabel('Error')
 plt.show()
 
-print('Error',NN2.error_history[-1])
+print('Error', error_history[-1])
 print(NN2.layers[0].stats, NN2.layers[1].stats)
