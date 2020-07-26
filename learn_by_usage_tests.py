@@ -127,13 +127,16 @@ class Layer():
         
     def change_weights(self, d_weights):
         # d_weights must be handled here !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        print('d_weights', d_weights)
-        pass
-
+        # print('d_weights', d_weights)
+        self.weights += d_weights * lr
+        #pass
+    
 class DrawNet():
     def __init__(self):
         self.layers = []
-
+        self.epoch_list = []
+        self.error_history = []
+        
     def add_layer(self, number_of_neurons, weights=None, values=None):
         layer = Layer(self, number_of_neurons, weights, values)
         self.layers.append(layer)
@@ -145,15 +148,27 @@ class DrawNet():
         #self.layers[-1].values = outp
         return outp
     
-    def backward(self, outp):
-        pre_error = outp - self.layers[-1].values
+    def backward(self):
+        self.error = pre_error = self.y - self.layers[-1].values
         for i in reversed(range(len(self.layers)-1)):
             pre_error = self.layers[i].backward(self.layers[i+1].values, pre_error)
             #print('pre_error', pre_error)
         return pre_error
     
-    def set_input(self, new_input):
+    def train(self, epochs=100000):
+        for epoch in range(epochs):
+            # flow forward and produce an output
+            self.forward()
+            # go back though the network to make corrections based on the output
+            self.backward()    
+            # keep track of the error history over each epoch
+            self.error_history.append(np.sum(np.square(self.error)))
+            self.epoch_list.append(epoch)
+
+    
+    def set_input(self, new_input, new_output):
         self.layers[0].values = new_input
+        self.y = new_output
         
     def draw(self, result):
         for layer in self.layers:
@@ -206,12 +221,12 @@ class NeuralNetwork:
         self.network.add_layer(3, self.weights1, None)
         self.network.add_layer(hidden_size, self.weights2, None)
         self.network.add_layer(1, None, None)
+        self.network.set_input(self.inputs, self.y)
              
     # data will flow through the neural network.
     def feed_forward(self):
         self.layer1 = sigmoid(np.dot(self.inputs, self.weights1))
         self.output = sigmoid(np.dot(self.layer1, self.weights2))
-        self.network.set_input(self.inputs)
         self.network.forward()
  
     # going backwards through the network to update weights
@@ -221,10 +236,13 @@ class NeuralNetwork:
         d_weights2 = np.dot(self.layer1.T, (2*(self.error) * sigmoid_derivative(self.output)))
         d_weights1 = np.dot(self.inputs.T,  (np.dot(2*(self.error) * sigmoid_derivative(self.output), self.weights2.T) * sigmoid_derivative(self.layer1)))
 
-        self.network.backward(self.y)
+        self.network.backward()
+        self.weights1 = self.network.layers[0].weights
+        self.weights2 = self.network.layers[1].weights
+        
         # update the weights with the derivative (slope) of the loss function
-        self.weights1 += d_weights1 * lr
-        self.weights2 += d_weights2 * lr
+        #self.weights1 += d_weights1 * lr
+        #self.weights2 += d_weights2 * lr
         
         self.weights1 = self.weights1.clip(m_lm_w, lm_w)
         self.weights2 = self.weights2.clip(m_lm_w, lm_w)
@@ -336,20 +354,25 @@ class NeuralNetwork:
 # create neural network   
 NN = NeuralNetwork(inputs, outputs)
 
+NN2 = DrawNet()
+NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size), None)
+NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1), None)
+NN2.add_layer(1, None, None)
+NN2.set_input(inputs, outputs)
 
 # train neural network
-NN.train()
+NN2.train()
 
 # plot the error over the entire training duration
 plt.figure(figsize=(15,5))
-plt.plot(NN.epoch_list, NN.error_history)
+plt.plot(NN2.epoch_list, NN2.error_history)
 plt.xlabel('Epoch')
 plt.ylabel('Error')
 plt.show()
 
-print('Error',NN.error_history[-1])
+print('Error',NN2.error_history[-1])
 
-
+"""
 NN.init_stats()
 #for i in range(len(inputs)):
 #    print(NN.predict(inputs[i], outputs[i]), 'correct', outputs[i])
@@ -422,3 +445,4 @@ while more:
         #print(np.sum((NN.predict(inputs)-outputs)**2))
         
         
+"""

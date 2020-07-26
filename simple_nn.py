@@ -71,8 +71,8 @@ class NeuralNetwork:
         self.weights1 += d_weights1 * lr
         self.weights2 += d_weights2 * lr
         
-        self.weights1 = self.weights1.clip(-lm_w, lm_w)
-        self.weights2 = self.weights2.clip(-lm_w, lm_w)
+        #self.weights1 = self.weights1.clip(-lm_w, lm_w)
+        #self.weights2 = self.weights2.clip(-lm_w, lm_w)
         
         #print(d_weights1)
         
