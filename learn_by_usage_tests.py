@@ -127,6 +127,7 @@ class Layer():
         
     def change_weights(self, d_weights):
         # d_weights must be handled here !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        print('d_weights', d_weights)
         pass
 
 class DrawNet():
@@ -145,7 +146,7 @@ class DrawNet():
         return outp
     
     def backward(self, outp):
-        pre_error = self.layers[-1].values - outp
+        pre_error = outp - self.layers[-1].values
         for i in reversed(range(len(self.layers)-1)):
             pre_error = self.layers[i].backward(self.layers[i+1].values, pre_error)
             #print('pre_error', pre_error)
@@ -220,7 +221,7 @@ class NeuralNetwork:
         d_weights2 = np.dot(self.layer1.T, (2*(self.error) * sigmoid_derivative(self.output)))
         d_weights1 = np.dot(self.inputs.T,  (np.dot(2*(self.error) * sigmoid_derivative(self.output), self.weights2.T) * sigmoid_derivative(self.layer1)))
 
-        self.network.backward(self.output)
+        self.network.backward(self.y)
         # update the weights with the derivative (slope) of the loss function
         self.weights1 += d_weights1 * lr
         self.weights2 += d_weights2 * lr
