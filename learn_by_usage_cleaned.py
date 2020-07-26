@@ -14,7 +14,7 @@ from matplotlib import pyplot
 from math import cos, sin, atan
 
 
-lr = 0.001
+lr = 0.9
 hidden_size = 4
 
 # input data
@@ -39,6 +39,9 @@ def sigmoid_derivative(x):
     xx = x
     return (np.exp(-xx) / (np.exp(-xx) + 1) ** 2) #x * (1 - x) # this was an optimized derivative using the self.hidden
 
+def transform_01_mp(x):
+    return 2*x - 1
+
 vertical_distance_between_layers = 6
 horizontal_distance_between_neurons = 2
 neuron_radius = 0.5
@@ -61,6 +64,9 @@ class Layer():
         self.y = self.__calculate_layer_y_position()
         self.neurons = self.__intialise_neurons(number_of_neurons)
         self.weights = weights
+        if weights is not None:
+            self.stats = np.zeros(weights.shape)
+        self.calls = 0
         self.values = values
 
     def __intialise_neurons(self, number_of_neurons):
@@ -117,11 +123,18 @@ class Layer():
         self.change_weights(d_weights)
         return pre_error # first idea to the layer backpropergation
     
-    def forward(self, pre_layer):
+    def forward(self, pre_layer, dostats):
         self.values = pre_layer
         if self.weights is None:
             return pre_layer
         post_layer = sigmoid(np.dot(pre_layer, self.weights))
+        if dostats:
+            post_l = transform_01_mp(np.expand_dims(post_layer,-2))
+            pre_l = transform_01_mp(np.expand_dims(pre_layer, -2))
+            print(np.transpose(post_l[2]), pre_l[2])
+            stability = (np.matmul(pre_l.swapaxes(-1,-2), post_l)*self.weights) 
+            stability = np.sum(np.atleast_3d(stability), axis = 0) / len(stability)
+            print(stability)
         return post_layer
         
     def change_weights(self, d_weights):
@@ -137,10 +150,10 @@ class DrawNet():
         layer = Layer(self, number_of_neurons, weights, values)
         self.layers.append(layer)
     
-    def forward(self):
+    def forward(self, dostats = False):
         outp = self.layers[0].values
         for layer in self.layers:
-            outp = layer.forward(outp)
+            outp = layer.forward(outp, dostats)
         #self.layers[-1].values = outp
         return outp
     
@@ -150,10 +163,10 @@ class DrawNet():
             pre_error = self.layers[i].backward(self.layers[i+1].values, pre_error)
         return pre_error
     
-    def train(self, epochs=100000):
+    def train(self, epochs=100):
         for epoch in range(epochs):
             # flow forward and produce an output
-            self.forward()
+            self.forward(True)
             # go back though the network to make corrections based on the output
             self.backward()    
             # keep track of the error history over each epoch
@@ -179,7 +192,7 @@ class DrawNet():
         
     def predict(self, new_input, oo = None, drawit=False):
         self.set_input(new_input, oo)
-        prediction = self.forward()
+        prediction = self.forward(True)
         if drawit:
             self.draw(oo)
         return prediction
