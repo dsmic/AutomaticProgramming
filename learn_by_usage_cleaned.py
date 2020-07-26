@@ -109,7 +109,7 @@ class Layer():
             if graylevel < 0: graylevel = 0
             if graylevel > 1: graylevel = 1
             
-            c = (1-graylevel, 1-graylevel, 1-graylevel)
+            c = (0, 0, 1, 1-graylevel)
         line = pyplot.Line2D(line_x_data, line_y_data, linewidth=np.abs(linewidth * scale_linewidth), color = c)
         pyplot.gca().add_line(line)
 
@@ -141,7 +141,7 @@ class Layer():
             post_l = transform_01_mp(np.expand_dims(post_layer,-2))
             pre_l = transform_01_mp(np.expand_dims(pre_layer, -2))
             #print(np.transpose(post_l[2]), pre_l[2])
-            stability = np.matmul(pre_l.swapaxes(-1,-2), post_l)*np.tanh(self.weights)
+            stability = np.matmul(pre_l.swapaxes(-1,-2), post_l)*np.tanh(self.weights / 10)
             if len(stability.shape) == 2:
                 stability = np.expand_dims(stability, 0) # handle single and multi inputs
             stability = np.sum(stability, axis = 0) / len(stability)
