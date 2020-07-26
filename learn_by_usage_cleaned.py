@@ -94,7 +94,7 @@ class Layer():
         else:
             return None
 
-    def __line_between_two_neurons(self, neuron1, neuron2, linewidth):
+    def __line_between_two_neurons(self, neuron1, neuron2, linewidth, graylevel = None):
         angle = atan((neuron2.x - neuron1.x) / float(neuron2.y - neuron1.y))
         x_adjustment = neuron_radius * sin(angle)
         y_adjustment = neuron_radius * cos(angle)
@@ -104,6 +104,8 @@ class Layer():
             c = 'green'
         else:
             c = 'red'
+        if graylevel is not None:
+            c = (1-graylevel, 1-graylevel, 1-graylevel)
         line = pyplot.Line2D(line_x_data, line_y_data, linewidth=np.abs(linewidth * scale_linewidth), color = c)
         pyplot.gca().add_line(line)
 
@@ -115,6 +117,8 @@ class Layer():
                 for previous_layer_neuron_index in range(len(self.previous_layer.neurons)):
                     previous_layer_neuron = self.previous_layer.neurons[previous_layer_neuron_index]
                     weight = self.previous_layer.weights[previous_layer_neuron_index, this_layer_neuron_index]
+                    stability = self.previous_layer.stats[previous_layer_neuron_index, this_layer_neuron_index]
+                    self.__line_between_two_neurons(neuron, previous_layer_neuron, 40, stability)
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, weight)
                     
     def backward(self, post_layer, post_error):
@@ -192,7 +196,7 @@ class DrawNet():
                 circle = pyplot.Circle((self.layers[-1].neurons[0].x, self.layers[-1].neurons[0].y), radius=neuron_radius+0.3, fill=False, color='gray')
             pyplot.gca().add_patch(circle)
         pyplot.axis('scaled')
-        pyplot.show()
+        pyplot.show(dpi=1200)
         
     def predict(self, new_input, oo = None, drawit=False):
         self.set_input(new_input, oo)
