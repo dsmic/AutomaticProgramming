@@ -59,7 +59,6 @@ class Layer():
         self.neurons = self.__intialise_neurons(number_of_neurons)
         self.weights = weights
         self.values = values
-        self.post_layer = None
 
     def __intialise_neurons(self, number_of_neurons):
         neurons = []
@@ -108,9 +107,9 @@ class Layer():
                     weight = self.previous_layer.weights[previous_layer_neuron_index, this_layer_neuron_index]
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, weight)
                     
-    def backward(self, post_error):
-        pre_error = np.dot(post_error * sigmoid_derivative(self.post_layer), self.weights.T)
-        d_weights = np.dot(self.values.T, (2 * post_error * sigmoid_derivative(self.post_layer)))
+    def backward(self, post_layer, post_error):
+        pre_error = np.dot(post_error * sigmoid_derivative(post_layer), self.weights.T)
+        d_weights = np.dot(self.values.T, (2 * post_error * sigmoid_derivative(post_layer)))
         
         # this is tested from simple_nn
         # d_weights2 = np.dot(self.layer1.T, (2 * self.error * sigmoid_derivative(self.output)))
@@ -145,13 +144,16 @@ class DrawNet():
         #self.layers[-1].values = outp
         return outp
     
-    def backward(self, inp, outp):
-        pre_error = self.layers[-1].pre_layer - outp
-        for i in range(len(self.layer)-1, 0, -1):
-            (pre_error, d_weights) = self.layers[i].backward(self.layers[i-1], pre_error)        
+    def backward(self, outp):
+        pre_error = self.layers[-1].values - outp
+        for i in reversed(range(len(self.layers)-1)):
+            pre_error = self.layers[i].backward(self.layers[i+1].values, pre_error)
+            #print('pre_error', pre_error)
         return pre_error
     
-    
+    def set_input(self, new_input):
+        self.layers[0].values = new_input
+        
     def draw(self, result):
         for layer in self.layers:
             layer.draw()
@@ -208,7 +210,8 @@ class NeuralNetwork:
     def feed_forward(self):
         self.layer1 = sigmoid(np.dot(self.inputs, self.weights1))
         self.output = sigmoid(np.dot(self.layer1, self.weights2))
-
+        self.network.set_input(self.inputs)
+        self.network.forward()
  
     # going backwards through the network to update weights
     def backpropagation(self):
@@ -217,6 +220,7 @@ class NeuralNetwork:
         d_weights2 = np.dot(self.layer1.T, (2*(self.error) * sigmoid_derivative(self.output)))
         d_weights1 = np.dot(self.inputs.T,  (np.dot(2*(self.error) * sigmoid_derivative(self.output), self.weights2.T) * sigmoid_derivative(self.layer1)))
 
+        self.network.backward(self.output)
         # update the weights with the derivative (slope) of the loss function
         self.weights1 += d_weights1 * lr
         self.weights2 += d_weights2 * lr
@@ -323,7 +327,7 @@ class NeuralNetwork:
                 network.add_layer(1, None, self.prediction)
                 """
                 network = self.network
-                network.layers[0].values = new_input
+                network.set_input(new_input)
                 print('checking',network.forward(), self.prediction)
                 network.draw(oo)
         return self.prediction
@@ -331,7 +335,7 @@ class NeuralNetwork:
 # create neural network   
 NN = NeuralNetwork(inputs, outputs)
 
-"""
+
 # train neural network
 NN.train()
 
@@ -343,7 +347,7 @@ plt.ylabel('Error')
 plt.show()
 
 print('Error',NN.error_history[-1])
-"""
+
 
 NN.init_stats()
 #for i in range(len(inputs)):
