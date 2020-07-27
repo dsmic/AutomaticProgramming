@@ -15,12 +15,12 @@ from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
 
-lr = 1
+lr = 10
 hidden_size = 4
 stability_mean = 0.01
-scale_linewidth = 1
+scale_linewidth = 0.1
 weight_tanh_scale = 0.1
-clip_weights = 2
+clip_weights = 10
 scale_for_neuron_diff = 1
 
 # input data
@@ -41,7 +41,7 @@ np.seterr(under='ignore', over='ignore')
 
 def sigmoid(x):
     xx = x - 1
-    return 1 / (1 + np.exp(-xx)) * 2 -1
+    return 1 / (1 + np.exp(-xx)) #* 2 -1
 
 def sigmoid_derivative(x):
     xx = x
@@ -51,8 +51,8 @@ def transform_01_mp(x):
     return 2*x - 1
 
 
-inputs = transform_01_mp(inputs)
-outputs = transform_01_mp(outputs)
+#inputs = transform_01_mp(inputs)
+#outputs = transform_01_mp(outputs)
 
 
 
@@ -164,8 +164,8 @@ class Layer():
             pre_l = np.expand_dims(pre_layer, -2)
             
             # this is necessary if 0 1 neurons are used, not if -1 1 ones
-            #post_l = transform_01_mp(post_l)
-            #pre_l = transform_01_mp(pre_l)
+            post_l = transform_01_mp(post_l)
+            pre_l = transform_01_mp(pre_l)
             
             #print(np.transpose(post_l[2]), pre_l[2])
             stability = (np.tanh(scale_for_neuron_diff * np.matmul(pre_l.swapaxes(-1,-2), post_l)) * np.tanh(self.weights / weight_tanh_scale) + 1) / 2
