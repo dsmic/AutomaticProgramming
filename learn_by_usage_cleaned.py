@@ -15,12 +15,14 @@ from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
 
-lr = 1
+lr = 5
 hidden_size = 4
-stability_mean = 0.1
+stability_mean = 0.01
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
-scale_for_neuron_diff = 5
+clip_weights = 5
+scale_for_neuron_diff = 1
+
 # input data
 inputs = np.array([[0, 0, 0],
                    [0, 0, 1],
@@ -164,7 +166,8 @@ class Layer():
         direct = 1 - self.stats
         #print('direct', direct)
         self.weights += d_weights * lr * direct
-    
+        np.clip(self.weights, -clip_weights, clip_weights, self.weights)
+        
 class DrawNet():
     def __init__(self):
         self.layers = []
@@ -229,6 +232,7 @@ class DrawNet():
         
 NN2 = DrawNet()
 NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size), None)
+NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), None)
 NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1), None)
 NN2.add_layer(1, None, None)
 NN2.set_input(inputs, outputs)
@@ -241,7 +245,8 @@ NN2.set_input(inputs, outputs)
 error_history = []
 epoch_list = []
 askuser = True
-for epoch in range(1000):
+stopit = False
+for epoch in range(100):
     for i in range(len(inputs)):
         same = True
         first = True
@@ -250,6 +255,7 @@ for epoch in range(1000):
             if askuser:
                 same = True
                 NN2.predict(inputs[i], outputs[i], True)
+                # t = '3' 
                 t = input(str(i)+' '+str(NN2.error)+' (1: same, 2:next, 3:stop asking, 4:exit)?')
                 if t.isdigit():
                     t = int(t)
@@ -260,14 +266,18 @@ for epoch in range(1000):
                         askuser = False
                         same = False
                     if t == 4:
-                        import sys
-                        sys.exit()
+                        stopit = True
+                        break
             NN2.set_input(inputs[i:i+1], outputs[i:i+1])
             NN2.forward(dostats = first)
             #first = False
             NN2.backward()
             error_history.append(sum(np.square(NN2.error)))
             epoch_list.append(epoch)
+        if stopit:
+            break
+    if stopit:
+        break
 
 for i in range(len(inputs)):
     print(NN2.predict(inputs[i], outputs[i], drawit=True), 'correct', outputs[i])
