@@ -49,6 +49,7 @@ def transform_01_mp(x):
 vertical_distance_between_layers = 6
 horizontal_distance_between_neurons = 2
 neuron_radius = 0.5
+neuron_scale_line = 2.0
 number_of_neurons_in_widest_layer = 4
 class Neuron():
     def __init__(self, x, y):
@@ -98,8 +99,12 @@ class Layer():
 
     def __line_between_two_neurons(self, neuron1, neuron2, linewidth, graylevel = None):
         angle = atan((neuron2.x - neuron1.x) / float(neuron2.y - neuron1.y))
-        x_adjustment = neuron_radius * sin(angle)
-        y_adjustment = neuron_radius * cos(angle)
+        if graylevel is None:
+            nr = neuron_radius * neuron_scale_line
+        else:
+            nr = neuron_radius * 1.3
+        x_adjustment = nr * sin(angle)
+        y_adjustment = nr * cos(angle)
         line_x_data = (neuron1.x - x_adjustment, neuron2.x + x_adjustment)
         line_y_data = (neuron1.y - y_adjustment, neuron2.y + y_adjustment)
         if linewidth > 0:
