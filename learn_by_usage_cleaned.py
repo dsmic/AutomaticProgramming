@@ -19,6 +19,7 @@ lr = 0.9
 hidden_size = 4
 float_mean = 0.01
 scale_linewidth = 0.1
+weight_tanh_scale = 10
 
 # input data
 inputs = np.array([[0, 0, 0],
@@ -108,9 +109,12 @@ class Layer():
         if graylevel is not None:
             if graylevel < 0: graylevel = 0
             if graylevel > 1: graylevel = 1
+            c = (0, 0, 1, graylevel)
+            lw = linewidth
+        else:
+            lw = linewidth * scale_linewidth
             
-            c = (0, 0, 1, 1-graylevel)
-        line = pyplot.Line2D(line_x_data, line_y_data, linewidth=np.abs(linewidth * scale_linewidth), color = c)
+        line = pyplot.Line2D(line_x_data, line_y_data, linewidth=np.abs(lw), color = c)
         pyplot.gca().add_line(line)
 
     def draw(self):
@@ -122,7 +126,7 @@ class Layer():
                     previous_layer_neuron = self.previous_layer.neurons[previous_layer_neuron_index]
                     weight = self.previous_layer.weights[previous_layer_neuron_index, this_layer_neuron_index]
                     stability = self.previous_layer.stats[previous_layer_neuron_index, this_layer_neuron_index]
-                    self.__line_between_two_neurons(neuron, previous_layer_neuron, 40, stability)
+                    self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, stability)
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, weight)
                     
     def backward(self, post_layer, post_error):
@@ -141,7 +145,7 @@ class Layer():
             post_l = transform_01_mp(np.expand_dims(post_layer,-2))
             pre_l = transform_01_mp(np.expand_dims(pre_layer, -2))
             #print(np.transpose(post_l[2]), pre_l[2])
-            stability = np.matmul(pre_l.swapaxes(-1,-2), post_l)*np.tanh(self.weights / 10)
+            stability = np.matmul(pre_l.swapaxes(-1,-2), post_l)*np.tanh(self.weights / weight_tanh_scale)
             if len(stability.shape) == 2:
                 stability = np.expand_dims(stability, 0) # handle single and multi inputs
             stability = np.sum(stability, axis = 0) / len(stability)
@@ -204,7 +208,9 @@ class DrawNet():
         
     def predict(self, new_input, oo = None, drawit=False):
         self.set_input(new_input, oo)
-        prediction = self.forward(True)
+        prediction = self.forward(False)
+        if oo is not None:
+            self.error = oo - prediction
         if drawit:
             self.draw(oo)
         return prediction
@@ -222,13 +228,30 @@ NN2.set_input(inputs, outputs)
 #testing single inputs for few shot learning
 error_history = []
 epoch_list = []
+askuser = True
 for epoch in range(1000):
     for i in range(len(inputs)):
-        NN2.set_input(inputs[i:i+1], outputs[i:i+1])
-        NN2.forward(True)
-        NN2.backward()
-        error_history.append(sum(np.square(NN2.error)))
-        epoch_list.append(epoch)
+        same = True
+        while same:
+            same = False
+            if askuser:
+                NN2.predict(inputs[i], outputs[i], True)
+                t = input(str(i)+' '+str(NN2.error)+' (1: same, 2:next, 3:stop asking, 4:exit)?')
+                if t.isdigit():
+                    t = int(t)
+                    if t == 2:
+                        same = False
+                        break
+                    if t == 3:
+                        askuser = False
+                        same = False
+                    if t == 4:
+                        exit()
+            NN2.set_input(inputs[i:i+1], outputs[i:i+1])
+            NN2.forward(True)
+            NN2.backward()
+            error_history.append(sum(np.square(NN2.error)))
+            epoch_list.append(epoch)
 
 for i in range(len(inputs)):
     print(NN2.predict(inputs[i], outputs[i], drawit=True), 'correct', outputs[i])
