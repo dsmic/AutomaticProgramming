@@ -15,11 +15,11 @@ from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
 
-lr = 0.9
-hidden_size = 4
-float_mean = 0.01
+lr = 10
+hidden_size = 8
+float_mean = 0.1
 scale_linewidth = 0.1
-weight_tanh_scale = 10
+weight_tanh_scale = 0.1
 
 # input data
 inputs = np.array([[0, 0, 0],
@@ -36,7 +36,7 @@ outputs = np.array([[0], [0], [1], [0], [1], [1], [1], [1]])
 np.seterr(under='ignore', over='ignore')
 
 def sigmoid(x):
-    xx = x
+    xx = x - 1
     return 1 / (1 + np.exp(-xx))
 
 def sigmoid_derivative(x):
@@ -112,6 +112,7 @@ class Layer():
         else:
             c = 'red'
         if graylevel is not None:
+            #graylevel = (graylevel +1)/2
             if graylevel < 0: graylevel = 0
             if graylevel > 1: graylevel = 1
             c = (0, 0, 1, graylevel)
@@ -131,6 +132,7 @@ class Layer():
                     previous_layer_neuron = self.previous_layer.neurons[previous_layer_neuron_index]
                     weight = self.previous_layer.weights[previous_layer_neuron_index, this_layer_neuron_index]
                     stability = self.previous_layer.stats[previous_layer_neuron_index, this_layer_neuron_index]
+                    #print('stability', stability)
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, stability)
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, weight)
                     
@@ -150,7 +152,7 @@ class Layer():
             post_l = transform_01_mp(np.expand_dims(post_layer,-2))
             pre_l = transform_01_mp(np.expand_dims(pre_layer, -2))
             #print(np.transpose(post_l[2]), pre_l[2])
-            stability = np.matmul(pre_l.swapaxes(-1,-2), post_l)*np.tanh(self.weights / weight_tanh_scale)
+            stability = (np.tanh(np.matmul(pre_l.swapaxes(-1,-2), post_l)*(self.weights / weight_tanh_scale)) + 1) / 2
             if len(stability.shape) == 2:
                 stability = np.expand_dims(stability, 0) # handle single and multi inputs
             stability = np.sum(stability, axis = 0) / len(stability)
@@ -159,7 +161,9 @@ class Layer():
         return post_layer
         
     def change_weights(self, d_weights):
-        self.weights += d_weights * lr
+        direct = 1 - self.stats
+        print('direct', direct)
+        self.weights += d_weights * lr * direct
     
 class DrawNet():
     def __init__(self):
@@ -237,9 +241,11 @@ askuser = True
 for epoch in range(1000):
     for i in range(len(inputs)):
         same = True
+        first = True
         while same:
             same = False
             if askuser:
+                same = True
                 NN2.predict(inputs[i], outputs[i], True)
                 t = input(str(i)+' '+str(NN2.error)+' (1: same, 2:next, 3:stop asking, 4:exit)?')
                 if t.isdigit():
@@ -251,9 +257,11 @@ for epoch in range(1000):
                         askuser = False
                         same = False
                     if t == 4:
-                        exit()
+                        import sys
+                        sys.exit()
             NN2.set_input(inputs[i:i+1], outputs[i:i+1])
-            NN2.forward(True)
+            NN2.forward(dostats = first)
+            first = False
             NN2.backward()
             error_history.append(sum(np.square(NN2.error)))
             epoch_list.append(epoch)
