@@ -15,12 +15,12 @@ from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
 
-lr = 10
-hidden_size = 8
-float_mean = 0.1
+lr = 1
+hidden_size = 4
+stability_mean = 0.1
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
-
+scale_for_neuron_diff = 5
 # input data
 inputs = np.array([[0, 0, 0],
                    [0, 0, 1],
@@ -132,7 +132,7 @@ class Layer():
                     previous_layer_neuron = self.previous_layer.neurons[previous_layer_neuron_index]
                     weight = self.previous_layer.weights[previous_layer_neuron_index, this_layer_neuron_index]
                     stability = self.previous_layer.stats[previous_layer_neuron_index, this_layer_neuron_index]
-                    #print('stability', stability)
+                    print("connection %2d %2d    %6.3f    %6.3f    %6.3f    %6.3f" % (previous_layer_neuron_index, this_layer_neuron_index, self.previous_layer.values[previous_layer_neuron_index], self.values[this_layer_neuron_index], weight, stability))
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, stability)
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, weight)
                     
@@ -152,17 +152,17 @@ class Layer():
             post_l = transform_01_mp(np.expand_dims(post_layer,-2))
             pre_l = transform_01_mp(np.expand_dims(pre_layer, -2))
             #print(np.transpose(post_l[2]), pre_l[2])
-            stability = (np.tanh(np.matmul(pre_l.swapaxes(-1,-2), post_l)*(self.weights / weight_tanh_scale)) + 1) / 2
+            stability = (np.tanh(scale_for_neuron_diff * np.matmul(pre_l.swapaxes(-1,-2), post_l)) * np.tanh(self.weights / weight_tanh_scale) + 1) / 2
             if len(stability.shape) == 2:
                 stability = np.expand_dims(stability, 0) # handle single and multi inputs
             stability = np.sum(stability, axis = 0) / len(stability)
-            print(stability)
-            self.stats = float_mean * stability + (1-float_mean) * self.stats
+            #print(stability)
+            self.stats = stability_mean * stability + (1-stability_mean) * self.stats
         return post_layer
         
     def change_weights(self, d_weights):
         direct = 1 - self.stats
-        print('direct', direct)
+        #print('direct', direct)
         self.weights += d_weights * lr * direct
     
 class DrawNet():
@@ -204,7 +204,10 @@ class DrawNet():
         self.y = new_output
         
     def draw(self, result):
+        c = 0
         for layer in self.layers:
+            c+=1
+            print('layer',c)
             layer.draw()
         if result is not None:
             if result[0] > 0:
@@ -261,7 +264,7 @@ for epoch in range(1000):
                         sys.exit()
             NN2.set_input(inputs[i:i+1], outputs[i:i+1])
             NN2.forward(dostats = first)
-            first = False
+            #first = False
             NN2.backward()
             error_history.append(sum(np.square(NN2.error)))
             epoch_list.append(epoch)
@@ -277,4 +280,4 @@ plt.ylabel('Error')
 plt.show()
 
 print('Error', error_history[-1])
-print(NN2.layers[0].stats, NN2.layers[1].stats)
+
