@@ -15,18 +15,19 @@ from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
 
-lr = 3
-hidden_size = 6
+lr = 0.2
+hidden_size = 3
 stability_mean = 0.1
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
-clip_weights = 10
+clip_weights = 100
 scale_for_neuron_diff = 1
 use_stability = True
 
 scale_sigmoid = 3
 shift_sigmoid = 1
 
+few_shot_end = 0.3
 # input data
 inputs = np.array([[0, 0, 0],
                    [0, 0, 1],
@@ -38,7 +39,7 @@ inputs = np.array([[0, 0, 0],
                    [1, 1, 1]])
 
 # output data
-outputs = np.array([[0], [0], [1], [0], [1], [1], [1], [1]])
+outputs = np.array([[0], [1], [0], [0], [1], [1], [0], [1]])
 
 
 np.seterr(under='ignore', over='ignore')
@@ -269,7 +270,7 @@ class DrawNet():
         
 NN2 = DrawNet()
 NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, None)
-#NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), None)
+NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), None)
 NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, None)
 NN2.add_layer(1, None, None)
 NN2.set_input(inputs, outputs)
@@ -284,7 +285,7 @@ epoch_list = []
 askuser = True
 stopit = False
 few_shot = False
-for epoch in range(30):
+for epoch in range(100):
     for i in range(len(inputs)):
         same = True
         first = True
@@ -317,7 +318,7 @@ for epoch in range(30):
             error_history.append(sum(np.square(NN2.error)))
             epoch_list.append(epoch + i/8)
             if few_shot:
-                if abs(NN2.error[0]) < 0.05:
+                if abs(NN2.error[0]) < few_shot_end:
                     break
         if stopit:
             break
