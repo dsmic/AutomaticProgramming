@@ -21,8 +21,8 @@ from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
 
-lr = 0.03
-hidden_size = 1
+lr = 0.1
+hidden_size = 6
 stability_mean = 0.1
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
@@ -283,7 +283,7 @@ class DrawNet():
         return prediction
 
 
-
+notok = 0
 for bb in range(0, 128):
     bbs = '{0:08b}'.format(bb)
     for l in range(len(bbs)): 
@@ -297,8 +297,14 @@ for bb in range(0, 128):
     NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, None)
     NN2.add_layer(1, None, None)
     NN2.set_input(inputs, outputs)
-    NN2.train(50000)
-    print(bbs, '{0:5.3f}'.format(np.sum(NN2.error**2)))
+    NN2.train(10000)
+    err = np.sum(NN2.error**2)
+    ok = '*'
+    if err < 0.2: 
+        ok = ' '
+    else:
+        notok += 1
+    print(bbs, '{0:5.3f}'.format(err),ok,notok)
     plt.figure(figsize=(15,5))
     plt.plot(NN2.epoch_list, NN2.error_history)
     plt.xlabel('Epoch')
