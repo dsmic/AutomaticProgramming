@@ -307,7 +307,7 @@ for epoch in range(30):
                         break
             NN2.set_input(inputs[i:i+1], outputs[i:i+1])
             NN2.forward(dostats = first)
-            #first = False
+            first = False
             NN2.backward()
             error_history.append(sum(np.square(NN2.error)))
             epoch_list.append(epoch + i/8)
