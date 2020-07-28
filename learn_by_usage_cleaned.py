@@ -15,13 +15,14 @@ from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
 
-lr = 10
-hidden_size = 4
-stability_mean = 0.01
+lr = 12
+hidden_size = 6
+stability_mean = 0.1
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
 clip_weights = 10
 scale_for_neuron_diff = 1
+use_stability = True
 
 # input data
 inputs = np.array([[0, 0, 0],
@@ -169,6 +170,7 @@ class Layer():
             
             #print(np.transpose(post_l[2]), pre_l[2])
             stability = (np.tanh(scale_for_neuron_diff * np.matmul(pre_l.swapaxes(-1,-2), post_l)) * np.tanh(self.weights / weight_tanh_scale) + 1) / 2
+            stability = pre_layer.T * stability # only active inputs count for stability
             if len(stability.shape) == 2:
                 stability = np.expand_dims(stability, 0) # handle single and multi inputs
             stability = np.sum(stability, axis = 0) / len(stability)
@@ -177,7 +179,10 @@ class Layer():
         return post_layer
         
     def change_weights(self, d_weights):
-        direct = 1 - self.stats
+        if use_stability:
+            direct = 1 - self.stats
+        else:
+            direct = 1
         #print('direct', direct)
         self.weights += d_weights * lr * direct
         np.clip(self.weights, -clip_weights, clip_weights, self.weights)
@@ -287,7 +292,7 @@ for epoch in range(30):
             #first = False
             NN2.backward()
             error_history.append(sum(np.square(NN2.error)))
-            epoch_list.append(epoch)
+            epoch_list.append(epoch + i/8)
         if stopit:
             break
     if stopit:
