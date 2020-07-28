@@ -3,6 +3,7 @@
 """
 based on: https://towardsdatascience.com/inroduction-to-neural-networks-in-python-7e0b422e6c24
     and https://stackoverflow.com/questions/29888233/how-to-visualize-a-neural-network/29889993
+    and https://towardsdatascience.com/how-to-build-your-own-neural-network-from-scratch-in-python-68998a08e4f6
 Created on Sun Jul 19 15:45:02 2020
 
 @author: detlef
@@ -15,12 +16,12 @@ from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
 
-lr = 1
+lr = 0.2
 hidden_size = 3
 stability_mean = 0.1
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
-clip_weights = 10
+clip_weights = 2000
 scale_for_neuron_diff = 1
 use_stability = False
 
@@ -42,7 +43,7 @@ inputs = np.array([[0, 0, 0],
 outputs = np.array([[0], [1], [0], [0], [1], [1], [1], [1]])
 
 
-np.seterr(under='ignore', over='ignore')
+#np.seterr(under='ignore', over='ignore')
 
 def sigmoid(x):
     xx = scale_sigmoid * (x - shift_sigmoid)
@@ -169,7 +170,7 @@ class Layer():
                     
     def backward(self, post_layer, post_error):
         pre_error = np.dot(post_error * sigmoid_derivative(post_layer), self.weights.T)
-        d_weights = np.dot(self.values.T, (2 * post_error * sigmoid_derivative(post_layer)))
+        d_weights = np.dot(self.values.T, post_error * sigmoid_derivative(post_layer))
         
         self.change_weights(d_weights)
         return pre_error # first idea to the layer backpropergation
@@ -238,6 +239,8 @@ class DrawNet():
             # keep track of the error history over each epoch
             self.error_history.append(np.sum(np.square(self.error)))
             self.epoch_list.append(epoch)
+            if np.sum(np.sum(np.square(self.error))) < 0.6:
+                print('debugging', np.sum(np.square(self.error)))
 
     
     def set_input(self, new_input, new_output):
@@ -267,6 +270,35 @@ class DrawNet():
         if drawit:
             self.draw(oo, usage)
         return prediction
+
+
+
+for bb in range(1, 128):
+    bbs = '{0:08b}'.format(bb)
+    for l in range(len(bbs)): 
+        if bbs[l] =='1':
+            outputs[l] = 1
+        else:
+            outputs[l] = 0
+    NN2 = DrawNet()
+    NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, None)
+    NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), None)
+    NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, None)
+    NN2.add_layer(1, None, None)
+    NN2.set_input(inputs, outputs)
+    NN2.train(1000)
+    print(bbs, np.sum(NN2.error**2))
+    plt.figure(figsize=(15,5))
+    plt.plot(NN2.epoch_list, NN2.error_history)
+    plt.xlabel('Epoch')
+    plt.ylabel('Error')
+    plt.show()
+    
+    
+import sys
+sys.exit()
+
+
         
 NN2 = DrawNet()
 NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, None)
@@ -277,7 +309,6 @@ NN2.set_input(inputs, outputs)
 
 # train neural network
 #NN2.train()
-
 
 #testing single inputs for few shot learning
 error_history = []
