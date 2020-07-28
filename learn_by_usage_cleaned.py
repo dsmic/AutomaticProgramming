@@ -15,7 +15,7 @@ from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
 
-lr = 12
+lr = 3
 hidden_size = 6
 stability_mean = 0.1
 scale_linewidth = 0.1
@@ -23,6 +23,9 @@ weight_tanh_scale = 0.1
 clip_weights = 10
 scale_for_neuron_diff = 1
 use_stability = False
+
+scale_sigmoid = 3
+shift_sigmoid = 1
 
 # input data
 inputs = np.array([[0, 0, 0],
@@ -41,12 +44,12 @@ outputs = np.array([[0], [0], [1], [0], [1], [1], [1], [1]])
 np.seterr(under='ignore', over='ignore')
 
 def sigmoid(x):
-    xx = x - 1
+    xx = scale_sigmoid * (x - shift_sigmoid)
     return 1 / (1 + np.exp(-xx)) #* 2 -1
 
 def sigmoid_derivative(x):
-    xx = x
-    return (np.exp(-xx) / (np.exp(-xx) + 1) ** 2)
+    xx = scale_sigmoid * (x - shift_sigmoid)
+    return scale_sigmoid * (np.exp(-xx) / (np.exp(-xx) + 1) ** 2)
 
 def transform_01_mp(x):
     return 2*x - 1
@@ -288,7 +291,7 @@ for epoch in range(30):
             same = False
             if askuser:
                 same = True
-                NN2.predict(inputs[i], outputs[i], True)
+                NN2.predict(inputs[i], outputs[i], True, usage = False)
                 # t = '3' 
                 t = input(str(i)+' '+str(NN2.error)+' (1: same, 2:next, 3:stop asking, 4:exit)?')
                 if t.isdigit():
