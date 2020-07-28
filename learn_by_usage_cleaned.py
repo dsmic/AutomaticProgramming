@@ -283,17 +283,19 @@ error_history = []
 epoch_list = []
 askuser = True
 stopit = False
+few_shot = False
 for epoch in range(30):
     for i in range(len(inputs)):
         same = True
         first = True
         while same:
-            same = False
+            if not few_shot:
+                same = False
             if askuser:
                 same = True
                 NN2.predict(inputs[i], outputs[i], True, usage = False)
                 # t = '3' 
-                t = input(str(i)+' '+str(NN2.error)+' (1: same, 2:next, 3:stop asking, 4:exit)?')
+                t = input(str(i)+' '+str(NN2.error)+' (1: same, 2:next, 3:stop asking, 4:exit, 5:few_shot)?')
                 if t.isdigit():
                     t = int(t)
                     if t == 2:
@@ -305,12 +307,18 @@ for epoch in range(30):
                     if t == 4:
                         stopit = True
                         break
+                    if t == 5:
+                        few_shot = True
+                        askuser = False
             NN2.set_input(inputs[i:i+1], outputs[i:i+1])
             NN2.forward(dostats = first)
-            first = False
             NN2.backward()
+            first = False
             error_history.append(sum(np.square(NN2.error)))
             epoch_list.append(epoch + i/8)
+            if few_shot:
+                if abs(NN2.error[0]) < 0.05:
+                    break
         if stopit:
             break
     if stopit:
