@@ -21,8 +21,8 @@ from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
 
-lr = 0.2
-hidden_size = 3
+lr = 0.03
+hidden_size = 1
 stability_mean = 0.1
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
@@ -30,7 +30,7 @@ clip_weights = 2
 scale_for_neuron_diff = 1
 use_stability = False
 
-scale_sigmoid = 2
+scale_sigmoid = 3
 shift_sigmoid = 1
 
 few_shot_end = 0.3
@@ -174,17 +174,22 @@ class Layer():
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, weight)
                     
     def backward(self, post_layer, post_error):
-        pre_error = np.dot(post_error * sigmoid_derivative(post_layer), self.weights.T) # seems wrong ????
-        d_weights = np.dot(self.values.T, post_error * sigmoid_derivative(post_layer))
         
+        error_between_sigmoid_and_full = post_error * sigmoid_derivative(self.between_full_sigmoid) # post layer may be wrong!!!!!!!!
+        
+        pre_error = np.dot(error_between_sigmoid_and_full, self.weights.T) 
+        d_weights = np.dot(self.values.T, error_between_sigmoid_and_full)
+        
+        #print('debugging', pre_error.flatten(), d_weights)
         self.change_weights(d_weights)
-        return pre_error # first idea to the layer backpropergation
+        return pre_error
     
     def forward(self, pre_layer, dostats):
         self.values = pre_layer
         if self.weights is None:
             return pre_layer
-        post_layer = sigmoid(np.dot(pre_layer, self.weights))
+        self.between_full_sigmoid = np.dot(pre_layer, self.weights)
+        post_layer = sigmoid(self.between_full_sigmoid)
         if dostats:
             post_l = np.expand_dims(post_layer,-2)
             pre_l_2d = np.expand_dims(pre_layer, -2)
@@ -232,6 +237,7 @@ class DrawNet():
     def backward(self):
         self.error = pre_error = self.y - self.layers[-1].values
         for i in reversed(range(len(self.layers)-1)):
+            #print('pre_error', pre_error.flatten())
             pre_error = self.layers[i].backward(self.layers[i+1].values, pre_error)
         return pre_error
     
@@ -278,7 +284,7 @@ class DrawNet():
 
 
 
-for bb in range(1, 128):
+for bb in range(0, 128):
     bbs = '{0:08b}'.format(bb)
     for l in range(len(bbs)): 
         if bbs[l] =='1':
@@ -291,8 +297,8 @@ for bb in range(1, 128):
     NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, None)
     NN2.add_layer(1, None, None)
     NN2.set_input(inputs, outputs)
-    NN2.train(10000)
-    print(bbs, np.sum(NN2.error**2))
+    NN2.train(50000)
+    print(bbs, '{0:5.3f}'.format(np.sum(NN2.error**2)))
     plt.figure(figsize=(15,5))
     plt.plot(NN2.epoch_list, NN2.error_history)
     plt.xlabel('Epoch')
