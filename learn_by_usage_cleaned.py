@@ -22,7 +22,7 @@ scale_linewidth = 0.1
 weight_tanh_scale = 0.1
 clip_weights = 10
 scale_for_neuron_diff = 1
-use_stability = True
+use_stability = False
 
 # input data
 inputs = np.array([[0, 0, 0],
@@ -70,9 +70,9 @@ class Neuron():
 
     def draw(self, v):
         if v > 0:
-            circle = pyplot.Circle((self.x, self.y), radius=neuron_radius, fill=False, color='green')
+            circle = pyplot.Circle((self.x, self.y), radius=neuron_radius, fill=False, color='green', linewidth = 3)
         else:
-            circle = pyplot.Circle((self.x, self.y), radius=neuron_radius, fill=False, color='gray')
+            circle = pyplot.Circle((self.x, self.y), radius=neuron_radius, fill=False, color='gray', linewidth = 3)
         pyplot.gca().add_patch(circle)
 
 class Layer():
@@ -109,12 +109,12 @@ class Layer():
         else:
             return None
 
-    def __line_between_two_neurons(self, neuron1, neuron2, linewidth, graylevel = None):
+    def __line_between_two_neurons(self, neuron1, neuron2, linewidth, graylevel = None, usage = None):
         angle = atan((neuron2.x - neuron1.x) / float(neuron2.y - neuron1.y))
         if graylevel is None:
             nr = neuron_radius * neuron_scale_line
         else:
-            nr = neuron_radius * 1.3
+            nr = neuron_radius * 1.4
         x_adjustment = nr * sin(angle)
         y_adjustment = nr * cos(angle)
         line_x_data = (neuron1.x - x_adjustment, neuron2.x + x_adjustment)
@@ -123,19 +123,25 @@ class Layer():
             c = 'green'
         else:
             c = 'red'
+        
+        lw = linewidth * scale_linewidth
         if graylevel is not None:
             #graylevel = (graylevel +1)/2
             if graylevel < 0: graylevel = 0
             if graylevel > 1: graylevel = 1
             c = (0, 0, 1, graylevel)
             lw = linewidth
-        else:
-            lw = linewidth * scale_linewidth
+        if usage is not None:
+            #graylevel = (graylevel +1)/2
+            if usage < 0: usage = 0
+            if usage > 1: usage = 1
+            c = (1, 1- usage / 3, 1 - usage)
+            lw = linewidth
             
         line = pyplot.Line2D(line_x_data, line_y_data, linewidth=np.abs(lw), color = c)
         pyplot.gca().add_line(line)
 
-    def draw(self):
+    def draw(self, usage):
         for this_layer_neuron_index in range(len(self.neurons)):
             neuron = self.neurons[this_layer_neuron_index]
             neuron.draw(round(self.values[this_layer_neuron_index]))
@@ -144,8 +150,17 @@ class Layer():
                     previous_layer_neuron = self.previous_layer.neurons[previous_layer_neuron_index]
                     weight = self.previous_layer.weights[previous_layer_neuron_index, this_layer_neuron_index]
                     stability = self.previous_layer.stats[previous_layer_neuron_index, this_layer_neuron_index]
-                    print("connection %2d %2d    %6.3f    %6.3f    %6.3f    %6.3f" % (previous_layer_neuron_index, this_layer_neuron_index, self.previous_layer.values[previous_layer_neuron_index], self.values[this_layer_neuron_index], weight, stability))
-                    self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, stability)
+                    used = 0
+                    if weight > 0:
+                        used = self.previous_layer.values[previous_layer_neuron_index] * self.values[this_layer_neuron_index]
+                    else:
+                        used = self.previous_layer.values[previous_layer_neuron_index] * (1 - self.values[this_layer_neuron_index])
+                                                              
+                    print("connection %2d %2d    %6.3f    %6.3f    %6.3f    %6.3f used: %6.3f" % (previous_layer_neuron_index, this_layer_neuron_index, self.previous_layer.values[previous_layer_neuron_index], self.values[this_layer_neuron_index], weight, stability, used))
+                    if usage:
+                        self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, usage = used)
+                    else:
+                        self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, stability)
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, weight)
                     
     def backward(self, post_layer, post_error):
@@ -225,28 +240,28 @@ class DrawNet():
         self.layers[0].values = new_input
         self.y = new_output
         
-    def draw(self, result):
+    def draw(self, result, usage = False):
         c = 0
         for layer in self.layers:
             c+=1
             print('layer',c)
-            layer.draw()
+            layer.draw(usage)
         if result is not None:
             if result[0] > 0:
-                circle = pyplot.Circle((self.layers[-1].neurons[0].x, self.layers[-1].neurons[0].y), radius=neuron_radius+0.3, fill=False, color='green')
+                circle = pyplot.Circle((self.layers[-1].neurons[0].x, self.layers[-1].neurons[0].y), radius=neuron_radius+0.3, fill=False, color='green', linewidth = 3)
             else:
-                circle = pyplot.Circle((self.layers[-1].neurons[0].x, self.layers[-1].neurons[0].y), radius=neuron_radius+0.3, fill=False, color='gray')
+                circle = pyplot.Circle((self.layers[-1].neurons[0].x, self.layers[-1].neurons[0].y), radius=neuron_radius+0.3, fill=False, color='gray', linewidth = 3)
             pyplot.gca().add_patch(circle)
         pyplot.axis('scaled')
         pyplot.show()
         
-    def predict(self, new_input, oo = None, drawit=False):
+    def predict(self, new_input, oo = None, drawit=False, usage = False):
         self.set_input(new_input, oo)
         prediction = self.forward(False)
         if oo is not None:
             self.error = oo - prediction
         if drawit:
-            self.draw(oo)
+            self.draw(oo, usage)
         return prediction
         
 NN2 = DrawNet()
@@ -301,7 +316,7 @@ for epoch in range(30):
     
 
 for i in range(len(inputs)):
-    print(NN2.predict(inputs[i], outputs[i], drawit=True), 'correct', outputs[i])
+    print(NN2.predict(inputs[i], outputs[i], drawit=True, usage = True), 'correct', outputs[i])
 
 # plot the error over the entire training duration
 plt.figure(figsize=(15,5))
