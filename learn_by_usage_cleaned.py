@@ -22,7 +22,7 @@ scale_linewidth = 0.1
 weight_tanh_scale = 0.1
 clip_weights = 10
 scale_for_neuron_diff = 1
-use_stability = False
+use_stability = True
 
 scale_sigmoid = 3
 shift_sigmoid = 1
