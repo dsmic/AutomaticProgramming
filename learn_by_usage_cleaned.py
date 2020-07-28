@@ -15,14 +15,14 @@ from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
 
-lr = 0.2
+lr = 1
 hidden_size = 3
 stability_mean = 0.1
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
-clip_weights = 100
+clip_weights = 10
 scale_for_neuron_diff = 1
-use_stability = True
+use_stability = False
 
 scale_sigmoid = 3
 shift_sigmoid = 1
@@ -39,7 +39,7 @@ inputs = np.array([[0, 0, 0],
                    [1, 1, 1]])
 
 # output data
-outputs = np.array([[0], [1], [0], [0], [1], [1], [0], [1]])
+outputs = np.array([[0], [1], [0], [0], [1], [1], [1], [1]])
 
 
 np.seterr(under='ignore', over='ignore')
@@ -181,15 +181,15 @@ class Layer():
         post_layer = sigmoid(np.dot(pre_layer, self.weights))
         if dostats:
             post_l = np.expand_dims(post_layer,-2)
-            pre_l = np.expand_dims(pre_layer, -2)
+            pre_l_2d = np.expand_dims(pre_layer, -2)
             
             # this is necessary if 0 1 neurons are used, not if -1 1 ones
             post_l = transform_01_mp(post_l)
-            pre_l = transform_01_mp(pre_l)
+            pre_l = transform_01_mp(pre_l_2d)
             
             #print(np.transpose(post_l[2]), pre_l[2])
             stability = (np.tanh(scale_for_neuron_diff * np.matmul(pre_l.swapaxes(-1,-2), post_l)) * np.tanh(self.weights / weight_tanh_scale) + 1) / 2
-            stability = pre_layer.T * stability # only active inputs count for stability
+            stability = pre_l_2d.swapaxes(-1,-2) * stability # only active inputs count for stability
             if len(stability.shape) == 2:
                 stability = np.expand_dims(stability, 0) # handle single and multi inputs
             stability = np.sum(stability, axis = 0) / len(stability)
