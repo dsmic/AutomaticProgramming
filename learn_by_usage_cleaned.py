@@ -20,16 +20,19 @@ from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
 
-do_check_all = 10000
+do_check_all = 0 #20000
 
-lr = 0.3
-hidden_size = 6
+hidden_size = 4
+two_hidden_layers = False
+
+lr = 0.5
+use_stability = False
+
 stability_mean = 0.1
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
 clip_weights = 2
 scale_for_neuron_diff = 1
-use_stability = True
 
 scale_sigmoid = 2
 shift_sigmoid = 1
@@ -46,7 +49,7 @@ inputs = np.array([[0, 0, 0],
                    [1, 1, 1]])
 
 # output data
-outputs = np.array([[0], [1], [0], [0], [1], [1], [1], [1]])
+outputs = np.array([[0], [1], [1], [0], [1], [0], [1], [0]])
 
 #np.seterr(under='ignore', over='ignore')
 
@@ -162,7 +165,7 @@ class Layer():
                     else:
                         used = self.previous_layer.values[previous_layer_neuron_index] * (1 - self.values[this_layer_neuron_index])
                                                               
-                    print("connection %2d %2d    %6.3f    %6.3f    %6.3f    %6.3f used: %6.3f" % (previous_layer_neuron_index, this_layer_neuron_index, self.previous_layer.values[previous_layer_neuron_index], self.values[this_layer_neuron_index], weight, stability, used))
+                    #print("connection %2d %2d    %6.3f    %6.3f    %6.3f    %6.3f used: %6.3f" % (previous_layer_neuron_index, this_layer_neuron_index, self.previous_layer.values[previous_layer_neuron_index], self.values[this_layer_neuron_index], weight, stability, used))
                     if usage:
                         self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, usage = used)
                     else:
@@ -250,11 +253,11 @@ class DrawNet():
         self.layers[0].values = new_input
         self.y = new_output
         
-    def draw(self, result, usage = False):
+    def draw(self, result, usage = False, display_title = None):
         c = 0
         for layer in self.layers:
             c+=1
-            print('layer',c)
+            #print('layer',c)
             layer.draw(usage)
         if result is not None:
             if result[0] > 0:
@@ -263,15 +266,17 @@ class DrawNet():
                 circle = pyplot.Circle((self.layers[-1].neurons[0].x, self.layers[-1].neurons[0].y), radius=neuron_radius+0.3, fill=False, color='gray', linewidth = 3)
             pyplot.gca().add_patch(circle)
         pyplot.axis('scaled')
+        if display_title is not None:
+            pyplot.title(display_title)
         pyplot.show()
         
-    def predict(self, new_input, oo = None, drawit=False, usage = False):
+    def predict(self, new_input, oo = None, drawit=False, usage = False, display_title = None):
         self.set_input(new_input, oo)
         prediction = self.forward(False)
         if oo is not None:
             self.error = oo - prediction
         if drawit:
-            self.draw(oo, usage)
+            self.draw(oo, usage, display_title)
         return prediction
 
 if do_check_all > 0:
@@ -312,7 +317,8 @@ if do_check_all > 0:
         
 NN2 = DrawNet()
 NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, None)
-NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), None)
+if two_hidden_layers:
+    NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), None)
 NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, None)
 NN2.add_layer(1, None, None)
 NN2.set_input(inputs, outputs)
@@ -326,7 +332,9 @@ epoch_list = []
 askuser = True
 stopit = False
 few_shot = False
-for epoch in range(100):
+max_iter = 200
+epoch = 0
+while epoch < max_iter:
     for i in range(len(inputs)):
         same = True
         first = True
@@ -337,21 +345,27 @@ for epoch in range(100):
                 same = True
                 NN2.predict(inputs[i], outputs[i], True, usage = False)
                 # t = '3' 
-                t = input(str(i)+' '+str(NN2.error)+' (1: same, 2:next, 3:stop asking, 4:exit, 5:few_shot)?')
-                if t.isdigit():
-                    t = int(t)
-                    if t == 2:
-                        same = False
-                        break
-                    if t == 3:
-                        askuser = False
-                        same = False
-                    if t == 4:
-                        stopit = True
-                        break
-                    if t == 5:
-                        few_shot = True
-                        askuser = False
+                doask = True
+                while doask:
+                    doask = False
+                    t = input(str(i)+' '+str(NN2.error)+' (1: same, 2:next, 3:stop asking, 4:exit, 5:few_shot, 6: change max epoch num)?')
+                    if t.isdigit():
+                        t = int(t)
+                        if t == 2:
+                            same = False
+                            break
+                        if t == 3:
+                            askuser = False
+                            same = False
+                        if t == 4:
+                            stopit = True
+                            break
+                        if t == 5:
+                            few_shot = True
+                            askuser = False
+                        if t == 6:
+                            max_iter = int(input('change max epoch num? '))
+                            doask = True
             NN2.set_input(inputs[i:i+1], outputs[i:i+1])
             NN2.forward(dostats = first)
             NN2.backward()
@@ -365,7 +379,11 @@ for epoch in range(100):
             break
     if stopit:
         break
-    NN2.predict(inputs[0], outputs[0], True)
+    NN2.set_input(inputs, outputs)
+    NN2.forward()
+    err = outputs - NN2.layers[-1].values
+    NN2.predict(inputs[0], outputs[0], True, display_title = str(np.sum(NN2.error**2)))
+    epoch += 1
     
 
 for i in range(len(inputs)):
