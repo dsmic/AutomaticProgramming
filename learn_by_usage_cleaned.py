@@ -13,7 +13,6 @@ Created on Sun Jul 19 15:45:02 2020
 
 loss function used = 1/2 SUM(error**2) // making the derivative error
 """
-
 import numpy as np # helps with the math
 import matplotlib.pyplot as plt # to plot error during training
 from matplotlib import pyplot
@@ -21,16 +20,18 @@ from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
 
-lr = 0.1
+do_check_all = 10000
+
+lr = 0.3
 hidden_size = 6
 stability_mean = 0.1
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
 clip_weights = 2
 scale_for_neuron_diff = 1
-use_stability = False
+use_stability = True
 
-scale_sigmoid = 3
+scale_sigmoid = 2
 shift_sigmoid = 1
 
 few_shot_end = 0.3
@@ -47,7 +48,6 @@ inputs = np.array([[0, 0, 0],
 # output data
 outputs = np.array([[0], [1], [0], [0], [1], [1], [1], [1]])
 
-
 #np.seterr(under='ignore', over='ignore')
 
 def sigmoid(x):
@@ -61,12 +61,8 @@ def sigmoid_derivative(x):
 def transform_01_mp(x):
     return 2*x - 1
 
-
 #inputs = transform_01_mp(inputs)
 #outputs = transform_01_mp(outputs)
-
-
-
 
 vertical_distance_between_layers = 6
 horizontal_distance_between_neurons = 2
@@ -173,14 +169,13 @@ class Layer():
                         self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, stability)
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, weight)
                     
-    def backward(self, post_layer, post_error):
+    def backward(self, post_error):
         
         error_between_sigmoid_and_full = post_error * sigmoid_derivative(self.between_full_sigmoid) # post layer may be wrong!!!!!!!!
         
         pre_error = np.dot(error_between_sigmoid_and_full, self.weights.T) 
         d_weights = np.dot(self.values.T, error_between_sigmoid_and_full)
         
-        #print('debugging', pre_error.flatten(), d_weights)
         self.change_weights(d_weights)
         return pre_error
     
@@ -236,9 +231,9 @@ class DrawNet():
     
     def backward(self):
         self.error = pre_error = self.y - self.layers[-1].values
-        for i in reversed(range(len(self.layers)-1)):
+        for layer in reversed(self.layers[:-1]):
             #print('pre_error', pre_error.flatten())
-            pre_error = self.layers[i].backward(self.layers[i+1].values, pre_error)
+            pre_error = layer.backward(pre_error)
         return pre_error
     
     def train(self, epochs=1000):
@@ -250,9 +245,6 @@ class DrawNet():
             # keep track of the error history over each epoch
             self.error_history.append(np.sum(np.square(self.error)))
             self.epoch_list.append(epoch)
-            #if np.sum(np.sum(np.square(self.error))) < 0.6:
-            #    print('debugging', np.sum(np.square(self.error)))
-
     
     def set_input(self, new_input, new_output):
         self.layers[0].values = new_input
@@ -282,38 +274,39 @@ class DrawNet():
             self.draw(oo, usage)
         return prediction
 
-
-notok = 0
-for bb in range(0, 128):
-    bbs = '{0:08b}'.format(bb)
-    for l in range(len(bbs)): 
-        if bbs[l] =='1':
-            outputs[l] = 1
+if do_check_all > 0:
+    notok = 0
+    for bb in range(0, 128):
+        bbs = '{0:08b}'.format(bb)
+        for l in range(len(bbs)): 
+            if bbs[l] =='1':
+                outputs[l] = 1
+            else:
+                outputs[l] = 0
+        NN2 = DrawNet()
+        NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, None)
+        NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), None)
+        NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, None)
+        NN2.add_layer(1, None, None)
+        NN2.set_input(inputs, outputs)
+        NN2.train(do_check_all)
+        err = np.sum(NN2.error**2)
+        ok = '*'
+        if err < 0.2: 
+            ok = ' '
         else:
-            outputs[l] = 0
-    NN2 = DrawNet()
-    NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, None)
-    NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), None)
-    NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, None)
-    NN2.add_layer(1, None, None)
-    NN2.set_input(inputs, outputs)
-    NN2.train(10000)
-    err = np.sum(NN2.error**2)
-    ok = '*'
-    if err < 0.2: 
-        ok = ' '
-    else:
-        notok += 1
-    print(bbs, '{0:5.3f}'.format(err),ok,notok)
-    plt.figure(figsize=(15,5))
-    plt.plot(NN2.epoch_list, NN2.error_history)
-    plt.xlabel('Epoch')
-    plt.ylabel('Error')
-    plt.show()
-    
-    
-import sys
-sys.exit()
+            notok += 1
+        print(bbs, '{0:5.3f}'.format(err),ok,notok)
+        plt.figure(figsize=(15,5))
+        plt.plot(NN2.epoch_list, NN2.error_history)
+        plt.xlabel('Epoch')
+        plt.ylabel('Error')
+        plt.title(bbs)
+        plt.show()
+        
+        
+    import sys
+    sys.exit()
 
 
         
