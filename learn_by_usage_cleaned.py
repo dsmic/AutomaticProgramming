@@ -22,16 +22,17 @@ pyplot.rcParams['figure.dpi'] = 300
 
 do_check_all = 0 #20000
 
-hidden_size = 8
+hidden_size = 3
 two_hidden_layers = True
+use_bias = True
 
 lr = 0.2
-use_stability = True
-
+use_stability = False
 stability_mean = 0.1
+
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
-clip_weights = 2
+clip_weights = 500
 scale_for_neuron_diff = 1
 
 scale_sigmoid = 2
@@ -49,23 +50,30 @@ inputs = np.array([[0, 0, 0],
                    [1, 1, 1]])
 
 # output data
-outputs = np.array([[0], [1], [1], [0], [1], [0], [1], [0]])
+outputs = np.array([[0], [0], [1], [0], [1], [1], [1], [1]])
+
+do_pm = True
 
 #np.seterr(under='ignore', over='ignore')
 
 def sigmoid(x):
+    if do_pm:
+        return np.tanh(x)
     xx = scale_sigmoid * (x - shift_sigmoid)
     return 1 / (1 + np.exp(-xx)) #* 2 -1
 
 def sigmoid_derivative(x):
+    if do_pm:
+        return 1-np.tanh(x)**2
     xx = scale_sigmoid * (x - shift_sigmoid)
     return scale_sigmoid * (np.exp(-xx) / (np.exp(-xx) + 1) ** 2)
 
 def transform_01_mp(x):
     return 2*x - 1
 
-#inputs = transform_01_mp(inputs)
-#outputs = transform_01_mp(outputs)
+if do_pm:
+    inputs = transform_01_mp(inputs)
+    outputs = transform_01_mp(outputs)
 
 vertical_distance_between_layers = 6
 horizontal_distance_between_neurons = 2
@@ -85,13 +93,14 @@ class Neuron():
         pyplot.gca().add_patch(circle)
 
 class Layer():
-    def __init__(self, network, number_of_neurons, weights, values):
+    def __init__(self, network, number_of_neurons, weights, bias, values):
         self.previous_layer = self.__get_previous_layer(network)
         self.y = self.__calculate_layer_y_position()
         self.neurons = self.__intialise_neurons(number_of_neurons)
         self.weights = weights
         if weights is not None:
-            self.stats = np.zeros(weights.shape)
+            self.stability = np.zeros(weights.shape)
+        self.bias = bias
         self.values = values
 
     def __intialise_neurons(self, number_of_neurons):
@@ -158,14 +167,14 @@ class Layer():
                 for previous_layer_neuron_index in range(len(self.previous_layer.neurons)):
                     previous_layer_neuron = self.previous_layer.neurons[previous_layer_neuron_index]
                     weight = self.previous_layer.weights[previous_layer_neuron_index, this_layer_neuron_index]
-                    stability = self.previous_layer.stats[previous_layer_neuron_index, this_layer_neuron_index]
+                    stability = self.previous_layer.stability[previous_layer_neuron_index, this_layer_neuron_index]
                     used = 0
                     if weight > 0:
                         used = self.previous_layer.values[previous_layer_neuron_index] * self.values[this_layer_neuron_index]
                     else:
                         used = self.previous_layer.values[previous_layer_neuron_index] * (1 - self.values[this_layer_neuron_index])
                                                               
-                    #print("connection %2d %2d    %6.3f    %6.3f    %6.3f    %6.3f used: %6.3f" % (previous_layer_neuron_index, this_layer_neuron_index, self.previous_layer.values[previous_layer_neuron_index], self.values[this_layer_neuron_index], weight, stability, used))
+                    print("connection %2d %2d    %6.3f    %6.3f    %6.3f    %6.3f used: %6.3f" % (previous_layer_neuron_index, this_layer_neuron_index, self.previous_layer.values[previous_layer_neuron_index], self.values[this_layer_neuron_index], weight, stability, used))
                     if usage:
                         self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, usage = used)
                     else:
@@ -179,16 +188,18 @@ class Layer():
         pre_error = np.dot(error_between_sigmoid_and_full, self.weights.T) 
         d_weights = np.dot(self.values.T, error_between_sigmoid_and_full)
         
-        self.change_weights(d_weights)
+        self.change_weights(d_weights, error_between_sigmoid_and_full)
         return pre_error
     
-    def forward(self, pre_layer, dostats):
+    def forward(self, pre_layer, dostability):
         self.values = pre_layer
         if self.weights is None:
             return pre_layer
         self.between_full_sigmoid = np.dot(pre_layer, self.weights)
+        if use_bias:
+            self.between_full_sigmoid += self.bias[0]
         post_layer = sigmoid(self.between_full_sigmoid)
-        if dostats:
+        if dostability:
             post_l = np.expand_dims(post_layer,-2)
             pre_l_2d = np.expand_dims(pre_layer, -2)
             
@@ -203,17 +214,20 @@ class Layer():
                 stability = np.expand_dims(stability, 0) # handle single and multi inputs
             stability = np.sum(stability, axis = 0) / len(stability)
             #print(stability)
-            self.stats = stability_mean * stability + (1-stability_mean) * self.stats
+            #self.stability = stability_mean * pre_layer.T * stability + (1 - stability_mean * pre_layer.T) * self.stability
+            self.stability = stability_mean * stability + (1 - stability_mean) * self.stability
         return post_layer
         
-    def change_weights(self, d_weights):
+    def change_weights(self, d_weights, d_bias):
         if use_stability:
-            direct = 1 - self.stats
+            direct = 1 - self.stability
         else:
             direct = 1
         #print('direct', direct)
         self.weights += d_weights * lr * direct
+        self.bias += d_bias *lr * direct
         np.clip(self.weights, -clip_weights, clip_weights, self.weights)
+        #np.clip(self.b, -clip_weights, clip_weights, self.b)
         
 class DrawNet():
     def __init__(self):
@@ -221,14 +235,14 @@ class DrawNet():
         self.epoch_list = []
         self.error_history = []
         
-    def add_layer(self, number_of_neurons, weights=None, values=None):
-        layer = Layer(self, number_of_neurons, weights, values)
+    def add_layer(self, number_of_neurons, weights, bias, values):
+        layer = Layer(self, number_of_neurons, weights, bias, values)
         self.layers.append(layer)
     
-    def forward(self, dostats = False):
+    def forward(self, dostability = False):
         outp = self.layers[0].values
         for layer in self.layers:
-            outp = layer.forward(outp, dostats)
+            outp = layer.forward(outp, dostability)
         #self.layers[-1].values = outp
         return outp
     
@@ -257,7 +271,7 @@ class DrawNet():
         c = 0
         for layer in self.layers:
             c+=1
-            #print('layer',c)
+            print('layer',c)
             layer.draw(usage)
         if result is not None:
             if result[0] > 0:
@@ -269,6 +283,7 @@ class DrawNet():
         if display_title is not None:
             pyplot.title(display_title)
         pyplot.show()
+        #pyplot.close()
         
     def predict(self, new_input, oo = None, drawit=False, usage = False, display_title = None):
         self.set_input(new_input, oo)
@@ -289,10 +304,10 @@ if do_check_all > 0:
             else:
                 outputs[l] = 0
         NN2 = DrawNet()
-        NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, None)
-        NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), None)
-        NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, None)
-        NN2.add_layer(1, None, None)
+        NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(1,hidden_size) - 0.5, None)
+        NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), np.random.rand(1,hidden_size) - 0.5, None)
+        NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, np.random.rand(1,1) - 0.5, None)
+        NN2.add_layer(1, None, None, None)
         NN2.set_input(inputs, outputs)
         NN2.train(do_check_all)
         err = np.sum(NN2.error**2)
@@ -308,6 +323,7 @@ if do_check_all > 0:
         plt.ylabel('Error')
         plt.title(bbs)
         plt.show()
+        #plt.close()
         
         
     import sys
@@ -316,11 +332,11 @@ if do_check_all > 0:
 
         
 NN2 = DrawNet()
-NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, None)
+NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(1,hidden_size) - 0.5, None)
 if two_hidden_layers:
-    NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), None)
-NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, None)
-NN2.add_layer(1, None, None)
+    NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), np.random.rand(1,hidden_size) - 0.5, None)
+NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, np.random.rand(1,1) - 0.5, None)
+NN2.add_layer(1, None, None, None)
 NN2.set_input(inputs, outputs)
 
 # train neural network
@@ -367,7 +383,7 @@ while epoch < max_iter:
                             max_iter = int(input('change max epoch num ' + str(max_iter) + ' '))
                             doask = True
             NN2.set_input(inputs[i:i+1], outputs[i:i+1])
-            NN2.forward(dostats = first)
+            NN2.forward(dostability = first)
             NN2.backward()
             first = False
             error_history.append(sum(np.square(NN2.error)))
@@ -395,6 +411,7 @@ plt.plot(epoch_list, error_history)
 plt.xlabel('Epoch')
 plt.ylabel('Error')
 plt.show()
+#plt.close()
 
 print('Error', np.sum(error_history[-8:]))
 
