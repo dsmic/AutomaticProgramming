@@ -364,7 +364,7 @@ while epoch < max_iter:
                             few_shot = True
                             askuser = False
                         if t == 6:
-                            max_iter = int(input('change max epoch num? '))
+                            max_iter = int(input('change max epoch num ' + str(max_iter) + ' '))
                             doask = True
             NN2.set_input(inputs[i:i+1], outputs[i:i+1])
             NN2.forward(dostats = first)
