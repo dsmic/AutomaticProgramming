@@ -22,11 +22,11 @@ pyplot.rcParams['figure.dpi'] = 300
 
 do_check_all = 0 #20000
 
-hidden_size = 4
-two_hidden_layers = False
+hidden_size = 8
+two_hidden_layers = True
 
-lr = 0.5
-use_stability = False
+lr = 0.2
+use_stability = True
 
 stability_mean = 0.1
 scale_linewidth = 0.1
@@ -382,7 +382,7 @@ while epoch < max_iter:
     NN2.set_input(inputs, outputs)
     NN2.forward()
     err = outputs - NN2.layers[-1].values
-    NN2.predict(inputs[0], outputs[0], True, display_title = str(np.sum(NN2.error**2)))
+    NN2.predict(inputs[0], outputs[0], True, display_title = str(epoch)+': '+'{0:6.3f}'.format(np.sum(err**2)))
     epoch += 1
     
 
@@ -396,5 +396,5 @@ plt.xlabel('Epoch')
 plt.ylabel('Error')
 plt.show()
 
-print('Error', error_history[-1])
+print('Error', np.sum(error_history[-8:]))
 
