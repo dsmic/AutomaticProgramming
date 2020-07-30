@@ -14,11 +14,12 @@ Created on Sun Jul 19 15:45:02 2020
 loss function used = 1/2 SUM(error**2) // making the derivative error
 """
 import numpy as np # helps with the math
-import matplotlib.pyplot as plt # to plot error during training
+#import matplotlib.pyplot as plt # to plot error during training
 from matplotlib import pyplot
 from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
+pyplot.interactive(False)
 
 do_check_all = 20000
 
@@ -284,7 +285,7 @@ class DrawNet():
         if display_title is not None:
             pyplot.title(display_title)
         pyplot.show()
-        #pyplot.close()
+        pyplot.close()
         
     def predict(self, new_input, oo = None, drawit=False, usage = False, display_title = None):
         self.set_input(new_input, oo)
@@ -318,13 +319,13 @@ if do_check_all > 0:
         else:
             notok += 1
         print(bbs, '{0:5.3f}'.format(err),ok,notok)
-        plt.figure(figsize=(15,5))
-        plt.plot(NN2.epoch_list, NN2.error_history)
-        plt.xlabel('Epoch')
-        plt.ylabel('Error')
-        plt.title(bbs)
-        plt.show()
-        #plt.close()
+        pyplot.figure(figsize=(15,5))
+        pyplot.plot(NN2.epoch_list, NN2.error_history)
+        pyplot.xlabel('Epoch')
+        pyplot.ylabel('Error')
+        pyplot.title(bbs)
+        pyplot.show()
+        pyplot.close()
         
         
     import sys
@@ -407,12 +408,12 @@ for i in range(len(inputs)):
     print(NN2.predict(inputs[i], outputs[i], drawit=True, usage = True), 'correct', outputs[i])
 
 # plot the error over the entire training duration
-plt.figure(figsize=(15,5))
-plt.plot(epoch_list, error_history)
-plt.xlabel('Epoch')
-plt.ylabel('Error')
-plt.show()
-#plt.close()
+pyplot.figure(figsize=(15,5))
+pyplot.plot(epoch_list, error_history)
+pyplot.xlabel('Epoch')
+pyplot.ylabel('Error')
+pyplot.show()
+pyplot.close()
 
 print('Error', np.sum(error_history[-8:]))
 
