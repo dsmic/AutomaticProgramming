@@ -13,6 +13,7 @@ Created on Sun Jul 19 15:45:02 2020
 
 loss function used = 1/2 SUM(error**2) // making the derivative error
 """
+#import cupy as np # helps with the math
 import numpy as np # helps with the math
 #import matplotlib.pyplot as plt # to plot error during training
 from matplotlib import pyplot
@@ -21,9 +22,9 @@ from math import cos, sin, atan
 pyplot.rcParams['figure.dpi'] = 150
 pyplot.interactive(False) # seems not to fix memory issue
 
-do_check_all = 0#20000
+do_check_all = 0#20000      # 0 to turn off
 
-multi_test = 20
+multi_test = 20             # 0 to turn off
 max_iter = 50
 
 
@@ -31,7 +32,7 @@ hidden_size = 256
 two_hidden_layers = True
 use_bias = True
 
-lr = 0.002
+lr = 0.001
 use_stability = False
 stability_mean = 0.1
 
@@ -228,7 +229,7 @@ class Layer():
         if use_stability:
             direct = 1 - self.stability
         else:
-            direct = 1
+            direct = np.array([1])
         #print('direct', direct)
         self.weights += d_weights * lr * direct
         self.bias +=  d_bias *lr * np.sum(direct, axis = 0)
@@ -406,7 +407,7 @@ while multi <= multi_test:
         NN2.set_input(inputs, outputs)
         NN2.forward()
         err = outputs - NN2.layers[-1].values
-        NN2.predict(inputs[0], outputs[0], multi_test == 0, display_title = str(epoch)+': '+'{0:6.3f}'.format(np.sum(err**2)))
+        NN2.predict(inputs[0], outputs[0], multi_test == 0, display_title = str(epoch)+': '+'{0:6.3f}'.format(float(np.sum(err**2))))
         epoch += 1
     
 
@@ -423,6 +424,6 @@ while multi <= multi_test:
     pyplot.show()
     pyplot.close()
     
-    print(multi, 'Error', np.sum(error_history[-8:]))
+    print(multi, 'Error', np.sum(np.array(error_history[-8:])))
     multi += 1
 
