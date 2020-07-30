@@ -21,13 +21,17 @@ from math import cos, sin, atan
 pyplot.rcParams['figure.dpi'] = 150
 pyplot.interactive(False) # seems not to fix memory issue
 
-do_check_all = 20000
+do_check_all = 0#20000
 
-hidden_size = 3
+multi_test = 20
+max_iter = 50
+
+
+hidden_size = 256
 two_hidden_layers = True
 use_bias = True
 
-lr = 0.1
+lr = 0.002
 use_stability = False
 stability_mean = 0.1
 
@@ -39,7 +43,7 @@ scale_for_neuron_diff = 1
 scale_sigmoid = 2
 shift_sigmoid = 1
 
-few_shot_end = 0.3
+few_shot_end = 0.1
 # input data
 inputs = np.array([[0, 0, 0],
                    [0, 0, 1],
@@ -51,7 +55,7 @@ inputs = np.array([[0, 0, 0],
                    [1, 1, 1]])
 
 # output data
-outputs = np.array([[0], [0], [1], [0], [1], [1], [1], [1]])
+outputs = np.array([[0], [0], [1], [0], [1], [1], [0], [1]])
 
 do_pm = True
 
@@ -175,7 +179,7 @@ class Layer():
                     else:
                         used = self.previous_layer.values[previous_layer_neuron_index] * (1 - self.values[this_layer_neuron_index])
                                                               
-                    print("connection %2d %2d    %6.3f    %6.3f    %6.3f    %6.3f used: %6.3f" % (previous_layer_neuron_index, this_layer_neuron_index, self.previous_layer.values[previous_layer_neuron_index], self.values[this_layer_neuron_index], weight, stability, used))
+                    #print("connection %2d %2d    %6.3f    %6.3f    %6.3f    %6.3f used: %6.3f" % (previous_layer_neuron_index, this_layer_neuron_index, self.previous_layer.values[previous_layer_neuron_index], self.values[this_layer_neuron_index], weight, stability, used))
                     if usage:
                         self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, usage = used)
                     else:
@@ -273,7 +277,7 @@ class DrawNet():
         c = 0
         for layer in self.layers:
             c+=1
-            print('layer',c)
+            #print('layer',c)
             layer.draw(usage)
         if result is not None:
             if result[0] > 0:
@@ -333,87 +337,92 @@ if do_check_all > 0:
 
 
         
-NN2 = DrawNet()
-NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(hidden_size) - 0.5, None)
-if two_hidden_layers:
-    NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), np.random.rand(hidden_size) - 0.5, None)
-NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, np.random.rand(1) - 0.5, None)
-NN2.add_layer(1, None, None, None)
-NN2.set_input(inputs, outputs)
 
 # train neural network
 #NN2.train()
 
 #testing single inputs for few shot learning
-error_history = []
-epoch_list = []
 askuser = True
 stopit = False
-few_shot = False
-max_iter = 30
-epoch = 0
-while epoch < max_iter:
-    for i in range(len(inputs)):
-        same = True
-        first = True
-        while same:
-            if not few_shot:
-                same = False
-            if askuser:
-                same = True
-                NN2.predict(inputs[i], outputs[i], True, usage = False)
-                # t = '3' 
-                doask = True
-                while doask:
-                    doask = False
-                    t = input(str(i)+' '+str(NN2.error)+' (1: same, 2:next, 3:stop asking, 4:exit, 5:few_shot, 6: change max epoch num)?')
-                    if t.isdigit():
-                        t = int(t)
-                        if t == 2:
-                            same = False
-                            break
-                        if t == 3:
-                            askuser = False
-                            same = False
-                        if t == 4:
-                            stopit = True
-                            break
-                        if t == 5:
-                            few_shot = True
-                            askuser = False
-                        if t == 6:
-                            max_iter = int(input('change max epoch num ' + str(max_iter) + ' '))
-                            doask = True
-            NN2.set_input(inputs[i:i+1], outputs[i:i+1])
-            NN2.forward(dostability = first)
-            NN2.backward()
-            first = False
-            error_history.append(sum(np.square(NN2.error)))
-            epoch_list.append(epoch + i/8)
-            if few_shot:
-                if abs(NN2.error[0]) < few_shot_end:
-                    break
+few_shot = (multi_test > 0)
+
+multi = 0
+while multi <= multi_test:
+    NN2 = DrawNet()
+    NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(hidden_size) - 0.5, None)
+    if two_hidden_layers:
+        NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), np.random.rand(hidden_size) - 0.5, None)
+    NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, np.random.rand(1) - 0.5, None)
+    NN2.add_layer(1, None, None, None)
+    NN2.set_input(inputs, outputs)
+    error_history = []
+    epoch_list = []
+    epoch = 0
+    while epoch < max_iter:
+        for i in range(len(inputs)):
+            same = True
+            first = True
+            while same:
+                if not few_shot:
+                    same = False
+                if askuser and multi_test == 0:
+                    same = True
+                    NN2.predict(inputs[i], outputs[i], True, usage = False)
+                    # t = '3' 
+                    doask = True
+                    while doask:
+                        doask = False
+                        t = input(str(i)+' '+str(NN2.error)+' (1: same, 2:next, 3:stop asking, 4:exit, 5:few_shot, 6: change max epoch num)?')
+                        if t.isdigit():
+                            t = int(t)
+                            if t == 2:
+                                same = False
+                                break
+                            if t == 3:
+                                askuser = False
+                                same = False
+                            if t == 4:
+                                stopit = True
+                                break
+                            if t == 5:
+                                few_shot = True
+                                askuser = False
+                            if t == 6:
+                                max_iter = int(input('change max epoch num ' + str(max_iter) + ' '))
+                                doask = True
+                NN2.set_input(inputs[i:i+1], outputs[i:i+1])
+                NN2.forward(dostability = first)
+                NN2.backward()
+                first = False
+                error_history.append(sum(np.square(NN2.error)))
+                epoch_list.append(epoch + i/8)
+                if few_shot:
+                    if abs(NN2.error[0]) < few_shot_end:
+                        break
+            if stopit:
+                break
         if stopit:
             break
-    if stopit:
-        break
-    NN2.set_input(inputs, outputs)
-    NN2.forward()
-    err = outputs - NN2.layers[-1].values
-    NN2.predict(inputs[0], outputs[0], True, display_title = str(epoch)+': '+'{0:6.3f}'.format(np.sum(err**2)))
-    epoch += 1
+        NN2.set_input(inputs, outputs)
+        NN2.forward()
+        err = outputs - NN2.layers[-1].values
+        NN2.predict(inputs[0], outputs[0], multi_test == 0, display_title = str(epoch)+': '+'{0:6.3f}'.format(np.sum(err**2)))
+        epoch += 1
     
 
-for i in range(len(inputs)):
-    print(NN2.predict(inputs[i], outputs[i], drawit=True, usage = True), 'correct', outputs[i])
-
-# plot the error over the entire training duration
-pyplot.figure(figsize=(15,5))
-pyplot.plot(epoch_list, error_history)
-pyplot.xlabel('Epoch')
-pyplot.ylabel('Error')
-pyplot.show()
-pyplot.close()
-
-print('Error', np.sum(error_history[-8:]))
+    if multi_test == 0:
+        for i in range(len(inputs)):
+            print(NN2.predict(inputs[i], outputs[i], drawit= (multi_test > 0), usage = True), 'correct', outputs[i])
+    
+    # plot the error over the entire training duration
+    pyplot.figure(figsize=(15,5))
+    pyplot.plot(epoch_list, error_history)
+    pyplot.xlabel('Epoch')
+    pyplot.ylabel('Error')
+    pyplot.title(str(multi))
+    pyplot.show()
+    pyplot.close()
+    
+    print(multi, 'Error', np.sum(error_history[-8:]))
+    multi += 1
 
