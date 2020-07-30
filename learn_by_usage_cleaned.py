@@ -28,7 +28,7 @@ multi_test = 50             # 0 to turn off
 max_iter = 10
 
 
-hidden_size = 32
+hidden_size = 64
 two_hidden_layers = True
 use_bias = True
 
@@ -49,6 +49,7 @@ few_shot_max_try = 200
 
 
 test_from_random_input = True
+i_bits = 16
 
 # input data
 inputs = np.array([[0, 0, 0],
@@ -61,10 +62,10 @@ inputs = np.array([[0, 0, 0],
                    [1, 1, 1]])
 
 if test_from_random_input:
-    inp = [None]*256
-    for bb in range(0, 256):
-        v= [0]*8
-        bbs = '{0:08b}'.format(bb)
+    inp = [None]*2**i_bits
+    for bb in range(0, 2**i_bits):
+        v= [0]*i_bits
+        bbs = ('{0:0'+str(i_bits)+'b}').format(bb)
         for l in range(len(bbs)): 
             if bbs[l] =='1':
                 v[l] = 1
