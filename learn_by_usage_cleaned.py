@@ -18,8 +18,8 @@ import numpy as np # helps with the math
 from matplotlib import pyplot
 from math import cos, sin, atan
 
-pyplot.rcParams['figure.dpi'] = 300
-pyplot.interactive(False)
+pyplot.rcParams['figure.dpi'] = 150
+pyplot.interactive(False) # seems not to fix memory issue
 
 do_check_all = 20000
 
@@ -27,7 +27,7 @@ hidden_size = 3
 two_hidden_layers = True
 use_bias = True
 
-lr = 0.2
+lr = 0.1
 use_stability = False
 stability_mean = 0.1
 
@@ -227,7 +227,7 @@ class Layer():
             direct = 1
         #print('direct', direct)
         self.weights += d_weights * lr * direct
-        self.bias +=  d_bias *lr * direct
+        self.bias +=  d_bias *lr * np.sum(direct, axis = 0)
         np.clip(self.weights, -clip_weights, clip_weights, self.weights)
         #np.clip(self.b, -clip_weights, clip_weights, self.b)
         
@@ -350,7 +350,7 @@ epoch_list = []
 askuser = True
 stopit = False
 few_shot = False
-max_iter = 200
+max_iter = 30
 epoch = 0
 while epoch < max_iter:
     for i in range(len(inputs)):
