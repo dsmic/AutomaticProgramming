@@ -13,26 +13,26 @@ Created on Sun Jul 19 15:45:02 2020
 
 loss function used = 1/2 SUM(error**2) // making the derivative error
 """
-#import cupy as np # helps with the math
+#import cupy as np # helps with the math (Faster for hidden_size > 256 probably)
 import numpy as np # helps with the math
-#import matplotlib.pyplot as plt # to plot error during training
 from matplotlib import pyplot
 from math import cos, sin, atan
+import random
 
 pyplot.rcParams['figure.dpi'] = 150
 pyplot.interactive(False) # seems not to fix memory issue
 
-do_check_all = 0#20000      # 0 to turn off
+do_check_all = 0            # 0 to turn off
 
-multi_test = 20             # 0 to turn off
-max_iter = 50
+multi_test = 50             # 0 to turn off
+max_iter = 10
 
 
-hidden_size = 256
+hidden_size = 32
 two_hidden_layers = True
 use_bias = True
 
-lr = 0.001
+lr = 0.01
 use_stability = False
 stability_mean = 0.1
 
@@ -45,6 +45,11 @@ scale_sigmoid = 2
 shift_sigmoid = 1
 
 few_shot_end = 0.1
+few_shot_max_try = 200
+
+
+test_from_random_input = True
+
 # input data
 inputs = np.array([[0, 0, 0],
                    [0, 0, 1],
@@ -55,8 +60,24 @@ inputs = np.array([[0, 0, 0],
                    [1, 1, 0],
                    [1, 1, 1]])
 
+if test_from_random_input:
+    inp = [None]*256
+    for bb in range(0, 256):
+        v= [0]*8
+        bbs = '{0:08b}'.format(bb)
+        for l in range(len(bbs)): 
+            if bbs[l] =='1':
+                v[l] = 1
+            else:
+                v[l] = 0
+        inp[bb] = v
+    
+    inputs = np.array(random.sample(inp,8))
+
+
 # output data
 outputs = np.array([[0], [0], [1], [0], [1], [1], [0], [1]])
+
 
 do_pm = True
 
@@ -311,7 +332,7 @@ if do_check_all > 0:
             else:
                 outputs[l] = 0
         NN2 = DrawNet()
-        NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(hidden_size) - 0.5, None)
+        NN2.add_layer(len(inputs[0]), np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(hidden_size) - 0.5, None)
         NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), np.random.rand(hidden_size) - 0.5, None)
         NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, np.random.rand(1) - 0.5, None)
         NN2.add_layer(1, None, None, None)
@@ -323,7 +344,7 @@ if do_check_all > 0:
             ok = ' '
         else:
             notok += 1
-        print(bbs, '{0:5.3f}'.format(err),ok,notok)
+        print(bbs, '{0:5.3f}'.format(float(err)),ok,notok)
         pyplot.figure(figsize=(15,5))
         pyplot.plot(NN2.epoch_list, NN2.error_history)
         pyplot.xlabel('Epoch')
@@ -349,8 +370,10 @@ few_shot = (multi_test > 0)
 
 multi = 0
 while multi <= multi_test:
+    if test_from_random_input:
+        inputs = np.array(random.sample(inp,8))
     NN2 = DrawNet()
-    NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(hidden_size) - 0.5, None)
+    NN2.add_layer(len(inputs[0]), np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(hidden_size) - 0.5, None)
     if two_hidden_layers:
         NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), np.random.rand(hidden_size) - 0.5, None)
     NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, np.random.rand(1) - 0.5, None)
@@ -363,6 +386,7 @@ while multi <= multi_test:
         for i in range(len(inputs)):
             same = True
             first = True
+            fl = 0
             while same:
                 if not few_shot:
                     same = False
@@ -397,6 +421,9 @@ while multi <= multi_test:
                 first = False
                 error_history.append(sum(np.square(NN2.error)))
                 epoch_list.append(epoch + i/8)
+                fl += 1
+                if fl > few_shot_max_try:
+                    break
                 if few_shot:
                     if abs(NN2.error[0]) < few_shot_end:
                         break
