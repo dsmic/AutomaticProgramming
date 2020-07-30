@@ -20,7 +20,7 @@ from math import cos, sin, atan
 
 pyplot.rcParams['figure.dpi'] = 300
 
-do_check_all = 0 #20000
+do_check_all = 20000
 
 hidden_size = 3
 two_hidden_layers = True
@@ -186,9 +186,10 @@ class Layer():
         error_between_sigmoid_and_full = post_error * sigmoid_derivative(self.between_full_sigmoid) # post layer may be wrong!!!!!!!!
         
         pre_error = np.dot(error_between_sigmoid_and_full, self.weights.T) 
-        d_weights = np.dot(self.values.T, error_between_sigmoid_and_full)
+        d_weights = np.dot(self.values.T, error_between_sigmoid_and_full) / len(post_error) # scale learning rate per input
+        d_bias = np.sum(error_between_sigmoid_and_full, axis = 0) /len(post_error) 
         
-        self.change_weights(d_weights, error_between_sigmoid_and_full)
+        self.change_weights(d_weights, d_bias)
         return pre_error
     
     def forward(self, pre_layer, dostability):
@@ -197,7 +198,7 @@ class Layer():
             return pre_layer
         self.between_full_sigmoid = np.dot(pre_layer, self.weights)
         if use_bias:
-            self.between_full_sigmoid += self.bias[0]
+            self.between_full_sigmoid += self.bias
         post_layer = sigmoid(self.between_full_sigmoid)
         if dostability:
             post_l = np.expand_dims(post_layer,-2)
@@ -225,7 +226,7 @@ class Layer():
             direct = 1
         #print('direct', direct)
         self.weights += d_weights * lr * direct
-        self.bias += d_bias *lr * direct
+        self.bias +=  d_bias *lr * direct
         np.clip(self.weights, -clip_weights, clip_weights, self.weights)
         #np.clip(self.b, -clip_weights, clip_weights, self.b)
         
@@ -296,7 +297,7 @@ class DrawNet():
 
 if do_check_all > 0:
     notok = 0
-    for bb in range(0, 128):
+    for bb in range(0, 256):
         bbs = '{0:08b}'.format(bb)
         for l in range(len(bbs)): 
             if bbs[l] =='1':
@@ -304,9 +305,9 @@ if do_check_all > 0:
             else:
                 outputs[l] = 0
         NN2 = DrawNet()
-        NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(1,hidden_size) - 0.5, None)
-        NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), np.random.rand(1,hidden_size) - 0.5, None)
-        NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, np.random.rand(1,1) - 0.5, None)
+        NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(hidden_size) - 0.5, None)
+        NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), np.random.rand(hidden_size) - 0.5, None)
+        NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, np.random.rand(1) - 0.5, None)
         NN2.add_layer(1, None, None, None)
         NN2.set_input(inputs, outputs)
         NN2.train(do_check_all)
@@ -332,10 +333,10 @@ if do_check_all > 0:
 
         
 NN2 = DrawNet()
-NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(1,hidden_size) - 0.5, None)
+NN2.add_layer(3, np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(hidden_size) - 0.5, None)
 if two_hidden_layers:
-    NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), np.random.rand(1,hidden_size) - 0.5, None)
-NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, np.random.rand(1,1) - 0.5, None)
+    NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), np.random.rand(hidden_size) - 0.5, None)
+NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, np.random.rand(1) - 0.5, None)
 NN2.add_layer(1, None, None, None)
 NN2.set_input(inputs, outputs)
 
