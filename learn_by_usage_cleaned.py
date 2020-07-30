@@ -61,21 +61,6 @@ inputs = np.array([[0, 0, 0],
                    [1, 1, 0],
                    [1, 1, 1]])
 
-if test_from_random_input:
-    inp = [None]*2**i_bits
-    for bb in range(0, 2**i_bits):
-        v= [0]*i_bits
-        bbs = ('{0:0'+str(i_bits)+'b}').format(bb)
-        for l in range(len(bbs)): 
-            if bbs[l] =='1':
-                v[l] = 1
-            else:
-                v[l] = 0
-        inp[bb] = v
-    
-    inputs = np.array(random.sample(inp,8))
-
-
 # output data
 outputs = np.array([[0], [0], [1], [0], [1], [1], [0], [1]])
 
@@ -372,7 +357,23 @@ few_shot = (multi_test > 0)
 multi = 0
 while multi <= multi_test:
     if test_from_random_input:
-        inputs = np.array(random.sample(inp,8))
+        inp = []
+        while len(inp) < 8:
+            r = random.randrange(1,2**i_bits)
+            if r not in inp:
+                inp.append(r)
+        inputs = []
+        for bb in inp:
+            v= [0]*i_bits
+            bbs = ('{0:0'+str(i_bits)+'b}').format(bb)
+            for l in range(len(bbs)): 
+                if bbs[l] =='1':
+                    v[l] = 1
+                else:
+                    v[l] = 0
+            inputs.append(v)
+        inputs = np.array(inputs)
+    
     NN2 = DrawNet()
     NN2.add_layer(len(inputs[0]), np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(hidden_size) - 0.5, None)
     if two_hidden_layers:
