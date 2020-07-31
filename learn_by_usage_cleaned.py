@@ -28,23 +28,25 @@ multi_test = 50             # 0 to turn off
 max_iter = 10
 
 
-hidden_size = 64
-two_hidden_layers = True
+hidden_size = 16
+two_hidden_layers = False
 use_bias = True
 
-lr = 0.01
+lr = 0.1
 use_stability = False
 stability_mean = 0.1
+clip_weights = 20
+clip_bias = 20
+init_rand_ampl = 0.3
 
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
-clip_weights = 500
 scale_for_neuron_diff = 1
 
-scale_sigmoid = 2
+scale_sigmoid = 3
 shift_sigmoid = 1
 
-few_shot_end = 0.1
+few_shot_end = 0.2
 few_shot_max_try = 200
 
 
@@ -106,7 +108,7 @@ class Neuron():
         pyplot.gca().add_patch(circle)
 
 class Layer():
-    def __init__(self, network, number_of_neurons, weights, bias, values):
+    def __init__(self, network, number_of_neurons, weights, bias, values, slow_learning):
         self.previous_layer = self.__get_previous_layer(network)
         self.y = self.__calculate_layer_y_position()
         self.neurons = self.__intialise_neurons(number_of_neurons)
@@ -115,6 +117,7 @@ class Layer():
             self.stability = np.zeros(weights.shape)
         self.bias = bias
         self.values = values
+        self.slow_learning = slow_learning
 
     def __intialise_neurons(self, number_of_neurons):
         neurons = []
@@ -238,10 +241,10 @@ class Layer():
         else:
             direct = np.array([1])
         #print('direct', direct)
-        self.weights += d_weights * lr * direct
-        self.bias +=  d_bias *lr * np.sum(direct, axis = 0)
+        self.weights += d_weights * lr * direct * self.slow_learning
+        self.bias +=  d_bias *lr * np.sum(direct, axis = 0) * self.slow_learning
         np.clip(self.weights, -clip_weights, clip_weights, self.weights)
-        #np.clip(self.b, -clip_weights, clip_weights, self.b)
+        np.clip(self.bias, -clip_bias, clip_bias, self.bias)
         
 class DrawNet():
     def __init__(self):
@@ -249,8 +252,8 @@ class DrawNet():
         self.epoch_list = []
         self.error_history = []
         
-    def add_layer(self, number_of_neurons, weights, bias, values):
-        layer = Layer(self, number_of_neurons, weights, bias, values)
+    def add_layer(self, number_of_neurons, weights, bias, values, slow_learning = 1):
+        layer = Layer(self, number_of_neurons, weights, bias, values, slow_learning)
         self.layers.append(layer)
     
     def forward(self, dostability = False):
@@ -308,6 +311,16 @@ class DrawNet():
             self.draw(oo, usage, display_title)
         return prediction
 
+def setup_net():
+    NN2 = DrawNet()
+    NN2.add_layer(len(inputs[0]), init_rand_ampl * (np.random.rand(inputs.shape[1], hidden_size) - 0.5), init_rand_ampl * (np.random.rand(hidden_size) - 0.5), None, slow_learning = 1)
+    if two_hidden_layers:
+        NN2.add_layer(hidden_size, init_rand_ampl * (np.random.rand(hidden_size, hidden_size) - 0.5), init_rand_ampl * (np.random.rand(hidden_size) - 0.5), None)
+    NN2.add_layer(hidden_size, init_rand_ampl * (np.random.rand(hidden_size, 1)- 0.5), init_rand_ampl * (np.random.rand(1) - 0.5), None)
+    NN2.add_layer(1, None, None, None)
+    NN2.set_input(inputs, outputs)
+    return NN2
+
 if do_check_all > 0:
     notok = 0
     for bb in range(0, 256):
@@ -317,12 +330,7 @@ if do_check_all > 0:
                 outputs[l] = 1
             else:
                 outputs[l] = 0
-        NN2 = DrawNet()
-        NN2.add_layer(len(inputs[0]), np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(hidden_size) - 0.5, None)
-        NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), np.random.rand(hidden_size) - 0.5, None)
-        NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, np.random.rand(1) - 0.5, None)
-        NN2.add_layer(1, None, None, None)
-        NN2.set_input(inputs, outputs)
+        NN2 = setup_net()
         NN2.train(do_check_all)
         err = np.sum(NN2.error**2)
         ok = '*'
@@ -374,13 +382,7 @@ while multi <= multi_test:
             inputs.append(v)
         inputs = np.array(inputs)
     
-    NN2 = DrawNet()
-    NN2.add_layer(len(inputs[0]), np.random.rand(inputs.shape[1], hidden_size) - 0.5, np.random.rand(hidden_size) - 0.5, None)
-    if two_hidden_layers:
-        NN2.add_layer(hidden_size, np.random.rand(hidden_size, hidden_size), np.random.rand(hidden_size) - 0.5, None)
-    NN2.add_layer(hidden_size, np.random.rand(hidden_size, 1)- 0.5, np.random.rand(1) - 0.5, None)
-    NN2.add_layer(1, None, None, None)
-    NN2.set_input(inputs, outputs)
+    NN2 = setup_net()
     error_history = []
     epoch_list = []
     epoch = 0
