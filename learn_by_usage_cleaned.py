@@ -24,20 +24,21 @@ pyplot.interactive(False) # seems not to fix memory issue
 
 do_check_all = 0            # 0 to turn off
 
-multi_test = 50             # 0 to turn off
-max_iter = 10
+multi_test = 1000             # 0 to turn off
+max_iter = 30
 
 
-hidden_size = 16
-two_hidden_layers = False
+hidden_size = 64
+two_hidden_layers = True
 use_bias = True
 
-lr = 0.1
+lr = 0.01
 use_stability = False
 stability_mean = 0.1
-clip_weights = 20
-clip_bias = 20
-init_rand_ampl = 0.3
+clip_weights = 1
+clip_bias = 1
+init_rand_ampl = 1.5
+init_rand_ampl0 = 2.0 # for first layer
 
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
@@ -47,10 +48,11 @@ scale_sigmoid = 3
 shift_sigmoid = 1
 
 few_shot_end = 0.2
-few_shot_max_try = 200
+few_shot_max_try = 100
 
 
-test_from_random_input = True
+
+test_from_random_input = False
 i_bits = 16
 
 # input data
@@ -66,8 +68,55 @@ inputs = np.array([[0, 0, 0],
 # output data
 outputs = np.array([[0], [0], [1], [0], [1], [1], [0], [1]])
 
-
 do_pm = True
+
+load_mnist = True
+
+if load_mnist:
+    # simelar to https://www.python-course.eu/neural_network_mnist.php
+    import pickle
+    image_size = 28 # width and length
+    no_of_different_labels = 10 #  i.e. 0, 1, 2, 3, ..., 9
+    image_pixels = image_size * image_size
+    data_path = "test_few_shot/data/mnist/"
+    
+    # speedup loading
+    try:
+        with open(data_path + "pickled_mnist.pkl", "br") as fh:
+            (train_data, test_data) = pickle.load(fh)
+    except:
+        train_data = np.loadtxt(data_path + "mnist_train.csv", 
+                                delimiter=",")
+        test_data = np.loadtxt(data_path + "mnist_test.csv", 
+                           delimiter=",") 
+        with open(data_path + "pickled_mnist.pkl", "bw") as fh:
+            pickle.dump((train_data, test_data), fh)
+            
+    fac = 0.99 / 255
+    train_imgs = np.asfarray(train_data[:, 1:]) * fac + 0.01
+    test_imgs = np.asfarray(test_data[:, 1:]) * fac + 0.01
+    
+    train_labels = np.asfarray(train_data[:, :1])
+    test_labels = np.asfarray(test_data[:, :1])
+    
+    # for i in range(10):
+    #     print(train_labels[i])
+    #     img = train_imgs[i].reshape((28,28))
+    #     pyplot.imshow(img, cmap="Greys")
+    #     pyplot.show()
+        
+    label_to_one = 2
+    train_labels = np.round(1 - np.sign(np.abs(train_labels - label_to_one)))        
+    test_labels = np.round(1 - np.sign(np.abs(test_labels - label_to_one)))  
+
+    train_labels = train_labels[:10]
+    test_labels = test_labels[:10]      
+    
+
+
+
+
+
 
 #np.seterr(under='ignore', over='ignore')
 
@@ -313,7 +362,7 @@ class DrawNet():
 
 def setup_net():
     NN2 = DrawNet()
-    NN2.add_layer(len(inputs[0]), init_rand_ampl * (np.random.rand(inputs.shape[1], hidden_size) - 0.5), init_rand_ampl * (np.random.rand(hidden_size) - 0.5), None, slow_learning = 1)
+    NN2.add_layer(len(inputs[0]), init_rand_ampl0 * (np.random.rand(inputs.shape[1], hidden_size) - 0.5), init_rand_ampl0 * (np.random.rand(hidden_size) - 0.5), None, slow_learning = 0.0)
     if two_hidden_layers:
         NN2.add_layer(hidden_size, init_rand_ampl * (np.random.rand(hidden_size, hidden_size) - 0.5), init_rand_ampl * (np.random.rand(hidden_size) - 0.5), None)
     NN2.add_layer(hidden_size, init_rand_ampl * (np.random.rand(hidden_size, 1)- 0.5), init_rand_ampl * (np.random.rand(1) - 0.5), None)
@@ -321,15 +370,30 @@ def setup_net():
     NN2.set_input(inputs, outputs)
     return NN2
 
+
+def creat_output_from_int(bb, length=8):
+    output = [0]*length
+    bbs = ('{0:0'+str(length)+'b}').format(bb)
+    for l in range(len(bbs)): 
+        if bbs[l] =='1':
+            output[l] = [1]
+        else:
+            output[l] = [0]
+    output = np.array(output)
+    if do_pm:
+        output = transform_01_mp(output)
+    return output, bbs
+
 if do_check_all > 0:
     notok = 0
     for bb in range(0, 256):
-        bbs = '{0:08b}'.format(bb)
-        for l in range(len(bbs)): 
-            if bbs[l] =='1':
-                outputs[l] = 1
-            else:
-                outputs[l] = 0
+        # bbs = '{0:08b}'.format(bb)
+        # for l in range(len(bbs)): 
+        #     if bbs[l] =='1':
+        #         outputs[l] = 1
+        #     else:
+        #         outputs[l] = 0
+        (outputs, bbs) = creat_output_from_int(bb)
         NN2 = setup_net()
         NN2.train(do_check_all)
         err = np.sum(NN2.error**2)
@@ -362,12 +426,15 @@ askuser = True
 stopit = False
 few_shot = (multi_test > 0)
 
+
+NN2 = setup_net()
 multi = 0
 while multi <= multi_test:
+    pos_under_few_shot = 0
     if test_from_random_input:
         inp = []
         while len(inp) < 8:
-            r = random.randrange(1,2**i_bits)
+            r = random.randrange(0,2**i_bits-1)
             if r not in inp:
                 inp.append(r)
         inputs = []
@@ -381,7 +448,8 @@ while multi <= multi_test:
                     v[l] = 0
             inputs.append(v)
         inputs = np.array(inputs)
-    
+    (outputs, bbs) = creat_output_from_int(random.randrange(0,255))
+    #NN2.set_input(inputs, outputs)
     NN2 = setup_net()
     error_history = []
     epoch_list = []
@@ -423,7 +491,10 @@ while multi <= multi_test:
                 NN2.forward(dostability = first)
                 NN2.backward()
                 first = False
-                error_history.append(sum(np.square(NN2.error)))
+                this_error = sum(np.square(NN2.error))
+                if this_error[0] > few_shot_end:
+                    pos_under_few_shot = epoch + 1
+                error_history.append(this_error)
                 epoch_list.append(epoch + i/8)
                 fl += 1
                 if fl > few_shot_max_try:
@@ -451,10 +522,10 @@ while multi <= multi_test:
     pyplot.plot(epoch_list, error_history)
     pyplot.xlabel('Epoch')
     pyplot.ylabel('Error')
-    pyplot.title(str(multi))
+    pyplot.title(str(multi)+ ' ' + bbs)
     pyplot.show()
     pyplot.close()
     
-    print(multi, 'Error', np.sum(np.array(error_history[-8:])))
+    print(multi, 'Error', np.sum(np.array(error_history[-8:])), pos_under_few_shot)
     multi += 1
 
