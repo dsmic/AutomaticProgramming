@@ -105,12 +105,16 @@ if load_mnist:
     #     pyplot.imshow(img, cmap="Greys")
     #     pyplot.show()
         
+    first_n_to_use = 10
     label_to_one = 2
     train_labels = np.round(1 - np.sign(np.abs(train_labels - label_to_one)))        
     test_labels = np.round(1 - np.sign(np.abs(test_labels - label_to_one)))  
 
-    train_labels = train_labels[:10]
-    test_labels = test_labels[:10]      
+    inputs = test_imgs[:first_n_to_use]     
+    outputs = test_labels[:first_n_to_use]
+    bbs = ''
+    for l in np.round(outputs):
+        bbs += str(int(l[0]))
     
 
 
@@ -448,7 +452,8 @@ while multi <= multi_test:
                     v[l] = 0
             inputs.append(v)
         inputs = np.array(inputs)
-    (outputs, bbs) = creat_output_from_int(random.randrange(0,255))
+    if not load_mnist:
+        (outputs, bbs) = creat_output_from_int(random.randrange(0,255))
     #NN2.set_input(inputs, outputs)
     NN2 = setup_net()
     error_history = []
