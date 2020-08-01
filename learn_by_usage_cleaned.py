@@ -37,7 +37,7 @@ use_stability = False
 stability_mean = 0.1
 clip_weights = 1
 clip_bias = 1
-init_rand_ampl = 1.5
+init_rand_ampl = 0.1
 init_rand_ampl0 = 2.0 # for first layer
 
 scale_linewidth = 0.1
@@ -68,7 +68,7 @@ inputs = np.array([[0, 0, 0],
 # output data
 outputs = np.array([[0], [0], [1], [0], [1], [1], [0], [1]])
 
-do_pm = True
+do_pm = False
 
 load_mnist = True
 
@@ -93,11 +93,11 @@ if load_mnist:
             pickle.dump((train_data, test_data), fh)
             
     fac = 0.99 / 255
-    train_imgs = np.asfarray(train_data[:, 1:]) * fac + 0.01
-    test_imgs = np.asfarray(test_data[:, 1:]) * fac + 0.01
+    train_imgs = np.array(train_data[:, 1:]) * fac + 0.01
+    test_imgs = np.array(test_data[:, 1:]) * fac + 0.01
     
-    train_labels = np.asfarray(train_data[:, :1])
-    test_labels = np.asfarray(test_data[:, :1])
+    train_labels = np.array(train_data[:, :1])
+    test_labels = np.array(test_data[:, :1])
     
     # for i in range(10):
     #     print(train_labels[i])
@@ -106,14 +106,14 @@ if load_mnist:
     #     pyplot.show()
         
     first_n_to_use = 10
-    label_to_one = 2
-    train_labels = np.round(1 - np.sign(np.abs(train_labels - label_to_one)))        
-    test_labels = np.round(1 - np.sign(np.abs(test_labels - label_to_one)))  
+    label_to_one = 4
+    train_labels = np.around(1 - np.sign(np.abs(train_labels - label_to_one)))        
+    test_labels = np.around(1 - np.sign(np.abs(test_labels - label_to_one)))  
 
     inputs = test_imgs[:first_n_to_use]     
     outputs = test_labels[:first_n_to_use]
     bbs = ''
-    for l in np.round(outputs):
+    for l in np.around(outputs):
         bbs += str(int(l[0]))
     
 
