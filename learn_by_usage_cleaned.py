@@ -13,6 +13,7 @@ Created on Sun Jul 19 15:45:02 2020
 
 loss function used = 1/2 SUM(error**2) // making the derivative error
 """
+
 #import cupy as np # helps with the math (Faster for hidden_size > 256 probably)
 import numpy as np # helps with the math
 from matplotlib import pyplot
@@ -22,9 +23,12 @@ import random
 pyplot.rcParams['figure.dpi'] = 150
 pyplot.interactive(False) # seems not to fix memory issue
 
-do_check_all = 0            # 0 to turn off
 
-multi_test = 1000             # 0 to turn off
+verbose = 0
+
+do_check_all = 0 #1000            # 0 to turn off
+
+multi_test = 1000 #1000             # 0 to turn off
 max_iter = 30
 
 
@@ -32,7 +36,7 @@ hidden_size = 64
 two_hidden_layers = True
 use_bias = True
 
-lr = 0.01
+lr = 0.1
 use_stability = False
 stability_mean = 0.1
 clip_weights = 1
@@ -68,7 +72,7 @@ inputs = np.array([[0, 0, 0],
 # output data
 outputs = np.array([[0], [0], [1], [0], [1], [1], [0], [1]])
 
-do_pm = False
+do_pm = True
 
 load_mnist = True
 
@@ -390,6 +394,7 @@ def creat_output_from_int(bb, length=8):
 
 if do_check_all > 0:
     notok = 0
+    sum_error_history = None
     for bb in range(0, 256):
         # bbs = '{0:08b}'.format(bb)
         # for l in range(len(bbs)): 
@@ -406,15 +411,26 @@ if do_check_all > 0:
             ok = ' '
         else:
             notok += 1
-        print(bbs, '{0:5.3f}'.format(float(err)),ok,notok)
-        pyplot.figure(figsize=(15,5))
-        pyplot.plot(NN2.epoch_list, NN2.error_history)
-        pyplot.xlabel('Epoch')
-        pyplot.ylabel('Error')
-        pyplot.title(bbs)
-        pyplot.show()
-        pyplot.close()
-        
+        if sum_error_history is None:
+            sum_error_history = np.array(NN2.error_history)
+        else:
+            sum_error_history += np.array(NN2.error_history)
+        if verbose > 0:
+            print(bbs, '{0:5.3f}'.format(float(err)),ok,notok)
+            pyplot.figure(figsize=(15,5))
+            pyplot.plot(NN2.epoch_list, NN2.error_history)
+            pyplot.xlabel('Epoch')
+            pyplot.ylabel('Error')
+            pyplot.title(bbs)
+            pyplot.show()
+            pyplot.close()
+    pyplot.figure(figsize=(15,5))
+    pyplot.plot(NN2.epoch_list, (sum_error_history / 256).tolist())
+    pyplot.xlabel('Epoch')
+    pyplot.ylabel('Error')
+    pyplot.title('sum error history')
+    pyplot.show()
+    pyplot.close()
         
     import sys
     sys.exit()
@@ -433,6 +449,7 @@ few_shot = (multi_test > 0)
 
 NN2 = setup_net()
 multi = 0
+sum_error_history = None
 while multi <= multi_test:
     pos_under_few_shot = 0
     if test_from_random_input:
@@ -499,8 +516,9 @@ while multi <= multi_test:
                 this_error = sum(np.square(NN2.error))
                 if this_error[0] > few_shot_end:
                     pos_under_few_shot = epoch + 1
-                error_history.append(this_error)
-                epoch_list.append(epoch + i/8)
+                if len(epoch_list) == 0 or (len(epoch_list) > 0 and epoch_list[-1] != epoch + i / len(inputs)):
+                    epoch_list.append(epoch + i / len(inputs))
+                    error_history.append(this_error)
                 fl += 1
                 if fl > few_shot_max_try:
                     break
@@ -523,14 +541,26 @@ while multi <= multi_test:
             print(NN2.predict(inputs[i], outputs[i], drawit= (multi_test > 0), usage = True), 'correct', outputs[i])
     
     # plot the error over the entire training duration
-    pyplot.figure(figsize=(15,5))
-    pyplot.plot(epoch_list, error_history)
-    pyplot.xlabel('Epoch')
-    pyplot.ylabel('Error')
-    pyplot.title(str(multi)+ ' ' + bbs)
-    pyplot.show()
-    pyplot.close()
+    if sum_error_history is None:
+        sum_error_history = np.array(error_history)
+    else:
+        sum_error_history += np.array(error_history)
+    if verbose > 0:
+        pyplot.figure(figsize=(15,5))
+        pyplot.plot(epoch_list, error_history)
+        pyplot.xlabel('Epoch')
+        pyplot.ylabel('Error')
+        pyplot.title(str(multi)+ ' ' + bbs)
+        pyplot.show()
+        pyplot.close()
     
     print(multi, 'Error', np.sum(np.array(error_history[-8:])), pos_under_few_shot)
     multi += 1
-
+if sum_error_history is not None:
+        pyplot.figure(figsize=(15,5))
+        pyplot.plot(epoch_list, (sum_error_history / multi_test).tolist())
+        pyplot.xlabel('Epoch')
+        pyplot.ylabel('Error')
+        pyplot.title('sum error history')
+        pyplot.show()
+        pyplot.close()
