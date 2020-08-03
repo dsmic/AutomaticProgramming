@@ -14,8 +14,8 @@ Created on Sun Jul 19 15:45:02 2020
 loss function used = 1/2 SUM(error**2) // making the derivative error
 """
 
-#import cupy as np # helps with the math (Faster for hidden_size > 256 probably)
-import numpy as np # helps with the math
+import cupy as np # helps with the math (Faster for hidden_size > 256 probably)
+#import numpy as np # helps with the math
 from matplotlib import pyplot
 from math import cos, sin, atan
 import random
@@ -24,15 +24,15 @@ pyplot.rcParams['figure.dpi'] = 150
 pyplot.interactive(False) # seems not to fix memory issue
 
 
-verbose = 0
+verbose = 1
 
 do_check_all = 0 #1000            # 0 to turn off
 
-multi_test = 1000 #1000             # 0 to turn off
+multi_test = -1 #1000             # 0 to turn off
 max_iter = 30
 
 
-hidden_size = 64
+hidden_size = 4
 two_hidden_layers = True
 use_bias = True
 
@@ -40,9 +40,9 @@ lr = 0.1
 use_stability = False
 stability_mean = 0.1
 clip_weights = 1
-clip_bias = 1
+clip_bias = 2
 init_rand_ampl = 0.1
-init_rand_ampl0 = 2.0 # for first layer
+init_rand_ampl0 = 0.5 # for first layer
 
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
@@ -76,54 +76,10 @@ do_pm = True
 
 load_mnist = True
 
-if load_mnist:
-    # simelar to https://www.python-course.eu/neural_network_mnist.php
-    import pickle
-    image_size = 28 # width and length
-    no_of_different_labels = 10 #  i.e. 0, 1, 2, 3, ..., 9
-    image_pixels = image_size * image_size
-    data_path = "test_few_shot/data/mnist/"
-    
-    # speedup loading
-    try:
-        with open(data_path + "pickled_mnist.pkl", "br") as fh:
-            (train_data, test_data) = pickle.load(fh)
-    except:
-        train_data = np.loadtxt(data_path + "mnist_train.csv", 
-                                delimiter=",")
-        test_data = np.loadtxt(data_path + "mnist_test.csv", 
-                           delimiter=",") 
-        with open(data_path + "pickled_mnist.pkl", "bw") as fh:
-            pickle.dump((train_data, test_data), fh)
-            
-    fac = 0.99 / 255
-    train_imgs = np.array(train_data[:, 1:]) * fac + 0.01
-    test_imgs = np.array(test_data[:, 1:]) * fac + 0.01
-    
-    train_labels = np.array(train_data[:, :1])
-    test_labels = np.array(test_data[:, :1])
-    
-    # for i in range(10):
-    #     print(train_labels[i])
-    #     img = train_imgs[i].reshape((28,28))
-    #     pyplot.imshow(img, cmap="Greys")
-    #     pyplot.show()
-        
-    first_n_to_use = 10
-    label_to_one = 4
-    train_labels = np.around(1 - np.sign(np.abs(train_labels - label_to_one)))        
-    test_labels = np.around(1 - np.sign(np.abs(test_labels - label_to_one)))  
+do_batch_training = True
 
-    inputs = test_imgs[:first_n_to_use]     
-    outputs = test_labels[:first_n_to_use]
-    bbs = ''
-    for l in np.around(outputs):
-        bbs += str(int(l[0]))
-    
-
-
-
-
+first_n_to_use = 60000
+label_to_one = 5
 
 
 #np.seterr(under='ignore', over='ignore')
@@ -143,9 +99,75 @@ def sigmoid_derivative(x):
 def transform_01_mp(x):
     return 2*x - 1
 
-if do_pm:
-    inputs = transform_01_mp(inputs)
-    outputs = transform_01_mp(outputs)
+def run_load_mnist(show_msg = True, use_test = False):
+    #global inputs, outputs, bbs
+    # simelar to https://www.python-course.eu/neural_network_mnist.php
+    import pickle
+    #image_size = 28 # width and length
+    #no_of_different_labels = 10 #  i.e. 0, 1, 2, 3, ..., 9
+    #image_pixels = image_size * image_size
+    data_path = "/home/detlef/AutomaticProgramming/test_few_shot/data/mnist/" # makes it possible to use kernel from jupyter notebook
+    
+    # speedup loading
+    try:
+        with open(data_path + "pickled_mnist.pkl", "br") as fh:
+            (train_data, test_data) = pickle.load(fh)
+    except:
+        train_data = np.loadtxt(data_path + "mnist_train.csv", 
+                                delimiter=",")
+        test_data = np.loadtxt(data_path + "mnist_test.csv", 
+                           delimiter=",") 
+        with open(data_path + "pickled_mnist.pkl", "bw") as fh:
+            pickle.dump((train_data, test_data), fh)
+            
+    fac = 0.99 / 255
+
+    if use_test:
+        used_imgs = np.array(test_data[:, 1:]) * fac + 0.01
+        dataset_name = 'Test dataset'
+        used_labels = np.array(test_data[:, :1])
+    else:
+        used_imgs = np.array(train_data[:, 1:]) * fac + 0.01
+        dataset_name = 'Train dataset'
+        used_labels = np.array(train_data[:, :1])
+    
+    
+    #train_labels = np.array(train_data[:, :1])
+    
+    
+    # for i in range(10):
+    #     print(train_labels[i])
+    #     img = train_imgs[i].reshape((28,28))
+    #     pyplot.imshow(img, cmap="Greys")
+    #     pyplot.show()
+        
+    #train_labels = np.around(1 - np.sign(np.abs(train_labels - label_to_one)))        
+    used_labels = np.around(1 - np.sign(np.abs(used_labels - label_to_one)))  
+
+    inputs = used_imgs[:first_n_to_use]     
+    outputs = used_labels[:first_n_to_use]
+    bbs = ''
+    for l in np.around(outputs):
+        bbs += str(int(l[0]))
+    if show_msg:
+        print('loaded mnist', dataset_name,' with output labels ',label_to_one,' resulting in learning labels', bbs[:10], '....')
+    if len(bbs) > 50:
+        bbs = 'to long to plot'
+    if do_pm:
+        inputs = transform_01_mp(inputs)
+        outputs = transform_01_mp(outputs)
+    return (inputs, outputs, bbs)
+
+    
+if load_mnist:
+    (inputs, outputs, bbs) = run_load_mnist()
+else:
+    if do_pm: # prepare the fixed inputs, load_mnist does it in the function
+        inputs = transform_01_mp(inputs)
+        outputs = transform_01_mp(outputs)
+
+
+
 
 vertical_distance_between_layers = 6
 horizontal_distance_between_neurons = 2
@@ -308,6 +330,13 @@ class DrawNet():
         self.layers = []
         self.epoch_list = []
         self.error_history = []
+        self.error = None
+
+        # batch handling, as cuda might not have enough memory to hold all inputs
+        self.all_input = None
+        self.all_output = None
+        self.batch_pos = None
+        self.batch_size = None
         
     def add_layer(self, number_of_neurons, weights, bias, values, slow_learning = 1):
         layer = Layer(self, number_of_neurons, weights, bias, values, slow_learning)
@@ -318,29 +347,57 @@ class DrawNet():
         for layer in self.layers:
             outp = layer.forward(outp, dostability)
         #self.layers[-1].values = outp
+        self.error = self.y - self.layers[-1].values
         return outp
     
     def backward(self):
-        self.error = pre_error = self.y - self.layers[-1].values
+        #self.error = pre_error = self.y - self.layers[-1].values # forward must be called first anyway
+        pre_error = self.error
         for layer in reversed(self.layers[:-1]):
             #print('pre_error', pre_error.flatten())
             pre_error = layer.backward(pre_error)
         return pre_error
     
     def train(self, epochs=1000):
+        self.epochs = epochs # just to know how it was trained for output
         for epoch in range(epochs):
             # flow forward and produce an output
             self.forward(True)
             # go back though the network to make corrections based on the output
-            self.backward()    
+            self.backward()
+            self.next_batch()
             # keep track of the error history over each epoch
             self.error_history.append(np.sum(np.square(self.error)))
             self.epoch_list.append(epoch)
     
-    def set_input(self, new_input, new_output):
-        self.layers[0].values = new_input
-        self.y = new_output
+    def set_input(self, new_input, new_output, batch_size = None):
+        self.all_input = new_input
+        self.all_output = new_output
+        self.batch_size = batch_size
+        if batch_size is not None:
+            self.layers[0].values = new_input[:batch_size]
+            self.y = new_output[:batch_size]
+        else:
+            self.layers[0].values = new_input
+            self.y = new_output
+        self.batch_pos = self.batch_size
         
+    def next_batch(self):
+        if self.batch_size is not None:
+            self.layers[0].values = self.all_input[self.batch_pos : self.batch_pos+self.batch_size]
+            self.y = self.all_output[self.batch_pos : self.batch_pos+self.batch_size]
+            # if len(self.y) == 0:
+            #     self.batch_pos = self.batch_size
+            #     self.layers[0].values = self.all_input[:self.batch_pos]
+            #     self.y = self.all_output[:self.batch_pos]
+            if len(self.y) < self.batch_size:
+                self.batch_pos = self.batch_size - len(self.y)
+                self.layers[0].values = np.concatenate((self.layers[0].values, self.all_input[:self.batch_pos]))
+                self.y = np.concatenate((self.y, self.all_output[:self.batch_pos]))
+            else:
+                self.batch_pos += self.batch_size
+            
+            
     def draw(self, result, usage = False, display_title = None):
         c = 0
         for layer in self.layers:
@@ -367,15 +424,25 @@ class DrawNet():
         if drawit:
             self.draw(oo, usage, display_title)
         return prediction
+    
+    def count_parameters(self):
+        count = 0
+        for l in self.layers:
+            if l.weights is not None:
+                count += l.weights.size
+                if use_bias:
+                    count += l.bias.size
+        return count
 
 def setup_net():
     NN2 = DrawNet()
-    NN2.add_layer(len(inputs[0]), init_rand_ampl0 * (np.random.rand(inputs.shape[1], hidden_size) - 0.5), init_rand_ampl0 * (np.random.rand(hidden_size) - 0.5), None, slow_learning = 0.0)
+    NN2.add_layer(len(inputs[0]), init_rand_ampl0 * (np.random.rand(inputs.shape[1], hidden_size) - 0.5), init_rand_ampl0 * (np.random.rand(hidden_size) - 0.5), None, slow_learning = 1)
     if two_hidden_layers:
         NN2.add_layer(hidden_size, init_rand_ampl * (np.random.rand(hidden_size, hidden_size) - 0.5), init_rand_ampl * (np.random.rand(hidden_size) - 0.5), None)
     NN2.add_layer(hidden_size, init_rand_ampl * (np.random.rand(hidden_size, 1)- 0.5), init_rand_ampl * (np.random.rand(1) - 0.5), None)
     NN2.add_layer(1, None, None, None)
     NN2.set_input(inputs, outputs)
+    print('Network parameters: ', NN2.count_parameters())
     return NN2
 
 
@@ -450,6 +517,24 @@ few_shot = (multi_test > 0)
 NN2 = setup_net()
 multi = 0
 sum_error_history = None
+if do_batch_training:
+    NN2.set_input(inputs, outputs, batch_size=900)
+    NN2.train(10000)
+    pyplot.figure(figsize=(15,5))
+    pyplot.plot(NN2.epoch_list, (np.array(NN2.error_history) / len(outputs)).tolist())
+    pyplot.xlabel('Epoch')
+    pyplot.ylabel('Error')
+    pyplot.title('trained with epochs: ' + str(NN2.epochs))
+    pyplot.show()
+    pyplot.close()
+
+    print('outputs', len(outputs), '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+    (inputs, outputs, bbs) = run_load_mnist(use_test = True)
+    NN2.set_input(inputs, outputs, batch_size=1000)
+    NN2.forward()
+    print('outputs', len(outputs), '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+    
+
 while multi <= multi_test:
     pos_under_few_shot = 0
     if test_from_random_input:
@@ -471,8 +556,16 @@ while multi <= multi_test:
         inputs = np.array(inputs)
     if not load_mnist:
         (outputs, bbs) = creat_output_from_int(random.randrange(0,255))
-    #NN2.set_input(inputs, outputs)
-    NN2 = setup_net()
+    
+    # reset weights in the last layer
+    NN2.layers[-2].weights = init_rand_ampl * (np.random.rand(hidden_size, 1)- 0.5)
+    NN2.layers[-2].bias = init_rand_ampl * (np.random.rand(1)- 0.5)
+    label_to_one = random.randrange(0, 9) # change the label used
+    run_load_mnist(False)
+    NN2.set_input(inputs, outputs)
+    # used to reset whole NN every time
+    #NN2 = setup_net()
+
     error_history = []
     epoch_list = []
     epoch = 0
@@ -554,7 +647,7 @@ while multi <= multi_test:
         pyplot.show()
         pyplot.close()
     
-    print(multi, 'Error', np.sum(np.array(error_history[-8:])), pos_under_few_shot)
+    print(multi, 'Label', label_to_one, 'Error', np.sum(np.array(error_history[-8:])), pos_under_few_shot)
     multi += 1
 if sum_error_history is not None:
         pyplot.figure(figsize=(15,5))
