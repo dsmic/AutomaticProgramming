@@ -32,17 +32,17 @@ multi_test = -1 #1000             # 0 to turn off
 max_iter = 30
 
 
-hidden_size = 4
+hidden_size = 16
 two_hidden_layers = True
-use_bias = True
+use_bias = False
 
-lr = 0.1
+lr = 0.3
 use_stability = False
 stability_mean = 0.1
 clip_weights = 1
-clip_bias = 2
+clip_bias = 1
 init_rand_ampl = 0.1
-init_rand_ampl0 = 0.5 # for first layer
+init_rand_ampl0 = 2# for first layer
 
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
@@ -72,14 +72,17 @@ inputs = np.array([[0, 0, 0],
 # output data
 outputs = np.array([[0], [0], [1], [0], [1], [1], [0], [1]])
 
-do_pm = True
+do_pm = False
 
 load_mnist = True
 
-do_batch_training = True
+do_batch_training = 20000
 
 first_n_to_use = 60000
 label_to_one = 5
+
+
+num_outputs = 10 # most early test need this to be 1, later with mnist dataset this can be set to 10 eg.
 
 
 #np.seterr(under='ignore', over='ignore')
@@ -142,7 +145,17 @@ def run_load_mnist(show_msg = True, use_test = False):
     #     pyplot.show()
         
     #train_labels = np.around(1 - np.sign(np.abs(train_labels - label_to_one)))        
-    used_labels = np.around(1 - np.sign(np.abs(used_labels - label_to_one)))  
+    if num_outputs == 1:
+        used_labels = np.around(1 - np.sign(np.abs(used_labels - label_to_one)))
+    elif num_outputs == 10:
+        label_transform = np.zeros((10, 10), int)
+        np.fill_diagonal(label_transform, 1)
+        label_transform = label_transform.tolist()
+        used_labels = [label_transform[int(np.around(x[0]))] for x in used_labels]
+        used_labels = np.array(used_labels)
+#        raise Exception('not yet implementd')
+    else:
+        raise Exception('not yet implementd')
 
     inputs = used_imgs[:first_n_to_use]     
     outputs = used_labels[:first_n_to_use]
@@ -150,7 +163,10 @@ def run_load_mnist(show_msg = True, use_test = False):
     for l in np.around(outputs):
         bbs += str(int(l[0]))
     if show_msg:
-        print('loaded mnist', dataset_name,' with output labels ',label_to_one,' resulting in learning labels', bbs[:10], '....')
+        if num_outputs == 10:
+            print('loaded mnist', dataset_name,' with 10 labels')
+        else:
+            print('loaded mnist', dataset_name,' with output labels ',label_to_one,' resulting in learning labels', bbs[:10], '....')
     if len(bbs) > 50:
         bbs = 'to long to plot'
     if do_pm:
@@ -436,11 +452,11 @@ class DrawNet():
 
 def setup_net():
     NN2 = DrawNet()
-    NN2.add_layer(len(inputs[0]), init_rand_ampl0 * (np.random.rand(inputs.shape[1], hidden_size) - 0.5), init_rand_ampl0 * (np.random.rand(hidden_size) - 0.5), None, slow_learning = 1)
+    NN2.add_layer(len(inputs[0]), init_rand_ampl0 * (np.random.rand(inputs.shape[1], hidden_size) - 0.5), init_rand_ampl0 * (np.random.rand(hidden_size) - 0.5), None, slow_learning = 0.01)
     if two_hidden_layers:
         NN2.add_layer(hidden_size, init_rand_ampl * (np.random.rand(hidden_size, hidden_size) - 0.5), init_rand_ampl * (np.random.rand(hidden_size) - 0.5), None)
-    NN2.add_layer(hidden_size, init_rand_ampl * (np.random.rand(hidden_size, 1)- 0.5), init_rand_ampl * (np.random.rand(1) - 0.5), None)
-    NN2.add_layer(1, None, None, None)
+    NN2.add_layer(hidden_size, init_rand_ampl * (np.random.rand(hidden_size, num_outputs)- 0.5), init_rand_ampl * (np.random.rand(num_outputs) - 0.5), None)
+    NN2.add_layer(num_outputs, None, None, None)
     NN2.set_input(inputs, outputs)
     print('Network parameters: ', NN2.count_parameters())
     return NN2
@@ -517,22 +533,22 @@ few_shot = (multi_test > 0)
 NN2 = setup_net()
 multi = 0
 sum_error_history = None
-if do_batch_training:
-    NN2.set_input(inputs, outputs, batch_size=900)
-    NN2.train(10000)
+if do_batch_training > 0:
+    NN2.set_input(inputs, outputs, batch_size=3000)
+    NN2.train(do_batch_training)
     pyplot.figure(figsize=(15,5))
     pyplot.plot(NN2.epoch_list, (np.array(NN2.error_history) / len(outputs)).tolist())
-    pyplot.xlabel('Epoch')
+    pyplot.xlabel('Batches')
     pyplot.ylabel('Error')
     pyplot.title('trained with epochs: ' + str(NN2.epochs))
     pyplot.show()
     pyplot.close()
 
-    print('outputs', len(outputs), '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+    print('outputs', len(outputs), 'batch_size', NN2.batch_size, '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
     (inputs, outputs, bbs) = run_load_mnist(use_test = True)
     NN2.set_input(inputs, outputs, batch_size=1000)
     NN2.forward()
-    print('outputs', len(outputs), '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+    print('outputs', len(outputs), 'batch_size', NN2.batch_size, '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
     
 
 while multi <= multi_test:
