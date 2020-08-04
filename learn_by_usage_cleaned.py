@@ -32,11 +32,11 @@ multi_test = -1 #1000             # 0 to turn off
 max_iter = 30
 
 
-hidden_size = 16
+hidden_size = 32
 two_hidden_layers = True
 use_bias = False
 
-lr = 0.3
+lr = 3
 use_stability = False
 stability_mean = 0.1
 clip_weights = 1
@@ -76,7 +76,7 @@ do_pm = False
 
 load_mnist = True
 
-do_batch_training = 20000
+do_batch_training = 2000
 
 first_n_to_use = 60000
 label_to_one = 5
@@ -385,6 +385,7 @@ class DrawNet():
             # keep track of the error history over each epoch
             self.error_history.append(np.sum(np.square(self.error)))
             self.epoch_list.append(epoch)
+        self.forward() # to update the output layer, if one needs to print infos...
     
     def set_input(self, new_input, new_output, batch_size = None):
         self.all_input = new_input
@@ -535,20 +536,30 @@ multi = 0
 sum_error_history = None
 if do_batch_training > 0:
     NN2.set_input(inputs, outputs, batch_size=3000)
-    NN2.train(do_batch_training)
+    try:
+        NN2.train(do_batch_training)
+    except KeyboardInterrupt:
+        NN2.forward() # most of the time, this should result in an OK net, but not safe, as train could be interrupted at any position
+        print('Interrupted by keyboard')
     pyplot.figure(figsize=(15,5))
-    pyplot.plot(NN2.epoch_list, (np.array(NN2.error_history) / len(outputs)).tolist())
+    pyplot.plot(NN2.epoch_list, (np.array(NN2.error_history) / len(NN2.error)).tolist())
     pyplot.xlabel('Batches')
     pyplot.ylabel('Error')
     pyplot.title('trained with epochs: ' + str(NN2.epochs))
     pyplot.show()
     pyplot.close()
-
-    print('outputs', len(outputs), 'batch_size', NN2.batch_size, '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+    
+    if num_outputs == 1:
+        print('outputs', len(outputs), 'batch_size', NN2.batch_size, '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+    else:
+        print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
     (inputs, outputs, bbs) = run_load_mnist(use_test = True)
-    NN2.set_input(inputs, outputs, batch_size=1000)
+    NN2.set_input(inputs, outputs, batch_size=3000)
     NN2.forward()
-    print('outputs', len(outputs), 'batch_size', NN2.batch_size, '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+    if num_outputs == 1:
+        print('outputs', len(outputs), 'batch_size', NN2.batch_size, '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+    else:
+        print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
     
 
 while multi <= multi_test:
