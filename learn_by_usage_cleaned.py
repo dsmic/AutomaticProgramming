@@ -102,7 +102,7 @@ def sigmoid_derivative(x):
 def transform_01_mp(x):
     return 2*x - 1
 
-def run_load_mnist(show_msg = True, use_test = False):
+def run_load_mnist(show_msg = True, use_test = False, limit_labels = None):
     #global inputs, outputs, bbs
     # simelar to https://www.python-course.eu/neural_network_mnist.php
     import pickle
@@ -134,17 +134,17 @@ def run_load_mnist(show_msg = True, use_test = False):
         dataset_name = 'Train dataset'
         used_labels = np.array(train_data[:, :1])
     
+    if limit_labels is not None:
+        new_imgs = []
+        new_labels = []
+        for i in range(len(used_labels)):
+            if int(used_labels[i][0]) in limit_labels:
+                new_imgs.append(used_imgs[i].tolist())
+                new_labels.append(used_labels[i].tolist())
+        used_imgs = np.array(new_imgs)
+        used_labels = np.array(new_labels)
     
-    #train_labels = np.array(train_data[:, :1])
     
-    
-    # for i in range(10):
-    #     print(train_labels[i])
-    #     img = train_imgs[i].reshape((28,28))
-    #     pyplot.imshow(img, cmap="Greys")
-    #     pyplot.show()
-        
-    #train_labels = np.around(1 - np.sign(np.abs(train_labels - label_to_one)))        
     if num_outputs == 1:
         used_labels = np.around(1 - np.sign(np.abs(used_labels - label_to_one)))
     elif num_outputs == 10:
@@ -174,9 +174,9 @@ def run_load_mnist(show_msg = True, use_test = False):
         outputs = transform_01_mp(outputs)
     return (inputs, outputs, bbs)
 
-    
+
 if load_mnist:
-    (inputs, outputs, bbs) = run_load_mnist()
+    (inputs, outputs, bbs) = run_load_mnist(limit_labels=[0,1,2,3,4,5,6,7])
 else:
     if do_pm: # prepare the fixed inputs, load_mnist does it in the function
         inputs = transform_01_mp(inputs)
@@ -553,7 +553,9 @@ if do_batch_training > 0:
         print('outputs', len(outputs), 'batch_size', NN2.batch_size, '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
     else:
         print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
-    (inputs, outputs, bbs) = run_load_mnist(use_test = True)
+    
+    print('Testing if lables were not learned !!!!!!!!!')
+    (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=[8,9])
     NN2.set_input(inputs, outputs, batch_size=3000)
     NN2.forward()
     if num_outputs == 1:
