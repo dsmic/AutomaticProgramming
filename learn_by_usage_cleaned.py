@@ -51,9 +51,10 @@ scale_for_neuron_diff = 1
 scale_sigmoid = 3
 shift_sigmoid = 1
 
-few_shot_end = 0.2
+few_shot_end = 0.2 # for early tests (no mnist)
 few_shot_max_try = 100
-
+few_shot_threshold_ratio = 1.5 # for mnist
+few_shot_threshold = 0.7
 
 
 test_from_random_input = False
@@ -83,6 +84,8 @@ label_to_one = 5
 
 
 num_outputs = 10 # most early test need this to be 1, later with mnist dataset this can be set to 10 eg.
+
+try_mnist_few_shot = True
 
 
 #np.seterr(under='ignore', over='ignore')
@@ -176,7 +179,7 @@ def run_load_mnist(show_msg = True, use_test = False, limit_labels = None):
 
 
 if load_mnist:
-    (inputs, outputs, bbs) = run_load_mnist(limit_labels=[0,1,2,3,4,5,6,7])
+    (inputs, outputs, bbs) = run_load_mnist()
 else:
     if do_pm: # prepare the fixed inputs, load_mnist does it in the function
         inputs = transform_01_mp(inputs)
@@ -535,6 +538,8 @@ NN2 = setup_net()
 multi = 0
 sum_error_history = None
 if do_batch_training > 0:
+    if try_mnist_few_shot:
+        (inputs, outputs, bbs) = run_load_mnist(limit_labels=[0,1,2,3,4,5,6,7])
     NN2.set_input(inputs, outputs, batch_size=3000)
     try:
         NN2.train(do_batch_training)
@@ -555,13 +560,60 @@ if do_batch_training > 0:
         print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
     
     print('Testing if lables were not learned !!!!!!!!!')
-    (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=[8,9])
+    if try_mnist_few_shot:
+        (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=[8,9])
+    else:
+        (inputs, outputs, bbs) = run_load_mnist(use_test = True)
+        
     NN2.set_input(inputs, outputs, batch_size=3000)
     NN2.forward()
     if num_outputs == 1:
         print('outputs', len(outputs), 'batch_size', NN2.batch_size, '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
     else:
         print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+
+    # now try a few shot learning for some steps
+    # load with labels [8,9] and train every to a measure
+    #
+    # criteria label correct: (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0] true
+    # distance to second largest label
+    # biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
+    # ratio = biggest_two[-1] / [-2] > threshold
+    
+    # max_iter is the maximal number of try's to optimize one data point in few_shot
+    if try_mnist_few_shot:
+        (inputs, outputs, bbs) = run_load_mnist(use_test = False,limit_labels=[8,9])
+        pos_8 = 0
+        pos_9 = 0
+        while outputs[pos_8].argmax() != 8:
+            pos_8 += 1
+        while outputs[pos_9].argmax() != 9:
+            pos_9 += 1
+        inp_8 = inputs[pos_8:pos_8+1]
+        outp_8 = outputs[pos_8:pos_8+1]
+        inp_9 = inputs[pos_9:pos_9+1]
+        outp_9 = outputs[pos_9:pos_9+1]
+        for (inp,outp) in [(inp_8,outp_8), (inp_9,outp_9)]:
+            epoch = 0
+            NN2.set_input(inp, outp)
+            while epoch < few_shot_max_try:
+                NN2.forward()
+                NN2.backward()
+                if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
+                    biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
+                    ratio = biggest_two[-1] / biggest_two[-2]
+                    print(biggest_two, ratio)
+                    if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
+                        break
+        print('Results after few shot')
+        NN2.set_input(inputs, outputs, batch_size=1000)
+        NN2.forward()
+        print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+        (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=[8,9])
+        NN2.set_input(inputs, outputs, batch_size=1000)
+        NN2.forward()
+        print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+        
     
 
 while multi <= multi_test:
