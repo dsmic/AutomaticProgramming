@@ -25,7 +25,7 @@ pyplot.rcParams['figure.dpi'] = 150
 pyplot.interactive(False) # seems not to fix memory issue
 
 
-verbose = 1
+verbose = 0
 
 do_check_all = 0 #1000            # 0 to turn off
 
@@ -33,7 +33,7 @@ multi_test = -1 #1000             # 0 to turn off
 max_iter = 30
 
 
-hidden_size = 16
+hidden_size = 8
 two_hidden_layers = True
 use_bias = False
 
@@ -54,13 +54,13 @@ shift_sigmoid = 1
 
 few_shot_end = 0.2 # for early tests (no mnist)
 few_shot_max_try = 100
-few_shot_threshold_ratio = 1.5 # for mnist
+few_shot_threshold_ratio = 2 # for mnist
 few_shot_threshold = 0.5
 
 all_labels = [0, 1, 9, 3, 4, 5, 6, 7, 8, 2]
 # random.shuffle(all_labels)    # if shuffeld, preloading can not work !!!!!
 print('labels (last two are used for few_shot)', all_labels)
-try_load_pretrained = False
+try_load_pretrained = True
 
 
 test_from_random_input = False
@@ -91,7 +91,7 @@ label_to_one = 5
 
 num_outputs = 10 # most early test need this to be 1, later with mnist dataset this can be set to 10 eg.
 
-try_mnist_few_shot = 3
+try_mnist_few_shot = 5
 change_first_layer_slow_learning = 0
 NN2_file_identifier = '_' + str(do_batch_training) + '_' + str(hidden_size) # used for the pickle file to reload pretrained files with different parameters
 
@@ -562,8 +562,8 @@ if do_batch_training > 0:
             with open("pickled_NN2" + NN2_file_identifier + ".pkl", "bw") as fh:
                 pickle.dump(NN2, fh)
         except KeyboardInterrupt:
-            NN2.forward() # most of the time, this should result in an OK net, but not safe, as train could be interrupted at any position
             print('Interrupted by keyboard')
+    NN2.forward() # most of the time, this should result in an OK net, but not safe, as train could be interrupted at any position
     pyplot.figure(figsize=(15,5))
     pyplot.plot(NN2.epoch_list, (np.array(NN2.error_history) / len(NN2.error)).tolist())
     pyplot.xlabel('Batches')
@@ -611,19 +611,19 @@ if do_batch_training > 0:
     # ratio = biggest_two[-1] / [-2] > threshold
     
     # max_iter is the maximal number of try's to optimize one data point in few_shot
-    for _ in range(try_mnist_few_shot): # some shots
+    pos_1 = 0
+    pos_2 = 0
+    for i_shot in range(try_mnist_few_shot): # some shots
         if change_first_layer_slow_learning is not None:
             before = NN2.layers[0].slow_learning
             NN2.layers[0].slow_learning = change_first_layer_slow_learning
             print('slow learning changed from', before, 'to', NN2.layers[0].slow_learning)
         before = lr
         lr = 0.1
-        print('lr changed from',before,'to', lr)
+        print(i_shot + 1,'. shot --- lr changed from',before,'to', lr)
         (inputs, outputs, bbs) = run_load_mnist(use_test = False)
         few1 = all_labels[-2]
         few2 = all_labels[-1]
-        pos_1 = 0
-        pos_2 = 0
         while outputs[pos_1].argmax() != few1:
             pos_1 += 1
         while outputs[pos_2].argmax() != few2:
@@ -632,6 +632,8 @@ if do_batch_training > 0:
         outp_1 = outputs[pos_1:pos_1+1]
         inp_2 = inputs[pos_2:pos_2+1]
         outp_2 = outputs[pos_2:pos_2+1]
+        pos_1 += 1 # prepare the next shot
+        pos_2 += 1
         for (inp,outp) in [(inp_1,outp_1), (inp_2,outp_2)]:
             print('start training', outp)
             epoch = 0
@@ -642,11 +644,12 @@ if do_batch_training > 0:
                 if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
                     biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
                     ratio = biggest_two[-1] / biggest_two[-2]
-                    print(biggest_two, ratio)
+                    if verbose > 0:
+                        print(biggest_two, ratio)
                     if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
                         break
         print('Results after few shot')
-        (inputs, outputs, bbs) = run_load_mnist(use_test = False,limit_labels=all_labels[-2:])
+        (inputs, outputs, bbs) = run_load_mnist(use_test = False,limit_labels=all_labels[:-2])
         NN2.set_input(inputs, outputs, batch_size=1000)
         NN2.forward()
         print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
