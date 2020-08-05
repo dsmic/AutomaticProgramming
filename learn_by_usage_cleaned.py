@@ -37,7 +37,7 @@ hidden_size = 16
 two_hidden_layers = True
 use_bias = False
 
-lr = 3
+lr = 2
 use_stability = False
 stability_mean = 0.1
 clip_weights = 1
@@ -57,7 +57,10 @@ few_shot_max_try = 100
 few_shot_threshold_ratio = 1.5 # for mnist
 few_shot_threshold = 0.5
 
-try_load_pretrained = True
+all_labels = [0, 1, 9, 3, 4, 5, 6, 7, 8, 2]
+# random.shuffle(all_labels)    # if shuffeld, preloading can not work !!!!!
+print('labels (last two are used for few_shot)', all_labels)
+try_load_pretrained = False
 
 
 test_from_random_input = False
@@ -80,7 +83,7 @@ do_pm = False
 
 load_mnist = True
 
-do_batch_training = 20000
+do_batch_training = 100000
 
 first_n_to_use = 60000
 label_to_one = 5
@@ -88,8 +91,9 @@ label_to_one = 5
 
 num_outputs = 10 # most early test need this to be 1, later with mnist dataset this can be set to 10 eg.
 
-try_mnist_few_shot = True
-
+try_mnist_few_shot = 3
+change_first_layer_slow_learning = 0
+NN2_file_identifier = '_' + str(do_batch_training) + '_' + str(hidden_size) # used for the pickle file to reload pretrained files with different parameters
 
 #np.seterr(under='ignore', over='ignore')
 
@@ -458,7 +462,7 @@ class DrawNet():
 
 def setup_net():
     NN2 = DrawNet()
-    NN2.add_layer(len(inputs[0]), init_rand_ampl0 * (np.random.rand(inputs.shape[1], hidden_size) - 0.5), init_rand_ampl0 * (np.random.rand(hidden_size) - 0.5), None, slow_learning = 0.001)
+    NN2.add_layer(len(inputs[0]), init_rand_ampl0 * (np.random.rand(inputs.shape[1], hidden_size) - 0.5), init_rand_ampl0 * (np.random.rand(hidden_size) - 0.5), None, slow_learning = 0.1)
     if two_hidden_layers:
         NN2.add_layer(hidden_size, init_rand_ampl * (np.random.rand(hidden_size, hidden_size) - 0.5), init_rand_ampl * (np.random.rand(hidden_size) - 0.5), None)
     NN2.add_layer(hidden_size, init_rand_ampl * (np.random.rand(hidden_size, num_outputs)- 0.5), init_rand_ampl * (np.random.rand(num_outputs) - 0.5), None)
@@ -540,12 +544,12 @@ NN2 = setup_net()
 multi = 0
 sum_error_history = None
 if do_batch_training > 0:
-    if try_mnist_few_shot:
-        (inputs, outputs, bbs) = run_load_mnist(limit_labels=[0,1,2,3,4,5,6,7])
+    if try_mnist_few_shot > 0:
+        (inputs, outputs, bbs) = run_load_mnist(limit_labels= all_labels[:-2])
     loaded_pretrained = False
     if try_load_pretrained:
         try:
-            with open("pickled_NN2.pkl", "br") as fh:
+            with open("pickled_NN2" + NN2_file_identifier + ".pkl", "br") as fh:
                 NN2 = pickle.load(fh)
             loaded_pretrained = True
             print('loaded pretrained net !!!!!!!!!!!!!!!!!!!!!!!!!!!!')
@@ -555,7 +559,7 @@ if do_batch_training > 0:
     if not loaded_pretrained:
         try:
             NN2.train(do_batch_training)
-            with open("pickled_NN2.pkl", "bw") as fh:
+            with open("pickled_NN2" + NN2_file_identifier + ".pkl", "bw") as fh:
                 pickle.dump(NN2, fh)
         except KeyboardInterrupt:
             NN2.forward() # most of the time, this should result in an OK net, but not safe, as train could be interrupted at any position
@@ -574,8 +578,8 @@ if do_batch_training > 0:
         print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
     
     print('Testing if lables were not learned !!!!!!!!!')
-    if try_mnist_few_shot:
-        (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=[0,1,2,3,4,5,6,7])
+    if try_mnist_few_shot > 0:
+        (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=all_labels[:-2])
     else:
         (inputs, outputs, bbs) = run_load_mnist(use_test = True)
         
@@ -586,8 +590,8 @@ if do_batch_training > 0:
     else:
         print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
 
-    if try_mnist_few_shot:
-        (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=[8,9])
+    if try_mnist_few_shot > 0:
+        (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=all_labels[-2:])
     else:
         (inputs, outputs, bbs) = run_load_mnist(use_test = True)
         
@@ -607,21 +611,28 @@ if do_batch_training > 0:
     # ratio = biggest_two[-1] / [-2] > threshold
     
     # max_iter is the maximal number of try's to optimize one data point in few_shot
-    if try_mnist_few_shot:
+    for _ in range(try_mnist_few_shot): # some shots
+        if change_first_layer_slow_learning is not None:
+            before = NN2.layers[0].slow_learning
+            NN2.layers[0].slow_learning = change_first_layer_slow_learning
+            print('slow learning changed from', before, 'to', NN2.layers[0].slow_learning)
+        before = lr
         lr = 0.1
-        print('lr changed to', lr)
-        (inputs, outputs, bbs) = run_load_mnist(use_test = False,limit_labels=[8,9])
-        pos_8 = 0
-        pos_9 = 0
-        while outputs[pos_8].argmax() != 8:
-            pos_8 += 1
-        while outputs[pos_9].argmax() != 9:
-            pos_9 += 1
-        inp_8 = inputs[pos_8:pos_8+1]
-        outp_8 = outputs[pos_8:pos_8+1]
-        inp_9 = inputs[pos_9:pos_9+1]
-        outp_9 = outputs[pos_9:pos_9+1]
-        for (inp,outp) in [(inp_8,outp_8), (inp_9,outp_9)]:
+        print('lr changed from',before,'to', lr)
+        (inputs, outputs, bbs) = run_load_mnist(use_test = False)
+        few1 = all_labels[-2]
+        few2 = all_labels[-1]
+        pos_1 = 0
+        pos_2 = 0
+        while outputs[pos_1].argmax() != few1:
+            pos_1 += 1
+        while outputs[pos_2].argmax() != few2:
+            pos_2 += 1
+        inp_1 = inputs[pos_1:pos_1+1]
+        outp_1 = outputs[pos_1:pos_1+1]
+        inp_2 = inputs[pos_2:pos_2+1]
+        outp_2 = outputs[pos_2:pos_2+1]
+        for (inp,outp) in [(inp_1,outp_1), (inp_2,outp_2)]:
             print('start training', outp)
             epoch = 0
             NN2.set_input(inp, outp)
@@ -635,25 +646,26 @@ if do_batch_training > 0:
                     if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
                         break
         print('Results after few shot')
+        (inputs, outputs, bbs) = run_load_mnist(use_test = False,limit_labels=all_labels[-2:])
         NN2.set_input(inputs, outputs, batch_size=1000)
         NN2.forward()
-        print('outputs', len(outputs), 'batch_size', NN2.batch_size, '8:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == 8), '9:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == 9), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
-        (inputs, outputs, bbs) = run_load_mnist(use_test = False,limit_labels=[0,1,2,3,4,5,6,7])
+        print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+        (inputs, outputs, bbs) = run_load_mnist(use_test = False,limit_labels=all_labels[-2:])
         NN2.set_input(inputs, outputs, batch_size=1000)
         NN2.forward()
-        print('outputs', len(outputs), 'batch_size', NN2.batch_size, '8:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == 8), '9:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == 9), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
-        (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=[0,1,2,3,4,5,6,7])
+        print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+        (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=all_labels[:-2])
         NN2.set_input(inputs, outputs, batch_size=1000)
         NN2.forward()
-        print('outputs', len(outputs), 'batch_size', NN2.batch_size, '8:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == 8), '9:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == 9), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
-        (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=[8,9])
+        print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+        (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=all_labels[-2:])
         NN2.set_input(inputs, outputs, batch_size=1000)
         NN2.forward()
-        print('outputs', len(outputs), 'batch_size', NN2.batch_size, '8:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == 8), '9:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == 9), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+        print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
         (inputs, outputs, bbs) = run_load_mnist(use_test = True)
         NN2.set_input(inputs, outputs, batch_size=1000)
         NN2.forward()
-        print('outputs', len(outputs), 'batch_size', NN2.batch_size, '8:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == 8), '9:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == 9), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+        print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
         
     
 
