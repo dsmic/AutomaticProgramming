@@ -45,7 +45,7 @@ hidden_size = 8
 two_hidden_layers = True
 use_bias = False
 
-lr = 2
+lr = 0.2
 use_stability = False
 stability_mean = 0.1
 clip_weights = 1
@@ -106,6 +106,11 @@ change_first_layers_slow_learning = [0.1,0.1]
 
 NN2_file_identifier = '_' + str(do_batch_training) + '_' + str(hidden_size) # used for the pickle file to reload pretrained files with different parameters
 
+if use_bias:
+    NN2_file_identifier += 'b_'
+if do_pm:
+    NN2_file_identifier += 'pm'
+    
 #np.seterr(under='ignore', over='ignore')
 
 def sigmoid(x):
@@ -663,7 +668,10 @@ if do_batch_training > 0:
                     NN2.backward()
                     if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
                         biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
-                        ratio = biggest_two[-1] / biggest_two[-2]
+                        if do_pm:
+                            ratio = (biggest_two[-1] + 1) / (biggest_two[-2] + 1) / 2 # do_pm means rsults between -1 and 1
+                        else:
+                            ratio = biggest_two[-1] / biggest_two[-2]
                         if verbose > 0:
                             print(biggest_two, ratio)
                         if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
