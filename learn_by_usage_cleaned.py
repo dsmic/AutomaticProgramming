@@ -4,12 +4,14 @@
 based on: https://towardsdatascience.com/inroduction-to-neural-networks-in-python-7e0b422e6c24
     and https://stackoverflow.com/questions/29888233/how-to-visualize-a-neural-network/29889993
     and https://towardsdatascience.com/how-to-build-your-own-neural-network-from-scratch-in-python-68998a08e4f6
+    and https://www.python-course.eu/neural_network_mnist.php
 Created on Sun Jul 19 15:45:02 2020
 
 @author: detlef
 
 INSTALLATION:
 use it within anaconda and install cupy if cuda availible
+you will need https://www.python-course.eu/data/mnist/mnist_train.csv and https://www.python-course.eu/data/mnist/mnist_test.csv (mnist in csv) in the data/mnist subdirectory
 
 REMARKS:
     
@@ -22,6 +24,10 @@ from matplotlib import pyplot
 from math import cos, sin, atan
 import random
 import pickle
+from datetime import datetime
+
+def np_array(x):
+    return np.array(x) #, dtype = np.float32) # float32 is 3 times faster on batch training with GTX1070Ti and 70 times faster than i7-4790K with float64, cpu does not help float32 a lot)
 
 pyplot.rcParams['figure.dpi'] = 150
 pyplot.interactive(False) # seems not to fix memory issue
@@ -35,7 +41,7 @@ multi_test = -1 #1000             # 0 to turn off
 max_iter = 30
 
 
-hidden_size = 4
+hidden_size = 16
 two_hidden_layers = True
 use_bias = False
 
@@ -56,7 +62,7 @@ shift_sigmoid = 1
 
 few_shot_end = 0.2 # for early tests (no mnist)
 few_shot_max_try = 100
-few_shot_threshold_ratio = 2 # for mnist
+few_shot_threshold_ratio = 1.5 # for mnist
 few_shot_threshold = 0.2
 
 all_labels = [0, 1, 9, 3, 4, 5, 6, 7, 8, 2]
@@ -69,7 +75,7 @@ test_from_random_input = False
 i_bits = 16
 
 # input data
-inputs = np.array([[0, 0, 0],
+inputs = np_array([[0, 0, 0],
                    [0, 0, 1],
                    [0, 1, 0],
                    [0, 1, 1],
@@ -79,7 +85,7 @@ inputs = np.array([[0, 0, 0],
                    [1, 1, 1]])
 
 # output data
-outputs = np.array([[0], [0], [1], [0], [1], [1], [0], [1]])
+outputs = np_array([[0], [0], [1], [0], [1], [1], [0], [1]])
 
 do_pm = False
 
@@ -94,7 +100,7 @@ label_to_one = 5
 num_outputs = 10 # most early test need this to be 1, later with mnist dataset this can be set to 10 eg.
 
 try_mnist_few_shot = 5
-change_first_layer_slow_learning = 0
+change_first_layers_slow_learning = [0,0]
 NN2_file_identifier = '_' + str(do_batch_training) + '_' + str(hidden_size) # used for the pickle file to reload pretrained files with different parameters
 
 #np.seterr(under='ignore', over='ignore')
@@ -120,7 +126,7 @@ def run_load_mnist(show_msg = True, use_test = False, limit_labels = None, only_
     #image_size = 28 # width and length
     #no_of_different_labels = 10 #  i.e. 0, 1, 2, 3, ..., 9
     #image_pixels = image_size * image_size
-    data_path = "/home/detlef/AutomaticProgramming/test_few_shot/data/mnist/" # makes it possible to use kernel from jupyter notebook
+    data_path = "test_few_shot/data/mnist/" # makes it possible to use kernel from jupyter notebook
     
     # speedup loading
     try:
@@ -137,13 +143,13 @@ def run_load_mnist(show_msg = True, use_test = False, limit_labels = None, only_
     fac = 0.99 / 255
 
     if use_test:
-        used_imgs = np.array(test_data[:, 1:]) * fac + 0.01
+        used_imgs = np_array(test_data[:, 1:]) * fac + 0.01
         dataset_name = 'Test dataset'
-        used_labels = np.array(test_data[:, :1])
+        used_labels = np_array(test_data[:, :1])
     else:
-        used_imgs = np.array(train_data[:, 1:]) * fac + 0.01
+        used_imgs = np_array(train_data[:, 1:]) * fac + 0.01
         dataset_name = 'Train dataset'
-        used_labels = np.array(train_data[:, :1])
+        used_labels = np_array(train_data[:, :1])
     
     if limit_labels is not None:
         new_imgs = []
@@ -154,8 +160,8 @@ def run_load_mnist(show_msg = True, use_test = False, limit_labels = None, only_
                 new_labels.append(used_labels[i].tolist())
                 if only_load_num is not None and len(new_labels) >= only_load_num:
                     break
-        used_imgs = np.array(new_imgs)
-        used_labels = np.array(new_labels)
+        used_imgs = np_array(new_imgs)
+        used_labels = np_array(new_labels)
     
     
     if num_outputs == 1:
@@ -165,7 +171,7 @@ def run_load_mnist(show_msg = True, use_test = False, limit_labels = None, only_
         np.fill_diagonal(label_transform, 1)
         label_transform = label_transform.tolist()
         used_labels = [label_transform[int(np.around(x[0]))] for x in used_labels]
-        used_labels = np.array(used_labels)
+        used_labels = np_array(used_labels)
 #        raise Exception('not yet implementd')
     else:
         raise Exception('not yet implementd')
@@ -347,7 +353,7 @@ class Layer():
         if use_stability:
             direct = 1 - self.stability
         else:
-            direct = np.array([1])
+            direct = np_array([1])
         #print('direct', direct)
         self.weights += d_weights * lr * direct * self.slow_learning
         self.bias +=  d_bias *lr * np.sum(direct, axis = 0) * self.slow_learning
@@ -466,10 +472,10 @@ class DrawNet():
 
 def setup_net():
     NN2 = DrawNet()
-    NN2.add_layer(len(inputs[0]), init_rand_ampl0 * (np.random.rand(inputs.shape[1], hidden_size) - 0.5), init_rand_ampl0 * (np.random.rand(hidden_size) - 0.5), None, slow_learning = 0.1)
+    NN2.add_layer(len(inputs[0]), init_rand_ampl0 * np_array(np.random.rand(inputs.shape[1], hidden_size) - 0.5), init_rand_ampl0 * np_array(np.random.rand(hidden_size) - 0.5), None, slow_learning = 0.1)
     if two_hidden_layers:
-        NN2.add_layer(hidden_size, init_rand_ampl * (np.random.rand(hidden_size, hidden_size) - 0.5), init_rand_ampl * (np.random.rand(hidden_size) - 0.5), None)
-    NN2.add_layer(hidden_size, init_rand_ampl * (np.random.rand(hidden_size, num_outputs)- 0.5), init_rand_ampl * (np.random.rand(num_outputs) - 0.5), None)
+        NN2.add_layer(hidden_size, init_rand_ampl * np_array(np.random.rand(hidden_size, hidden_size) - 0.5), init_rand_ampl * np_array(np.random.rand(hidden_size) - 0.5), None)
+    NN2.add_layer(hidden_size, init_rand_ampl * np_array(np.random.rand(hidden_size, num_outputs)- 0.5), init_rand_ampl * np_array(np.random.rand(num_outputs) - 0.5), None)
     NN2.add_layer(num_outputs, None, None, None)
     NN2.set_input(inputs, outputs)
     print('Network parameters: ', NN2.count_parameters())
@@ -484,7 +490,7 @@ def creat_output_from_int(bb, length=8):
             output[l] = [1]
         else:
             output[l] = [0]
-    output = np.array(output)
+    output = np_array(output)
     if do_pm:
         output = transform_01_mp(output)
     return output, bbs
@@ -509,9 +515,9 @@ if do_check_all > 0:
         else:
             notok += 1
         if sum_error_history is None:
-            sum_error_history = np.array(NN2.error_history)
+            sum_error_history = np_array(NN2.error_history)
         else:
-            sum_error_history += np.array(NN2.error_history)
+            sum_error_history += np_array(NN2.error_history)
         if verbose > 0:
             print(bbs, '{0:5.3f}'.format(float(err)),ok,notok)
             pyplot.figure(figsize=(15,5))
@@ -555,8 +561,8 @@ if do_batch_training > 0:
                 NN2 = pickle.load(fh)
             loaded_pretrained = True
             print('loaded pretrained net !!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-        except:
-            print('loading pretrained NN2 failed')
+        except Exception as e:
+            print('loading pretrained NN2 failed:', e)
     if try_mnist_few_shot > 0:
         if loaded_pretrained:
             (inputs, outputs, bbs) = run_load_mnist(limit_labels= all_labels[:-2], only_load_num=few_shot_fast_load_num)
@@ -565,14 +571,16 @@ if do_batch_training > 0:
     NN2.set_input(inputs, outputs, batch_size=3000)
     if not loaded_pretrained:
         try:
+            print('start', datetime.now().strftime("%H:%M:%S"))
             NN2.train(do_batch_training)
+            print('end', datetime.now().strftime("%H:%M:%S"))
             with open("pickled_NN2" + NN2_file_identifier + ".pkl", "bw") as fh:
                 pickle.dump(NN2, fh)
         except KeyboardInterrupt:
             print('Interrupted by keyboard')
     NN2.forward() # most of the time, this should result in an OK net, but not safe, as train could be interrupted at any position
     pyplot.figure(figsize=(15,5))
-    pyplot.plot(NN2.epoch_list, (np.array(NN2.error_history) / len(NN2.error)).tolist())
+    pyplot.plot(NN2.epoch_list, (np_array(NN2.error_history) / len(NN2.error)).tolist())
     pyplot.xlabel('Batches')
     pyplot.ylabel('Error')
     pyplot.title('trained with epochs: ' + str(NN2.epochs))
@@ -621,10 +629,11 @@ if do_batch_training > 0:
     pos_1 = 0
     pos_2 = 0
     for i_shot in range(try_mnist_few_shot): # some shots
-        if change_first_layer_slow_learning is not None:
-            before = NN2.layers[0].slow_learning
-            NN2.layers[0].slow_learning = change_first_layer_slow_learning
-            print('slow learning changed from', before, 'to', NN2.layers[0].slow_learning)
+        if change_first_layers_slow_learning is not None:
+            for l in range(len(change_first_layers_slow_learning)):
+                before = NN2.layers[l].slow_learning
+                NN2.layers[l].slow_learning = change_first_layers_slow_learning[l]
+                print('slow learning of layer',l,'changed from', before, 'to', NN2.layers[l].slow_learning)
         before = lr
         lr = 0.1
         print(i_shot + 1,'. shot --- lr changed from',before,'to', lr)
@@ -678,7 +687,7 @@ if do_batch_training > 0:
         mask = [0] * len(all_labels)
         for l in all_labels[-2:]:
             mask[l] = 1
-        mask = np.array([mask])
+        mask = np_array([mask])
         res_values = res_values * mask
         # deb = float((res_values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum())
         print('using only the few shot trained labels for possible output of neural net')
@@ -711,13 +720,13 @@ while multi <= multi_test:
                 else:
                     v[l] = 0
             inputs.append(v)
-        inputs = np.array(inputs)
+        inputs = np_array(inputs)
     if not load_mnist:
         (outputs, bbs) = creat_output_from_int(random.randrange(0,255))
     
     # reset weights in the last layer
-    NN2.layers[-2].weights = init_rand_ampl * (np.random.rand(hidden_size, 1)- 0.5)
-    NN2.layers[-2].bias = init_rand_ampl * (np.random.rand(1)- 0.5)
+    NN2.layers[-2].weights = init_rand_ampl * np_array(np.random.rand(hidden_size, 1)- 0.5)
+    NN2.layers[-2].bias = init_rand_ampl * np_array(np.random.rand(1)- 0.5)
     label_to_one = random.randrange(0, 9) # change the label used
     run_load_mnist(False)
     NN2.set_input(inputs, outputs)
@@ -793,9 +802,9 @@ while multi <= multi_test:
     
     # plot the error over the entire training duration
     if sum_error_history is None:
-        sum_error_history = np.array(error_history)
+        sum_error_history = np_array(error_history)
     else:
-        sum_error_history += np.array(error_history)
+        sum_error_history += np_array(error_history)
     if verbose > 0:
         pyplot.figure(figsize=(15,5))
         pyplot.plot(epoch_list, error_history)
@@ -805,7 +814,7 @@ while multi <= multi_test:
         pyplot.show()
         pyplot.close()
     
-    print(multi, 'Label', label_to_one, 'Error', np.sum(np.array(error_history[-8:])), pos_under_few_shot)
+    print(multi, 'Label', label_to_one, 'Error', np.sum(np_array(error_history[-8:])), pos_under_few_shot)
     multi += 1
 if sum_error_history is not None:
         pyplot.figure(figsize=(15,5))
