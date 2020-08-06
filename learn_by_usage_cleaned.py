@@ -41,7 +41,7 @@ multi_test = -1 #1000             # 0 to turn off
 max_iter = 30
 
 
-hidden_size = 8
+hidden_size = 32
 two_hidden_layers = True
 use_bias = False
 
@@ -101,7 +101,7 @@ num_outputs = 10 # most early test need this to be 1, later with mnist dataset t
 
 try_mnist_few_shot = 10
 use_every_shot_n_times = 2 # every data is used n times. so one shot means the data from first shot is used n times
-change_first_layers_slow_learning = [0.1,0.1]
+change_first_layers_slow_learning = [0.,0.]
 
 
 NN2_file_identifier = '_' + str(do_batch_training) + '_' + str(hidden_size) # used for the pickle file to reload pretrained files with different parameters
@@ -836,3 +836,31 @@ if sum_error_history is not None:
         pyplot.title('sum error history')
         pyplot.show()
         pyplot.close()
+        
+        
+'''
+Short notes
+
+Started with a simple network 3 bit input layer, one or two hidden layers and one output layer. Each layer was fully connected followed by a sigmoid or tanh and bias possible
+Each structure could learn (sigmoid without bias could not produce 1 output, if 000 input)
+
+Few shot was done by training one input output datapoint to a predefined condition (e.g error below ...) Did not work very good.
+Hebian like placticity for the layers was tried (stats), and drawing of the net with weights and stats was used to try to understand what happens...
+
+Instead of 3 bit input (which can represent 8 different inputs) 8 longer random input strings are used: This made this kind of few shot learning possible. (test_from_random_input)
+
+this lead to the idea for 3 bit input: initialize the weights for the first layer with big random numbers (and use clipping), so we do get the situation as if we had a longer random input.
+Even disable training for the first layer was possible. Both worked with few shot learning.
+
+This lead to the base idea: the first layer produces a lot of correlation information (randomly) from the input and the next layers are learning on this correlation information. This helps generalization.
+
+From here we start with mnist dataset:
+Batch train it with 8 of the 10 labels with big random initialized first layer with slow learning
+few shot with the other two labels
+
+STATE 6.8.2020:
+    if the hidden layer is 8 or 16 this seems to work a little: The two new labels, not seen during batch, are learned by 2 or 3 shots with 70-80% accurency
+    
+    becomes realy bad, if the hidden layers becomes larger
+
+'''
