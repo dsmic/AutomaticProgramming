@@ -12,6 +12,7 @@ Created on Sun Jul 19 15:45:02 2020
 INSTALLATION:
 use it within anaconda and install cupy if cuda availible
 you will need https://www.python-course.eu/data/mnist/mnist_train.csv and https://www.python-course.eu/data/mnist/mnist_test.csv (mnist in csv) in the data/mnist subdirectory
+emnist not in anaconda at the moment, use pip install emnist
 
 REMARKS:
     
@@ -103,7 +104,7 @@ num_outputs = 10 # most early test need this to be 1, later with mnist dataset t
 
 try_mnist_few_shot = 5
 use_every_shot_n_times = 5 # every data is used n times. so one shot means the data from first shot is used n times
-change_first_layers_slow_learning = [0,0]
+change_first_layers_slow_learning = [0, 0]
 
 
 NN2_file_identifier = '_' + str(do_batch_training) + '_' + str(hidden_size) # used for the pickle file to reload pretrained files with different parameters
@@ -487,12 +488,15 @@ class DrawNet():
     
     def count_parameters(self):
         count = 0
+        drops = 0
         for l in self.layers:
             if l.weights is not None:
                 count += l.weights.size
                 if use_bias:
                     count += l.bias.size
-        return count
+                if l.drop_weights is not None:
+                    drops += l.drop_weights.size - np.sum(l.drop_weights)
+        return count, drops
 
 def setup_net():
     NN2 = DrawNet()
@@ -507,7 +511,8 @@ def setup_net():
         if do_drop_weights[l] > 0:
             NN2.layers[l].drop_weights = np.random.rand(NN2.layers[l].weights.size).reshape(NN2.layers[l].weights.shape) > do_drop_weights[l]
             count_drops += NN2.layers[l].drop_weights.size - np.sum(NN2.layers[l].drop_weights)
-    print('Network parameters: ', NN2.count_parameters(), 'dropped', count_drops, 'real parameters', NN2.count_parameters() - count_drops, 'drop definition', do_drop_weights)
+    num_params, count_drops = NN2.count_parameters()
+    print('Network parameters: ', num_params, 'dropped', count_drops, 'real parameters', num_params - count_drops, 'drop definition', do_drop_weights)
     
     return NN2
 
@@ -580,7 +585,7 @@ stopit = False
 few_shot = (multi_test > 0)
 
 
-NN2 = setup_net()
+#NN2 = setup_net()
 multi = 0
 sum_error_history = None
 if do_batch_training > 0:
@@ -589,10 +594,15 @@ if do_batch_training > 0:
         try:
             with open("pickled_NN2" + NN2_file_identifier + ".pkl", "br") as fh:
                 NN2 = pickle.load(fh)
+            num_params, count_drops = NN2.count_parameters()
+            print('Network parameters: ', num_params, 'dropped', count_drops, 'real parameters', num_params - count_drops, 'drop definition', do_drop_weights)
             loaded_pretrained = True
             print('loaded pretrained net !!!!!!!!!!!!!!!!!!!!!!!!!!!!')
         except Exception as e:
             print('loading pretrained NN2 failed:', e)
+            NN2 = setup_net()
+    else:
+        NN2 = setup_net()    
     if try_mnist_few_shot > 0:
         if loaded_pretrained:
             (inputs, outputs, bbs) = run_load_mnist(limit_labels= all_labels[:-2], only_load_num=few_shot_fast_load_num)
@@ -658,83 +668,86 @@ if do_batch_training > 0:
     # max_iter is the maximal number of try's to optimize one data point in few_shot
     pos_1 = 0
     pos_2 = 0
-    for i_shot in range(try_mnist_few_shot): # some shots
-        if change_first_layers_slow_learning is not None:
-            for l in range(len(change_first_layers_slow_learning)):
-                before = NN2.layers[l].slow_learning
-                NN2.layers[l].slow_learning = change_first_layers_slow_learning[l]
-                print('slow learning of layer',l,'changed from', before, 'to', NN2.layers[l].slow_learning)
-        before = lr
-        lr = 0.5
-        print('\n',i_shot + 1,'. shot --- lr changed from',before,'to', lr)
-        (inputs, outputs, bbs) = run_load_mnist(use_test = False)
-        few1 = all_labels[-2]
-        few2 = all_labels[-1]
-        while outputs[pos_1].argmax() != few1:
-            pos_1 += 1
-        while outputs[pos_2].argmax() != few2:
+    try:
+        for i_shot in range(try_mnist_few_shot): # some shots
+            if change_first_layers_slow_learning is not None:
+                for l in range(len(change_first_layers_slow_learning)):
+                    before = NN2.layers[l].slow_learning
+                    NN2.layers[l].slow_learning = change_first_layers_slow_learning[l]
+                    print('slow learning of layer',l,'changed from', before, 'to', NN2.layers[l].slow_learning)
+            before = lr
+            lr = 0.5
+            print('\n',i_shot + 1,'. shot --- lr changed from',before,'to', lr)
+            (inputs, outputs, bbs) = run_load_mnist(use_test = False)
+            few1 = all_labels[-2]
+            few2 = all_labels[-1]
+            while outputs[pos_1].argmax() != few1:
+                pos_1 += 1
+            while outputs[pos_2].argmax() != few2:
+                pos_2 += 1
+            inp_1 = inputs[pos_1:pos_1+1]
+            outp_1 = outputs[pos_1:pos_1+1]
+            inp_2 = inputs[pos_2:pos_2+1]
+            outp_2 = outputs[pos_2:pos_2+1]
+            pos_1 += 1 # prepare the next shot
             pos_2 += 1
-        inp_1 = inputs[pos_1:pos_1+1]
-        outp_1 = outputs[pos_1:pos_1+1]
-        inp_2 = inputs[pos_2:pos_2+1]
-        outp_2 = outputs[pos_2:pos_2+1]
-        pos_1 += 1 # prepare the next shot
-        pos_2 += 1
-        for m in range(use_every_shot_n_times):
-            for (inp,outp) in [(inp_1,outp_1), (inp_2,outp_2)]:
-                print('start training', outp)
-                epoch = 0
-                NN2.set_input(inp, outp)
-                while epoch < few_shot_max_try:
-                    NN2.forward()
-                    NN2.backward()
-                    if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
-                        biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
-                        if do_pm:
-                            ratio = (biggest_two[-1] + 1) / (biggest_two[-2] + 1) / 2 # do_pm means rsults between -1 and 1
-                        else:
-                            ratio = biggest_two[-1] / biggest_two[-2]
-                        if verbose > 0:
-                            print(biggest_two, ratio)
-                        if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
-                            break
-            print('Results after few shot', i_shot + 1, 'used the ', m + 1, '. time')
-            (inputs, outputs, bbs) = run_load_mnist(use_test = False,limit_labels=all_labels[:-2], only_load_num=few_shot_fast_load_num)
-            NN2.set_input(inputs, outputs, batch_size=1000)
-            NN2.forward()
-            print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
-            (inputs, outputs, bbs) = run_load_mnist(use_test = False,limit_labels=all_labels[-2:], only_load_num=few_shot_fast_load_num)
-            NN2.set_input(inputs, outputs, batch_size=1000)
-            NN2.forward()
-            print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
-            (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=all_labels[:-2], only_load_num=few_shot_fast_load_num)
-            NN2.set_input(inputs, outputs, batch_size=1000)
-            NN2.forward()
-            print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
-            (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=all_labels[-2:], only_load_num=few_shot_fast_load_num)
-            NN2.set_input(inputs, outputs, batch_size=1000)
-            NN2.forward()
-            print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
-            
-            # here only the few_shot trained lables are considdered
-            res_values = NN2.layers[-1].values
-            mask = [0] * len(all_labels)
-            for l in all_labels[-2:]:
-                mask[l] = 1
-            mask = np_array([mask])
-            res_values = res_values * mask
-            # deb = float((res_values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum())
-            print('using only the few shot trained labels for possible output of neural net')
-            print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(res_values.argmax(axis = 1) == few1), 'few2:', np.sum(res_values.argmax(axis = 1) == few2), 'correct', float((res_values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((res_values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
-            
-            
-            
-            (inputs, outputs, bbs) = run_load_mnist(use_test = True, only_load_num=few_shot_fast_load_num)
-            NN2.set_input(inputs, outputs, batch_size=1000)
-            NN2.forward()
-            print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
-            
-    
+            for m in range(use_every_shot_n_times):
+                for (inp,outp) in [(inp_1,outp_1), (inp_2,outp_2)]:
+                    print('start training', outp)
+                    epoch = 0
+                    NN2.set_input(inp, outp)
+                    while epoch < few_shot_max_try:
+                        NN2.forward()
+                        NN2.backward()
+                        if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
+                            biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
+                            if do_pm:
+                                ratio = (biggest_two[-1] + 1) / (biggest_two[-2] + 1) / 2 # do_pm means rsults between -1 and 1
+                            else:
+                                ratio = biggest_two[-1] / biggest_two[-2]
+                            if verbose > 0:
+                                print(biggest_two, ratio)
+                            if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
+                                break
+                print('Results after few shot', i_shot + 1, 'used the ', m + 1, '. time')
+                (inputs, outputs, bbs) = run_load_mnist(use_test = False,limit_labels=all_labels[:-2], only_load_num=few_shot_fast_load_num)
+                NN2.set_input(inputs, outputs, batch_size=1000)
+                NN2.forward()
+                print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+                (inputs, outputs, bbs) = run_load_mnist(use_test = False,limit_labels=all_labels[-2:], only_load_num=few_shot_fast_load_num)
+                NN2.set_input(inputs, outputs, batch_size=1000)
+                NN2.forward()
+                print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+                (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=all_labels[:-2], only_load_num=few_shot_fast_load_num)
+                NN2.set_input(inputs, outputs, batch_size=1000)
+                NN2.forward()
+                print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+                (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=all_labels[-2:], only_load_num=few_shot_fast_load_num)
+                NN2.set_input(inputs, outputs, batch_size=1000)
+                NN2.forward()
+                print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+                
+                # here only the few_shot trained lables are considdered
+                res_values = NN2.layers[-1].values
+                mask = [0] * len(all_labels)
+                for l in all_labels[-2:]:
+                    mask[l] = 1
+                mask = np_array([mask])
+                res_values = res_values * mask
+                # deb = float((res_values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum())
+                print('using only the few shot trained labels for possible output of neural net')
+                print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(res_values.argmax(axis = 1) == few1), 'few2:', np.sum(res_values.argmax(axis = 1) == few2), 'correct', float((res_values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((res_values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+                
+                
+                
+                (inputs, outputs, bbs) = run_load_mnist(use_test = True, only_load_num=few_shot_fast_load_num)
+                NN2.set_input(inputs, outputs, batch_size=1000)
+                NN2.forward()
+                print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
+    except KeyboardInterrupt:
+        print('Interrupted')
+else:
+    NN2 = setup_net()
 
 while multi <= multi_test:
     pos_under_few_shot = 0
