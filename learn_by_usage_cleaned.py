@@ -26,7 +26,9 @@ from math import cos, sin, atan
 import random
 import pickle
 from datetime import datetime
+from tqdm import tqdm
 from emnist import extract_training_samples, extract_test_samples
+
 def np_array(x):
     return np.array(x, dtype = np.float32) # float32 is 3 times faster on batch training with GTX1070Ti and 70 times faster than i7-4790K with float64, cpu does not help float32 a lot)
 
@@ -42,7 +44,7 @@ multi_test = -1 #1000             # 0 to turn off
 max_iter = 30
 
 
-hidden_size = 32
+hidden_size = 64
 two_hidden_layers = True
 use_bias = False
 
@@ -73,7 +75,7 @@ few_shot_more_at_once = 5
 all_labels = [0, 1, 9, 3, 4, 5, 6, 7, 8, 2]
 # random.shuffle(all_labels)    # if shuffeld, preloading can not work !!!!!
 print('labels (last two are used for few_shot)', all_labels)
-try_load_pretrained = True
+try_load_pretrained = False
 few_shot_fast_load_num = 4000 # should also handle the batch_sizes for displaying batch training results properly
 
 test_from_random_input = False
@@ -120,7 +122,7 @@ if do_pm:
     
     
 if few_shot_more_at_once != 1:
-    print('Attention few_shot_more_at_once ist set to a value, not well defined!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+    print('Attention few_shot_more_at_once is set to a value, not well defined few shot learning!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
     
 #np.seterr(under='ignore', over='ignore')
 
@@ -428,7 +430,7 @@ class DrawNet():
     
     def train(self, epochs=1000):
         self.epochs = epochs # just to know how it was trained for output
-        for epoch in range(epochs):
+        for epoch in tqdm(range(epochs)):
             # flow forward and produce an output
             self.forward(True)
             # go back though the network to make corrections based on the output
@@ -906,4 +908,8 @@ STATE 6.8.2020:
     
     becomes realy bad, if the hidden layers becomes larger
 
+
+Test 7.8.2020:
+    few_shot_more_at_once = 5: gives a not quite good defined few_shot learning, as 5 datapoints from all are used as a shot, which contain at least the one used for the shot.
+    this resulted in a quite good training result with about 80% overall accurency with 10 shots (tag few_shot_more_at_once)
 '''
