@@ -25,9 +25,9 @@ from math import cos, sin, atan
 import random
 import pickle
 from datetime import datetime
-
+from emnist import extract_training_samples, extract_test_samples
 def np_array(x):
-    return np.array(x) #, dtype = np.float32) # float32 is 3 times faster on batch training with GTX1070Ti and 70 times faster than i7-4790K with float64, cpu does not help float32 a lot)
+    return np.array(x, dtype = np.float32) # float32 is 3 times faster on batch training with GTX1070Ti and 70 times faster than i7-4790K with float64, cpu does not help float32 a lot)
 
 pyplot.rcParams['figure.dpi'] = 150
 pyplot.interactive(False) # seems not to fix memory issue
@@ -41,11 +41,11 @@ multi_test = -1 #1000             # 0 to turn off
 max_iter = 30
 
 
-hidden_size = 32
+hidden_size = 16
 two_hidden_layers = True
 use_bias = False
 
-lr = 0.2
+lr = 2
 use_stability = False
 stability_mean = 0.1
 clip_weights = 1
@@ -68,7 +68,7 @@ few_shot_threshold = 0.2
 all_labels = [0, 1, 9, 3, 4, 5, 6, 7, 8, 2]
 # random.shuffle(all_labels)    # if shuffeld, preloading can not work !!!!!
 print('labels (last two are used for few_shot)', all_labels)
-try_load_pretrained = True
+try_load_pretrained = False
 few_shot_fast_load_num = 4000 # should also handle the batch_sizes for displaying batch training results properly
 
 test_from_random_input = False
@@ -89,19 +89,21 @@ outputs = np_array([[0], [0], [1], [0], [1], [1], [0], [1]])
 
 do_pm = False
 
+use_emnist = True
 load_mnist = True
 
-do_batch_training = 100000
+do_batch_training = 10000
+do_drop_weights = [0.9]
 
-first_n_to_use = 60000
+first_n_to_use = 600000
 label_to_one = 5
 
 
 num_outputs = 10 # most early test need this to be 1, later with mnist dataset this can be set to 10 eg.
 
-try_mnist_few_shot = 10
-use_every_shot_n_times = 2 # every data is used n times. so one shot means the data from first shot is used n times
-change_first_layers_slow_learning = [0.,0.]
+try_mnist_few_shot = 5
+use_every_shot_n_times = 5 # every data is used n times. so one shot means the data from first shot is used n times
+change_first_layers_slow_learning = [0,0]
 
 
 NN2_file_identifier = '_' + str(do_batch_training) + '_' + str(hidden_size) # used for the pickle file to reload pretrained files with different parameters
@@ -137,28 +139,38 @@ def run_load_mnist(show_msg = True, use_test = False, limit_labels = None, only_
     data_path = "test_few_shot/data/mnist/" # makes it possible to use kernel from jupyter notebook
     
     # speedup loading
-    try:
-        with open(data_path + "pickled_mnist.pkl", "br") as fh:
-            (train_data, test_data) = pickle.load(fh)
-    except:
-        train_data = np.loadtxt(data_path + "mnist_train.csv", 
-                                delimiter=",")
-        test_data = np.loadtxt(data_path + "mnist_test.csv", 
-                           delimiter=",") 
-        with open(data_path + "pickled_mnist.pkl", "bw") as fh:
-            pickle.dump((train_data, test_data), fh)
-            
     fac = 0.99 / 255
-
-    if use_test:
-        used_imgs = np_array(test_data[:, 1:]) * fac + 0.01
-        dataset_name = 'Test dataset'
-        used_labels = np_array(test_data[:, :1])
+    if not use_emnist:
+        try:
+            with open(data_path + "pickled_mnist.pkl", "br") as fh:
+                (train_data, test_data) = pickle.load(fh)
+        except:
+            train_data = np.loadtxt(data_path + "mnist_train.csv", 
+                                    delimiter=",")
+            test_data = np.loadtxt(data_path + "mnist_test.csv", 
+                               delimiter=",") 
+            with open(data_path + "pickled_mnist.pkl", "bw") as fh:
+                pickle.dump((train_data, test_data), fh)
+                
+        
+        if use_test:
+            used_imgs = np_array(test_data[:, 1:]) * fac + 0.01
+            dataset_name = 'Test dataset'
+            used_labels = np_array(test_data[:, :1])
+        else:
+            used_imgs = np_array(train_data[:, 1:]) * fac + 0.01
+            dataset_name = 'Train dataset'
+            used_labels = np_array(train_data[:, :1])
     else:
-        used_imgs = np_array(train_data[:, 1:]) * fac + 0.01
-        dataset_name = 'Train dataset'
-        used_labels = np_array(train_data[:, :1])
-    
+        if use_test:
+            dataset_name = 'Test dataset'
+            (used_imgs, used_labels) = extract_test_samples('digits')
+        else:
+            dataset_name = 'Train dataset'
+            (used_imgs, used_labels) = extract_training_samples('digits')
+        used_imgs = np_array(used_imgs.reshape(-1, 28*28)) * fac + 0.01
+        used_labels = used_labels.reshape(-1,1)
+        
     if limit_labels is not None:
         new_imgs = []
         new_labels = []
@@ -237,6 +249,7 @@ class Layer():
         self.weights = weights
         if weights is not None:
             self.stability = np.zeros(weights.shape)
+        self.drop_weights = None
         self.bias = bias
         self.values = values
         self.slow_learning = slow_learning
@@ -367,6 +380,9 @@ class Layer():
         self.bias +=  d_bias *lr * np.sum(direct, axis = 0) * self.slow_learning
         np.clip(self.weights, -clip_weights, clip_weights, self.weights)
         np.clip(self.bias, -clip_bias, clip_bias, self.bias)
+        if self.drop_weights is not None:
+            self.weights *= self.drop_weights
+            
         
 class DrawNet():
     def __init__(self):
@@ -486,7 +502,13 @@ def setup_net():
     NN2.add_layer(hidden_size, init_rand_ampl * np_array(np.random.rand(hidden_size, num_outputs)- 0.5), init_rand_ampl * np_array(np.random.rand(num_outputs) - 0.5), None)
     NN2.add_layer(num_outputs, None, None, None)
     NN2.set_input(inputs, outputs)
-    print('Network parameters: ', NN2.count_parameters())
+    count_drops = 0
+    for l in range(len(do_drop_weights)):
+        if do_drop_weights[l] > 0:
+            NN2.layers[l].drop_weights = np.random.rand(NN2.layers[l].weights.size).reshape(NN2.layers[l].weights.shape) > do_drop_weights[l]
+            count_drops += NN2.layers[l].drop_weights.size - np.sum(NN2.layers[l].drop_weights)
+    print('Network parameters: ', NN2.count_parameters(), 'dropped', count_drops, 'real parameters', NN2.count_parameters() - count_drops, 'drop definition', do_drop_weights)
+    
     return NN2
 
 
@@ -576,7 +598,7 @@ if do_batch_training > 0:
             (inputs, outputs, bbs) = run_load_mnist(limit_labels= all_labels[:-2], only_load_num=few_shot_fast_load_num)
         else:
             (inputs, outputs, bbs) = run_load_mnist(limit_labels= all_labels[:-2])
-    NN2.set_input(inputs, outputs, batch_size=3000)
+    NN2.set_input(inputs, outputs, batch_size=1000)
     if not loaded_pretrained:
         try:
             print('start', datetime.now().strftime("%H:%M:%S"))
@@ -606,7 +628,7 @@ if do_batch_training > 0:
     else:
         (inputs, outputs, bbs) = run_load_mnist(use_test = True)
         
-    NN2.set_input(inputs, outputs, batch_size=3000)
+    NN2.set_input(inputs, outputs, batch_size=1000)
     NN2.forward()
     if num_outputs == 1:
         print('outputs', len(outputs), 'batch_size', NN2.batch_size, '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
@@ -618,7 +640,7 @@ if do_batch_training > 0:
     else:
         (inputs, outputs, bbs) = run_load_mnist(use_test = True)
         
-    NN2.set_input(inputs, outputs, batch_size=3000)
+    NN2.set_input(inputs, outputs, batch_size=1000)
     NN2.forward()
     if num_outputs == 1:
         print('outputs', len(outputs), 'batch_size', NN2.batch_size, '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
@@ -676,7 +698,7 @@ if do_batch_training > 0:
                             print(biggest_two, ratio)
                         if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
                             break
-            print('Results after few shot', i_shot, 'used the ', m + 1, '. time')
+            print('Results after few shot', i_shot + 1, 'used the ', m + 1, '. time')
             (inputs, outputs, bbs) = run_load_mnist(use_test = False,limit_labels=all_labels[:-2], only_load_num=few_shot_fast_load_num)
             NN2.set_input(inputs, outputs, batch_size=1000)
             NN2.forward()
