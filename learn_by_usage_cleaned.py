@@ -42,7 +42,7 @@ multi_test = -1 #1000             # 0 to turn off
 max_iter = 30
 
 
-hidden_size = 16
+hidden_size = 32
 two_hidden_layers = True
 use_bias = False
 
@@ -64,12 +64,16 @@ shift_sigmoid = 1
 few_shot_end = 0.2 # for early tests (no mnist)
 few_shot_max_try = 100
 few_shot_threshold_ratio = 1.5 # for mnist
-few_shot_threshold = 0.2
+few_shot_threshold = 0.3
+
+# this should be 1, if more it is not a well defined few shot learning method, but it uses more than one datapoint as a shot !!!!!
+few_shot_more_at_once = 5
+
 
 all_labels = [0, 1, 9, 3, 4, 5, 6, 7, 8, 2]
 # random.shuffle(all_labels)    # if shuffeld, preloading can not work !!!!!
 print('labels (last two are used for few_shot)', all_labels)
-try_load_pretrained = False
+try_load_pretrained = True
 few_shot_fast_load_num = 4000 # should also handle the batch_sizes for displaying batch training results properly
 
 test_from_random_input = False
@@ -93,8 +97,8 @@ do_pm = False
 use_emnist = True
 load_mnist = True
 
-do_batch_training = 10000
-do_drop_weights = [0.9]
+do_batch_training = 100000
+do_drop_weights = [0.9,0.9]
 
 first_n_to_use = 600000
 label_to_one = 5
@@ -102,9 +106,9 @@ label_to_one = 5
 
 num_outputs = 10 # most early test need this to be 1, later with mnist dataset this can be set to 10 eg.
 
-try_mnist_few_shot = 5
-use_every_shot_n_times = 5 # every data is used n times. so one shot means the data from first shot is used n times
-change_first_layers_slow_learning = [0, 0]
+try_mnist_few_shot = 10
+use_every_shot_n_times = 10 # every data is used n times. so one shot means the data from first shot is used n times
+change_first_layers_slow_learning = [0, 0.1]
 
 
 NN2_file_identifier = '_' + str(do_batch_training) + '_' + str(hidden_size) # used for the pickle file to reload pretrained files with different parameters
@@ -113,6 +117,10 @@ if use_bias:
     NN2_file_identifier += 'b_'
 if do_pm:
     NN2_file_identifier += 'pm'
+    
+    
+if few_shot_more_at_once != 1:
+    print('Attention few_shot_more_at_once ist set to a value, not well defined!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
     
 #np.seterr(under='ignore', over='ignore')
 
@@ -685,12 +693,12 @@ if do_batch_training > 0:
                 pos_1 += 1
             while outputs[pos_2].argmax() != few2:
                 pos_2 += 1
-            inp_1 = inputs[pos_1:pos_1+1]
-            outp_1 = outputs[pos_1:pos_1+1]
-            inp_2 = inputs[pos_2:pos_2+1]
-            outp_2 = outputs[pos_2:pos_2+1]
-            pos_1 += 1 # prepare the next shot
-            pos_2 += 1
+            inp_1 = inputs[pos_1:pos_1+few_shot_more_at_once]
+            outp_1 = outputs[pos_1:pos_1+few_shot_more_at_once]
+            inp_2 = inputs[pos_2:pos_2+few_shot_more_at_once]
+            outp_2 = outputs[pos_2:pos_2+few_shot_more_at_once]
+            pos_1 += few_shot_more_at_once # prepare the next shot
+            pos_2 += few_shot_more_at_once
             for m in range(use_every_shot_n_times):
                 for (inp,outp) in [(inp_1,outp_1), (inp_2,outp_2)]:
                     print('start training', outp)
