@@ -14,6 +14,10 @@ use it within anaconda and install cupy if cuda availible
 you will need https://www.python-course.eu/data/mnist/mnist_train.csv and https://www.python-course.eu/data/mnist/mnist_test.csv (mnist in csv) in the data/mnist subdirectory
 emnist not in anaconda at the moment, use pip install emnist
 
+on Google Colab (turn on GPU!!)
+!curl https://colab.chainer.org/install | sh -
+!pip install emnist
+
 REMARKS:
     
 loss function used = 1/2 SUM(error**2) // making the derivative error
@@ -51,7 +55,7 @@ use_bias = False
 lr = 2
 use_stability = False
 stability_mean = 0.1
-clip_weights = 1000 # 1 # (clipping to 1 was used for most tests)
+clip_weights = 1 # (clipping to 1 was used for most tests)
 clip_bias = 1
 init_rand_ampl = 0.1
 init_rand_ampl0 = 0.1 #2 # for first layer    (2 was used for most tests to make the first layer a mostly random layer)
@@ -888,7 +892,7 @@ if sum_error_history is not None:
         pyplot.close()
         
         
-'''
+"""
 Short notes
 
 Started with a simple network 3 bit input layer, one or two hidden layers and one output layer. Each layer was fully connected followed by a sigmoid or tanh and bias possible
@@ -924,4 +928,4 @@ Test 8.8.2020:
     
     drop weights seems not to hurt too (0.9 for first two layers), even as the number of parameters is very much reduced than.
     it was possible to increase hidden_size with making few_shot learning better (drop_weights = [0.9, 0.9] and hidden_size=128) seemed to be fine.
-'''
+"""
