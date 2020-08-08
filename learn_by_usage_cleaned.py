@@ -79,7 +79,7 @@ few_shot_more_at_once = 5
 all_labels = [0, 1, 9, 3, 4, 5, 6, 7, 8, 2]
 # random.shuffle(all_labels)    # if shuffeld, preloading can not work !!!!!
 print('labels (last two are used for few_shot)', all_labels)
-try_load_pretrained = False
+try_load_pretrained = True
 few_shot_fast_load_num = 4000 # should also handle the batch_sizes for displaying batch training results properly
 
 test_from_random_input = False
@@ -718,6 +718,7 @@ if do_batch_training > 0:
                     while epoch < few_shot_max_try:
                         NN2.forward()
                         NN2.backward()
+                        # criterium for stopping is only used for the first element, which is the one few shot is done for. The other elements are not checked, but only used for stabilizing old learned data
                         if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
                             biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
                             if do_pm:
@@ -928,4 +929,6 @@ Test 8.8.2020:
     
     drop weights seems not to hurt too (0.9 for first two layers), even as the number of parameters is very much reduced than.
     it was possible to increase hidden_size with making few_shot learning better (drop_weights = [0.9, 0.9] and hidden_size=128) seemed to be fine.
+    
+    GoogleColab_few_shot_64.ipynb (clipping 1000, first layer slow learning 0 during few shot) gives 90% overall performance
 """
