@@ -30,11 +30,11 @@ from tqdm import tqdm
 from emnist import extract_training_samples, extract_test_samples
 
 def np_array(x):
-    return np.array(x, dtype = np.float32) # float32 is 3 times faster on batch training with GTX1070Ti and 70 times faster than i7-4790K with float64, cpu does not help float32 a lot)
+    return np.array(x)# , dtype = np.float32) # float32 is 3 times faster on batch training with GTX1070Ti and 70 times faster than i7-4790K with float64, cpu does not help float32 a lot)
+check_for_nan = True
 
 pyplot.rcParams['figure.dpi'] = 150
 pyplot.interactive(False) # seems not to fix memory issue
-
 
 verbose = 0
 
@@ -44,17 +44,17 @@ multi_test = -1 #1000             # 0 to turn off
 max_iter = 30
 
 
-hidden_size = 64
+hidden_size = 16
 two_hidden_layers = True
 use_bias = False
 
 lr = 2
 use_stability = False
 stability_mean = 0.1
-clip_weights = 1
+clip_weights = 1000 # 1 # (clipping to 1 was used for most tests)
 clip_bias = 1
 init_rand_ampl = 0.1
-init_rand_ampl0 = 2# for first layer
+init_rand_ampl0 = 0.1 #2 # for first layer    (2 was used for most tests to make the first layer a mostly random layer)
 
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
@@ -100,7 +100,9 @@ use_emnist = True
 load_mnist = True
 
 do_batch_training = 100000
-do_drop_weights = [0.9,0.9]
+do_drop_weights = [] # [0.9,0.9]
+initial_net_first_layer_slow_learning = 1 # 0.1 # most tests are done with 0.1 here, just try if it was really necessary
+
 
 first_n_to_use = 600000
 label_to_one = 5
@@ -110,7 +112,7 @@ num_outputs = 10 # most early test need this to be 1, later with mnist dataset t
 
 try_mnist_few_shot = 10
 use_every_shot_n_times = 10 # every data is used n times. so one shot means the data from first shot is used n times
-change_first_layers_slow_learning = [0, 0.1]
+change_first_layers_slow_learning = [0.1, 1] # [0, 0.1]
 
 
 NN2_file_identifier = '_' + str(do_batch_training) + '_' + str(hidden_size) # used for the pickle file to reload pretrained files with different parameters
@@ -418,6 +420,9 @@ class DrawNet():
             outp = layer.forward(outp, dostability)
         #self.layers[-1].values = outp
         self.error = self.y - self.layers[-1].values
+        if check_for_nan:
+            if np.any(np.isnan(self.error)):
+                print('nan')
         return outp
     
     def backward(self):
@@ -510,7 +515,7 @@ class DrawNet():
 
 def setup_net():
     NN2 = DrawNet()
-    NN2.add_layer(len(inputs[0]), init_rand_ampl0 * np_array(np.random.rand(inputs.shape[1], hidden_size) - 0.5), init_rand_ampl0 * np_array(np.random.rand(hidden_size) - 0.5), None, slow_learning = 0.1)
+    NN2.add_layer(len(inputs[0]), init_rand_ampl0 * np_array(np.random.rand(inputs.shape[1], hidden_size) - 0.5), init_rand_ampl0 * np_array(np.random.rand(hidden_size) - 0.5), None, slow_learning = initial_net_first_layer_slow_learning)
     if two_hidden_layers:
         NN2.add_layer(hidden_size, init_rand_ampl * np_array(np.random.rand(hidden_size, hidden_size) - 0.5), init_rand_ampl * np_array(np.random.rand(hidden_size) - 0.5), None)
     NN2.add_layer(hidden_size, init_rand_ampl * np_array(np.random.rand(hidden_size, num_outputs)- 0.5), init_rand_ampl * np_array(np.random.rand(num_outputs) - 0.5), None)
@@ -912,4 +917,11 @@ STATE 6.8.2020:
 Test 7.8.2020:
     few_shot_more_at_once = 5: gives a not quite good defined few_shot learning, as 5 datapoints from all are used as a shot, which contain at least the one used for the shot.
     this resulted in a quite good training result with about 80% overall accurency with 10 shots (tag few_shot_more_at_once)
+
+Test 8.8.2020:
+    tried reducing the ideas, used so far. Seems most important is clipping or big random initialization of the first layer. Without both it forgets the prelearning a lot. Using both seems to be more stable.
+    Using first layer slow_learning combined with no weights clipping and no increased randomness seems very good with hidden_size = 16 (tag: only_slow_for_first_layer)
+    
+    drop weights seems not to hurt too (0.9 for first two layers), even as the number of parameters is very much reduced than.
+    it was possible to increase hidden_size with making few_shot learning better (drop_weights = [0.9, 0.9] and hidden_size=128) seemed to be fine.
 '''
