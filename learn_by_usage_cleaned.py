@@ -439,7 +439,7 @@ class DrawNet():
     
     def train(self, epochs=1000):
         self.epochs = epochs # just to know how it was trained for output
-        for epoch in tqdm(range(epochs)):
+        for epoch in tqdm(range(epochs), mininterval = 10):
             # flow forward and produce an output
             self.forward(True)
             # go back though the network to make corrections based on the output
