@@ -53,6 +53,7 @@ two_hidden_layers = True
 use_bias = False
 
 lr = 2
+lr_few_shot = 0.5
 use_stability = False
 stability_mean = 0.1
 clip_weights = 1 # (clipping to 1 was used for most tests)
@@ -118,6 +119,9 @@ try_mnist_few_shot = 10
 use_every_shot_n_times = 10 # every data is used n times. so one shot means the data from first shot is used n times
 change_first_layers_slow_learning = [0.1, 1] # [0, 0.1]
 
+# End of constant definitions
+
+# run from here after constants were defined
 
 NN2_file_identifier = '_' + str(do_batch_training) + '_' + str(hidden_size) # used for the pickle file to reload pretrained files with different parameters
 
@@ -699,7 +703,7 @@ if do_batch_training > 0:
                     if verbose == 1:
                         print('slow learning of layer',l,'changed from', before, 'to', NN2.layers[l].slow_learning)
             before = lr
-            lr = 0.5
+            lr = lr_few_shot
             if verbose >0:
                 print('\n',i_shot + 1,'. shot --- lr changed from',before,'to', lr)
             (inputs, outputs, bbs) = run_load_mnist(use_test = False)
