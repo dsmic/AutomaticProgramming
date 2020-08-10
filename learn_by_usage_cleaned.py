@@ -483,7 +483,7 @@ class DrawNet():
                 self.batch_pos += self.batch_size
             
             
-    def draw(self, result, usage = False, display_title = None):
+    def draw(self, result = None, usage = False, display_title = None):
         c = 0
         for layer in self.layers:
             c+=1
