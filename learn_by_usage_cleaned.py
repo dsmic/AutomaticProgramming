@@ -118,6 +118,9 @@ try_mnist_few_shot = 10
 use_every_shot_n_times = 10 # every data is used n times. so one shot means the data from first shot is used n times
 change_first_layers_slow_learning = [0.1, 1] # [0, 0.1]
 
+
+disable_progressbar = False
+
 # End of constant definitions
 
 # run from here after constants were defined
@@ -449,7 +452,7 @@ class DrawNet():
         self.epochs = epochs # just to know how it was trained for output
         self.error_history = []
         self.epoch_list = []
-        for epoch in tqdm(range(epochs), mininterval = 10):
+        for epoch in tqdm(range(epochs), mininterval = 10, disable=disable_progressbar):
             # flow forward and produce an output
             self.forward(True)
             # go back though the network to make corrections based on the output
@@ -552,7 +555,8 @@ def setup_net():
             NN2.layers[l].drop_weights = np.random.rand(NN2.layers[l].weights.size).reshape(NN2.layers[l].weights.shape) > do_drop_weights[l]
             count_drops += NN2.layers[l].drop_weights.size - np.sum(NN2.layers[l].drop_weights)
     num_params, count_drops = NN2.count_parameters()
-    print('Network parameters: ', num_params, 'dropped', count_drops, 'real parameters', num_params - count_drops, 'drop definition', do_drop_weights)
+    if verbose > 0:
+        print('Network parameters: ', num_params, 'dropped', count_drops, 'real parameters', num_params - count_drops, 'drop definition', do_drop_weights)
     
     return NN2
 
@@ -594,7 +598,7 @@ if do_check_all > 0:
             sum_error_history = np_array(NN2.error_history)
         else:
             sum_error_history += np_array(NN2.error_history)
-        if verbose > 0:
+        if verbose > 1:
             print(bbs, '{0:5.3f}'.format(float(err)),ok,notok)
             pyplot.figure(figsize=(15,5))
             pyplot.plot(NN2.epoch_list, NN2.error_history)
@@ -717,11 +721,11 @@ if do_batch_training > 0:
                 for l in range(len(change_first_layers_slow_learning)):
                     before = NN2.layers[l].slow_learning
                     NN2.layers[l].slow_learning = change_first_layers_slow_learning[l]
-                    if verbose == 1:
+                    if verbose > 0:
                         print('slow learning of layer',l,'changed from', before, 'to', NN2.layers[l].slow_learning)
             before = lr
             lr = lr_few_shot
-            if verbose >0:
+            if verbose > 0:
                 print('\n',i_shot + 1,'. shot --- lr changed from',before,'to', lr)
             (inputs, outputs, bbs) = run_load_mnist(use_test = False)
             few1 = all_labels[-2]
