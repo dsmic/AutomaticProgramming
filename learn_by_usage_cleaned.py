@@ -819,9 +819,11 @@ while multi <= multi_test:
         inputs = np_array(inputs)
     if not load_mnist:
         (outputs, bbs) = creat_output_from_int(random.randrange(0,127)) # first output always 0, as sigmoid network is not capable of outputting 1 here
+        disp_label = bbs
     else:
         label_to_one = random.randrange(0, 9) # change the label used
         run_load_mnist(False)
+        disp_label = label_to_one
         
     # reset weights in the last layer
     NN2.layers[-2].weights = init_rand_ampl * np_array(np.random.rand(hidden_size, 1)- 0.5)
@@ -912,7 +914,7 @@ while multi <= multi_test:
         pyplot.show()
         pyplot.close()
     
-    print("%3d Label %3d Error %6.3f     Ready %3d" % (multi, label_to_one, np.sum(np_array(error_history[-8:])), pos_under_few_shot))
+    print("%3d Label %3s Error %6.3f     Ready %3d" % (multi, str(disp_label), np.sum(np_array(error_history[-8:])), pos_under_few_shot))
     multi += 1
 if sum_error_history is not None:
         pyplot.figure(figsize=(15,5))
