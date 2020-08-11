@@ -44,7 +44,7 @@ verbose = 0
 
 do_check_all = 0 #1000            # 0 to turn off
 
-multi_test = -1 #1000             # 0 to turn off
+multi_test = -1 #1000             # -1 to turn off
 max_iter = 30
 
 hidden_size = 16
@@ -79,7 +79,6 @@ few_shot_more_at_once = 5
 
 all_labels = [0, 1, 9, 3, 4, 5, 6, 7, 8, 2]
 # random.shuffle(all_labels)    # if shuffeld, preloading can not work !!!!!
-print('labels (last two are used for few_shot)', all_labels)
 try_load_pretrained = True
 few_shot_fast_load_num = 4000 # should also handle the batch_sizes for displaying batch training results properly
 
@@ -134,6 +133,8 @@ if do_pm:
     
 if few_shot_more_at_once != 1:
     print('Special few shot configuration, using additional data in every shot. Not the standard understanding of few shot!!!')
+if load_mnist:
+    print('labels (last two are used for few_shot)', all_labels)
     
 #np.seterr(under='ignore', over='ignore')
 
@@ -599,7 +600,7 @@ if do_check_all > 0:
         else:
             sum_error_history += np_array(NN2.error_history)
         if verbose > 1:
-            print(bbs, '{0:5.3f}'.format(float(err)),ok,notok)
+            #print(bbs, '{0:5.3f}'.format(float(err)),ok,notok)
             pyplot.figure(figsize=(15,5))
             pyplot.plot(NN2.epoch_list, NN2.error_history)
             pyplot.xlabel('Epoch')
@@ -607,7 +608,7 @@ if do_check_all > 0:
             pyplot.title(bbs)
             pyplot.show()
             pyplot.close()
-        print("Label %8s error %6.3f" % (bbs, err))
+        print("Label %8s error %6.3f" % (bbs, err), ok, "total fails yet:", notok)
     pyplot.figure(figsize=(15,5))
     pyplot.plot(NN2.epoch_list, (sum_error_history / 256).tolist())
     pyplot.xlabel('Epoch')
@@ -615,9 +616,6 @@ if do_check_all > 0:
     pyplot.title('sum error history')
     pyplot.show()
     pyplot.close()
-        
-    import sys
-    sys.exit()
 
 
         
