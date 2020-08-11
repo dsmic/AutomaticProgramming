@@ -47,7 +47,6 @@ do_check_all = 0 #1000            # 0 to turn off
 multi_test = -1 #1000             # 0 to turn off
 max_iter = 30
 
-
 hidden_size = 16
 two_hidden_layers = True
 use_bias = False
@@ -61,6 +60,7 @@ clip_bias = 1
 init_rand_ampl = 0.1
 init_rand_ampl0 = 0.1 #2 # for first layer    (2 was used for most tests to make the first layer a mostly random layer)
 
+# drawing parameters
 scale_linewidth = 0.1
 weight_tanh_scale = 0.1
 scale_for_neuron_diff = 1
@@ -73,7 +73,7 @@ few_shot_max_try = 100
 few_shot_threshold_ratio = 1.5 # for mnist
 few_shot_threshold = 0.3
 
-# this should be 1, if more it is not a well defined few shot learning method, but it uses more than one datapoint as a shot !!!!!
+# if zero it is standard understanding of few shot learning, giving on data point at each shot, otherwize it adds more data points from availible training data to each shot
 few_shot_more_at_once = 5
 
 
@@ -99,6 +99,7 @@ inputs = np_array([[0, 0, 0],
 # output data
 outputs = np_array([[0], [0], [1], [0], [1], [1], [0], [1]])
 
+# swith to tanh and making input and output 1 -1 instead of 1 0
 do_pm = False
 
 use_emnist = True
@@ -108,10 +109,8 @@ do_batch_training = 100000
 do_drop_weights = [] # [0.9,0.9]
 initial_net_first_layer_slow_learning = 1 # 0.1 # most tests are done with 0.1 here, just try if it was really necessary
 
-
 first_n_to_use = 600000
 label_to_one = 5
-
 
 num_outputs = 10 # most early test need this to be 1, later with mnist dataset this can be set to 10 eg.
 
@@ -129,7 +128,6 @@ if use_bias:
     NN2_file_identifier += 'b_'
 if do_pm:
     NN2_file_identifier += 'pm'
-    
     
 if few_shot_more_at_once != 1:
     print('Special few shot configuration, using additional data in every shot. Not the standard understanding of few shot!!!')
@@ -157,6 +155,8 @@ def run_load_mnist(show_msg = True, use_test = False, limit_labels = None, only_
     #image_size = 28 # width and length
     #no_of_different_labels = 10 #  i.e. 0, 1, 2, 3, ..., 9
     #image_pixels = image_size * image_size
+    if not load_mnist:
+        print('This should not happen!!')
     data_path = "test_few_shot/data/mnist/" # makes it possible to use kernel from jupyter notebook
     
     # speedup loading
@@ -351,7 +351,10 @@ class Layer():
                     if usage:
                         self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, usage = used)
                     else:
-                        self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, stability)
+                        if use_stability:
+                            self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, stability)
+                        else:
+                            self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, 0.3)
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, weight)
                     
     def backward(self, post_error):
@@ -524,7 +527,10 @@ class DrawNet():
 
 def setup_net():
     NN2 = DrawNet()
-    NN2.add_layer(len(inputs[0]), init_rand_ampl0 * np_array(np.random.rand(inputs.shape[1], hidden_size) - 0.5), init_rand_ampl0 * np_array(np.random.rand(hidden_size) - 0.5), None, slow_learning = initial_net_first_layer_slow_learning)
+    input_len = len(inputs[0])
+    if test_from_random_input:
+        input_len = i_bits
+    NN2.add_layer(input_len, init_rand_ampl0 * np_array(np.random.rand(input_len, hidden_size) - 0.5), init_rand_ampl0 * np_array(np.random.rand(hidden_size) - 0.5), None, slow_learning = initial_net_first_layer_slow_learning)
     if two_hidden_layers:
         NN2.add_layer(hidden_size, init_rand_ampl * np_array(np.random.rand(hidden_size, hidden_size) - 0.5), init_rand_ampl * np_array(np.random.rand(hidden_size) - 0.5), None)
     NN2.add_layer(hidden_size, init_rand_ampl * np_array(np.random.rand(hidden_size, num_outputs)- 0.5), init_rand_ampl * np_array(np.random.rand(num_outputs) - 0.5), None)
@@ -555,6 +561,7 @@ def creat_output_from_int(bb, length=8):
     return output, bbs
 
 if do_check_all > 0:
+    # checks all possible input output combinations to check, if the neural net is capable of learning in
     notok = 0
     sum_error_history = None
     for bb in range(0, 256):
@@ -610,7 +617,6 @@ few_shot = (multi_test > 0)
 
 
 #NN2 = setup_net()
-multi = 0
 sum_error_history = None
 if do_batch_training > 0:
     loaded_pretrained = False
@@ -789,7 +795,10 @@ if do_batch_training > 0:
 else:
     NN2 = setup_net()
 
+multi = 0
 while multi <= multi_test:
+    # tries to do a few shot learning multiple times and checks, how fast it is learned
+    # initializes the last layer weights when the label is changed
     pos_under_few_shot = 0
     if test_from_random_input:
         inp = []
@@ -809,13 +818,15 @@ while multi <= multi_test:
             inputs.append(v)
         inputs = np_array(inputs)
     if not load_mnist:
-        (outputs, bbs) = creat_output_from_int(random.randrange(0,255))
-    
+        (outputs, bbs) = creat_output_from_int(random.randrange(0,127)) # first output always 0, as sigmoid network is not capable of outputting 1 here
+    else:
+        label_to_one = random.randrange(0, 9) # change the label used
+        run_load_mnist(False)
+        
     # reset weights in the last layer
     NN2.layers[-2].weights = init_rand_ampl * np_array(np.random.rand(hidden_size, 1)- 0.5)
     NN2.layers[-2].bias = init_rand_ampl * np_array(np.random.rand(1)- 0.5)
-    label_to_one = random.randrange(0, 9) # change the label used
-    run_load_mnist(False)
+
     NN2.set_input(inputs, outputs)
     # used to reset whole NN every time
     #NN2 = setup_net()
@@ -901,7 +912,7 @@ while multi <= multi_test:
         pyplot.show()
         pyplot.close()
     
-    print(multi, 'Label', label_to_one, 'Error', np.sum(np_array(error_history[-8:])), pos_under_few_shot)
+    print("%3d Label %3d Error %6.3f     Ready %3d" % (multi, label_to_one, np.sum(np_array(error_history[-8:])), pos_under_few_shot))
     multi += 1
 if sum_error_history is not None:
         pyplot.figure(figsize=(15,5))
