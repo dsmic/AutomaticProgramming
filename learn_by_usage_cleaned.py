@@ -73,7 +73,7 @@ few_shot_max_try = 100
 few_shot_threshold_ratio = 1.5 # for mnist
 few_shot_threshold = 0.3
 
-# if zero it is standard understanding of few shot learning, giving on data point at each shot, otherwize it adds more data points from availible training data to each shot
+# if 1 it is standard understanding of few shot learning, giving on data point at each shot, otherwize it adds more data points from availible training data to each shot
 few_shot_more_at_once = 5
 
 
@@ -458,6 +458,14 @@ class DrawNet():
             self.epoch_list.append(epoch)
         self.forward() # to update the output layer, if one needs to print infos...
     
+    def plot_train_history(self):
+        pyplot.figure(figsize=(15,5))
+        pyplot.plot(self.epoch_list, self.error_history)
+        pyplot.xlabel('Epoch')
+        pyplot.ylabel('Error')
+        pyplot.show()
+        pyplot.close()
+
     def set_input(self, new_input, new_output, batch_size = None):
         self.all_input = new_input
         self.all_output = new_output
