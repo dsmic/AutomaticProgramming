@@ -447,6 +447,8 @@ class DrawNet():
     
     def train(self, epochs=1000):
         self.epochs = epochs # just to know how it was trained for output
+        self.error_history = []
+        self.epoch_list = []
         for epoch in tqdm(range(epochs), mininterval = 10):
             # flow forward and produce an output
             self.forward(True)
@@ -601,6 +603,7 @@ if do_check_all > 0:
             pyplot.title(bbs)
             pyplot.show()
             pyplot.close()
+        print("Label %8s error %6.3f" % (bbs, err))
     pyplot.figure(figsize=(15,5))
     pyplot.plot(NN2.epoch_list, (sum_error_history / 256).tolist())
     pyplot.xlabel('Epoch')
