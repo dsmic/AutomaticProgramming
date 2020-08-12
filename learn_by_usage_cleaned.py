@@ -43,6 +43,7 @@ pyplot.interactive(False) # seems not to fix memory issue
 verbose = 0
 
 do_check_all = 0 #1000            # 0 to turn off
+check_output_limit = 128        # number of output combinations, as not every neural net is capable of learning input 0 0 0 -> output 1, if 128 the output to the first input is always 0    
 
 multi_test = -1 #1000             # -1 to turn off
 max_iter = 30
@@ -120,9 +121,14 @@ change_first_layers_slow_learning = [0.1, 1] # [0, 0.1]
 
 disable_progressbar = False
 
-# End of constant definitions
+# uncomment to run in jupyter notebook
+# %%run -i _code.py 
 
-# run from here after constants were defined
+# seperate the file here for jupyter notebook, before is constant definition, after is code execution. With uncommented magic commands you can first run the code block, writing _code.py, and than run different constan blocks, which run _code_.py
+
+# %%write _code_.py 
+# uncomment line before to run in jupyter notebook with command after constant definition
+
 
 NN2_file_identifier = '_' + str(do_batch_training) + '_' + str(hidden_size) # used for the pickle file to reload pretrained files with different parameters
 
@@ -579,7 +585,7 @@ if do_check_all > 0:
     # checks all possible input output combinations to check, if the neural net is capable of learning in
     notok = 0
     sum_error_history = None
-    for bb in range(0, 256):
+    for bb in range(0, check_output_limit):
         # bbs = '{0:08b}'.format(bb)
         # for l in range(len(bbs)): 
         #     if bbs[l] =='1':
@@ -610,7 +616,7 @@ if do_check_all > 0:
             pyplot.close()
         print("Label %8s error %6.3f" % (bbs, err), ok, "total fails yet:", notok)
     pyplot.figure(figsize=(15,5))
-    pyplot.plot(NN2.epoch_list, (sum_error_history / 256).tolist())
+    pyplot.plot(NN2.epoch_list, (sum_error_history / check_output_limit).tolist())
     pyplot.xlabel('Epoch')
     pyplot.ylabel('Error')
     pyplot.title('sum error history')
@@ -831,7 +837,7 @@ while multi <= multi_test:
             inputs.append(v)
         inputs = np_array(inputs)
     if not load_mnist:
-        (outputs, bbs) = creat_output_from_int(random.randrange(0,127)) # first output always 0, as sigmoid network is not capable of outputting 1 here
+        (outputs, bbs) = creat_output_from_int(random.randrange(0,check_output_limit - 1)) # first output always 0, as sigmoid network is not capable of outputting 1 here
         disp_label = bbs
     else:
         label_to_one = random.randrange(0, 9) # change the label used
