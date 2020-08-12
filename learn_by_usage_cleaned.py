@@ -122,11 +122,11 @@ change_first_layers_slow_learning = [0.1, 1] # [0, 0.1]
 disable_progressbar = False
 
 # uncomment to run in jupyter notebook
-# %%run -i _code.py 
+# %run -i _code_.py 
 
 # seperate the file here for jupyter notebook, before is constant definition, after is code execution. With uncommented magic commands you can first run the code block, writing _code.py, and than run different constan blocks, which run _code_.py
 
-# %%write _code_.py 
+# %%writefile _code_.py 
 # uncomment line before to run in jupyter notebook with command after constant definition
 
 
@@ -567,16 +567,15 @@ def setup_net():
     
     return NN2
 
+def bbs_to_output(x):
+    res = []
+    for c in x:
+        res.append([int(c)])
+    return np_array(res)
 
 def creat_output_from_int(bb, length=8):
-    output = [0]*length
     bbs = ('{0:0'+str(length)+'b}').format(bb)
-    for l in range(len(bbs)): 
-        if bbs[l] =='1':
-            output[l] = [1]
-        else:
-            output[l] = [0]
-    output = np_array(output)
+    output = bbs_to_output(bbs)
     if do_pm:
         output = transform_01_mp(output)
     return output, bbs
