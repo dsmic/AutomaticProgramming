@@ -80,7 +80,7 @@ few_shot_more_at_once = 5
 
 all_labels = [0, 1, 9, 3, 4, 5, 6, 7, 8, 2]
 # random.shuffle(all_labels)    # if shuffeld, preloading can not work !!!!!
-try_load_pretrained = True
+try_load_pretrained = False
 few_shot_fast_load_num = 4000 # should also handle the batch_sizes for displaying batch training results properly
 
 test_from_random_input = False
@@ -459,15 +459,18 @@ class DrawNet():
         self.epochs = epochs # just to know how it was trained for output
         self.error_history = []
         self.epoch_list = []
-        for epoch in tqdm(range(epochs), mininterval = 10, disable=disable_progressbar):
+        ttt = tqdm(range(epochs), mininterval = 10, disable=disable_progressbar)
+        for epoch in ttt:
             # flow forward and produce an output
             self.forward(True)
             # go back though the network to make corrections based on the output
             self.backward()
             self.next_batch()
             # keep track of the error history over each epoch
-            self.error_history.append(np.sum(np.square(self.error)))
+            err = np.sum(np.square(self.error))
+            self.error_history.append(err)
             self.epoch_list.append(epoch)
+            ttt.set_description("Err %6.3f" % (err/self.batch_size), refresh=False)
         self.forward() # to update the output layer, if one needs to print infos...
     
     def plot_train_history(self):
