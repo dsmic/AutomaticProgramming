@@ -76,7 +76,7 @@ few_shot_threshold = 0.3
 
 # if 1 it is standard understanding of few shot learning, giving on data point at each shot, otherwize it adds more data points from availible training data to each shot
 few_shot_more_at_once = 5
-
+check_wrong = False
 
 all_labels = [0, 1, 9, 3, 4, 5, 6, 7, 8, 2]
 # random.shuffle(all_labels)    # if shuffeld, preloading can not work !!!!!
@@ -736,16 +736,30 @@ if do_batch_training > 0:
             (inputs, outputs, bbs) = run_load_mnist(use_test = False)
             few1 = all_labels[-2]
             few2 = all_labels[-1]
-            while outputs[pos_1].argmax() != few1:
-                pos_1 += 1
-            while outputs[pos_2].argmax() != few2:
-                pos_2 += 1
-            inp_1 = inputs[pos_1:pos_1+few_shot_more_at_once]
-            outp_1 = outputs[pos_1:pos_1+few_shot_more_at_once]
-            inp_2 = inputs[pos_2:pos_2+few_shot_more_at_once]
-            outp_2 = outputs[pos_2:pos_2+few_shot_more_at_once]
-            pos_1 += few_shot_more_at_once # prepare the next shot
-            pos_2 += few_shot_more_at_once
+            ok1 = False
+            while not ok1:
+                while outputs[pos_1].argmax() != few1:
+                    pos_1 += 1
+                inp_1 = inputs[pos_1:pos_1+few_shot_more_at_once]
+                outp_1 = outputs[pos_1:pos_1+few_shot_more_at_once]
+                pos_1 += few_shot_more_at_once # prepare the next shot
+                ok1 = True
+                if check_wrong:
+                    for ii in range(1, few_shot_more_at_once):
+                        if outp_1[ii].maxarg() == few2:
+                            ok1 = False
+            ok2 = False
+            while not ok2:
+                while outputs[pos_2].argmax() != few2:
+                    pos_2 += 1
+                inp_2 = inputs[pos_2:pos_2+few_shot_more_at_once]
+                outp_2 = outputs[pos_2:pos_2+few_shot_more_at_once]
+                pos_2 += few_shot_more_at_once
+                ok2 = True
+                if check_wrong:
+                    for ii in range(1, few_shot_more_at_once):
+                        if outp_2[ii].maxarg() == few1:
+                            ok1 = False
             for m in range(use_every_shot_n_times):
                 for (inp,outp) in [(inp_1,outp_1), (inp_2,outp_2)]:
                     if verbose > 0:
