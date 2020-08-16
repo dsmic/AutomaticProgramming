@@ -746,7 +746,7 @@ if do_batch_training > 0:
                 ok1 = True
                 if check_wrong:
                     for ii in range(1, few_shot_more_at_once):
-                        if outp_1[ii].maxarg() == few2:
+                        if outp_1[ii].argmax() == few2:
                             ok1 = False
             ok2 = False
             while not ok2:
@@ -758,7 +758,7 @@ if do_batch_training > 0:
                 ok2 = True
                 if check_wrong:
                     for ii in range(1, few_shot_more_at_once):
-                        if outp_2[ii].maxarg() == few1:
+                        if outp_2[ii].argmax() == few1:
                             ok1 = False
             for m in range(use_every_shot_n_times):
                 for (inp,outp) in [(inp_1,outp_1), (inp_2,outp_2)]:
