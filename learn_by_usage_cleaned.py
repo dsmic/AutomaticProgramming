@@ -76,7 +76,7 @@ few_shot_threshold = 0.3
 
 # if 1 it is standard understanding of few shot learning, giving on data point at each shot, otherwize it adds more data points from availible training data to each shot
 few_shot_more_at_once = 5
-check_wrong = False
+check_wrong = True
 
 all_labels = [0, 1, 9, 3, 4, 5, 6, 7, 8, 2]
 # random.shuffle(all_labels)    # if shuffeld, preloading can not work !!!!!
@@ -345,7 +345,7 @@ class Layer():
     def draw(self, usage):
         for this_layer_neuron_index in range(len(self.neurons)):
             neuron = self.neurons[this_layer_neuron_index]
-            neuron.draw(round(self.values[this_layer_neuron_index]))
+            neuron.draw(np.around(self.values[this_layer_neuron_index]))
             if self.previous_layer:
                 for previous_layer_neuron_index in range(len(self.previous_layer.neurons)):
                     previous_layer_neuron = self.previous_layer.neurons[previous_layer_neuron_index]
@@ -413,8 +413,10 @@ class Layer():
         #print('direct', direct)
         self.weights += d_weights * lr * direct * self.slow_learning
         self.bias +=  d_bias *lr * np.sum(direct, axis = 0) * self.slow_learning
-        np.clip(self.weights, -clip_weights, clip_weights, self.weights)
-        np.clip(self.bias, -clip_bias, clip_bias, self.bias)
+        if clip_weights is not None:
+            np.clip(self.weights, -clip_weights, clip_weights, self.weights)
+        if clip_bias is not None:
+            np.clip(self.bias, -clip_bias, clip_bias, self.bias)
         if self.drop_weights is not None:
             self.weights *= self.drop_weights
             
@@ -470,7 +472,10 @@ class DrawNet():
             err = np.sum(np.square(self.error))
             self.error_history.append(err)
             self.epoch_list.append(epoch)
-            ttt.set_description("Err %6.3f" % (err/self.batch_size), refresh=False)
+            if self.batch_size is not None:
+                ttt.set_description("Err %6.3f" % (err/self.batch_size), refresh=False)
+            else:
+                ttt.set_description("Err %6.3f" % (err), refresh=False)
         self.forward() # to update the output layer, if one needs to print infos...
     
     def plot_train_history(self):
@@ -524,6 +529,8 @@ class DrawNet():
         pyplot.axis('scaled')
         if display_title is not None:
             pyplot.title(display_title)
+        pyplot.xticks([])
+        pyplot.yticks([])
         pyplot.show()
         pyplot.close()
         
@@ -639,7 +646,7 @@ few_shot = (multi_test > 0)
 
 #NN2 = setup_net()
 sum_error_history = None
-if do_batch_training > 0:
+if do_batch_training >= 0:
     loaded_pretrained = False
     if try_load_pretrained:
         try:
@@ -959,7 +966,7 @@ if sum_error_history is not None:
         pyplot.title('sum error history')
         pyplot.show()
         pyplot.close()
-        
+    
         
 """
 Short notes
