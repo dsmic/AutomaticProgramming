@@ -34,7 +34,7 @@ from tqdm import tqdm
 from emnist import extract_training_samples, extract_test_samples
 
 def np_array(x):
-    return np.array(x)# , dtype = np.float32) # float32 is 3 times faster on batch training with GTX1070Ti and 70 times faster than i7-4790K with float64, cpu does not help float32 a lot)
+    return np.array(x, dtype = np.float32) # float32 is 3 times faster on batch training with GTX1070Ti and 70 times faster than i7-4790K with float64, cpu does not help float32 a lot)
 check_for_nan = True
 
 pyplot.rcParams['figure.dpi'] = 150
@@ -464,7 +464,7 @@ class DrawNet():
         ttt = tqdm(range(epochs), mininterval = 10, disable=disable_progressbar)
         for epoch in ttt:
             # flow forward and produce an output
-            self.forward(True)
+            self.forward(use_stability)
             # go back though the network to make corrections based on the output
             self.backward()
             self.next_batch()
