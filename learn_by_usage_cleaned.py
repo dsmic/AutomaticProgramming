@@ -48,7 +48,7 @@ check_output_limit = 128        # number of output combinations, as not every ne
 multi_test = -1 #1000             # -1 to turn off
 max_iter = 30
 
-hidden_size = 16
+hidden_size = 64
 two_hidden_layers = True
 use_bias = False
 
@@ -421,11 +421,11 @@ class Layer():
     def change_weights(self, d_weights, d_bias):
         if use_stability:
             direct = 1 - self.stability
+            self.weights += d_weights * lr * direct * self.slow_learning
+            self.bias +=  d_bias * lr * np.sum(direct, axis = 0) * self.slow_learning
         else:
-            direct = np_array([1])
-        #print('direct', direct)
-        self.weights += d_weights * lr * direct * self.slow_learning
-        self.bias +=  d_bias *lr * np.sum(direct, axis = 0) * self.slow_learning
+            self.weights += d_weights * lr * self.slow_learning
+            self.bias +=  d_bias * lr * self.slow_learning
         if clip_weights is not None:
             np.clip(self.weights, -clip_weights, clip_weights, self.weights)
         if clip_bias is not None:
