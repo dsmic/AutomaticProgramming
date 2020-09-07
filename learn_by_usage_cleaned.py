@@ -34,7 +34,7 @@ from tqdm import tqdm
 from emnist import extract_training_samples, extract_test_samples
 
 def np_array(x):
-    return np.array(x, dtype = np.float32) # float32 is 3 times faster on batch training with GTX1070Ti and 70 times faster than i7-4790K with float64, cpu does not help float32 a lot)
+    return np.array(x) #, dtype = np.float32) # float32 is 3 times faster on batch training with GTX1070Ti and 70 times faster than i7-4790K with float64, cpu does not help float32 a lot)
 check_for_nan = True
 
 pyplot.rcParams['figure.dpi'] = 150
@@ -153,8 +153,21 @@ def sigmoid(x):
 def sigmoid_derivative(x):
     if do_pm:
         return 1-np.tanh(x)**2
+    xx = np.exp(-scale_sigmoid * (x - shift_sigmoid))
+    return scale_sigmoid * (xx / (xx + 1) ** 2)
+
+def sigmoid2(x):
+    if do_pm:
+        return np.tanh(x)
     xx = scale_sigmoid * (x - shift_sigmoid)
-    return scale_sigmoid * (np.exp(-xx) / (np.exp(-xx) + 1) ** 2)
+    return 1/2*(np.tanh(xx/2)+1) #* 2 -1
+
+def sigmoid_derivative2(x):
+    if do_pm:
+        return 1-np.tanh(x)**2
+    xx = scale_sigmoid * (x - shift_sigmoid)
+    return scale_sigmoid/4 *(1-np.tanh(xx/2)**2)
+
 
 def transform_01_mp(x):
     return 2*x - 1
