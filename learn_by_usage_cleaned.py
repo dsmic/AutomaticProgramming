@@ -383,6 +383,8 @@ class Layer():
     def backward(self, post_error):
         
         error_between_sigmoid_and_full = post_error * sigmoid_derivative(self.between_full_sigmoid) # this is the straight forward way of the derivative
+        
+        # this has to be checked to be mathematically correct !!!!!!!!!!!!!!!!!!! (shift and scale is not used here, as this is the derivative of sigmoid only)
         #error_between_sigmoid_and_full = post_error * (self.post_layer * (1 - self.post_layer)) # this version of the derivative uses the result from forward
         
         pre_error = np.dot(error_between_sigmoid_and_full, self.weights.T) 
