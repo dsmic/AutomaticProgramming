@@ -34,7 +34,7 @@ from tqdm import tqdm
 from emnist import extract_training_samples, extract_test_samples
 
 def np_array(x):
-    return np.array(x) #, dtype = np.float32) # float32 is 3 times faster on batch training with GTX1070Ti and 70 times faster than i7-4790K with float64, cpu does not help float32 a lot)
+    return np.array(x) #, dtype = np.float32) # float32 is 30 times faster on batch training with GTX1070Ti and 3 times faster than i7-4790K with float64, cpu does not help float32 a lot, this varys a lot with sizes and if stability is used.)
 check_for_nan = True
 
 pyplot.rcParams['figure.dpi'] = 150
@@ -48,7 +48,7 @@ check_output_limit = 128        # number of output combinations, as not every ne
 multi_test = -1 #1000             # -1 to turn off
 max_iter = 30
 
-hidden_size = 64
+hidden_size = 28*28
 two_hidden_layers = True
 use_bias = False
 
@@ -382,7 +382,8 @@ class Layer():
                     
     def backward(self, post_error):
         
-        error_between_sigmoid_and_full = post_error * sigmoid_derivative(self.between_full_sigmoid) # post layer may be wrong!!!!!!!!
+        error_between_sigmoid_and_full = post_error * sigmoid_derivative(self.between_full_sigmoid) # this is the straight forward way of the derivative
+        #error_between_sigmoid_and_full = post_error * (self.post_layer * (1 - self.post_layer)) # this version of the derivative uses the result from forward
         
         pre_error = np.dot(error_between_sigmoid_and_full, self.weights.T) 
         d_weights = np.dot(self.values.T, error_between_sigmoid_and_full) / len(post_error) # scale learning rate per input
@@ -399,6 +400,7 @@ class Layer():
         if use_bias:
             self.between_full_sigmoid += self.bias
         post_layer = sigmoid(self.between_full_sigmoid)
+        self.post_layer = post_layer
         if dostability:
             post_l = np.expand_dims(post_layer,-2)
             pre_l_2d = np.expand_dims(pre_layer, -2)
