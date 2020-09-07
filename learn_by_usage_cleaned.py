@@ -23,8 +23,8 @@ REMARKS:
 loss function used = 1/2 SUM(error**2) // making the derivative error
 """
 
-#import cupy as np # helps with the math (Cuda supported: faster for hidden_size > 256 probably and most mnist cases with batch training)
-import numpy as np # helps with the math (if no Cuda is availible or size is small for simple tests)
+import cupy as np # helps with the math (Cuda supported: faster for hidden_size > 256 probably and most mnist cases with batch training)
+#import numpy as np # helps with the math (if no Cuda is availible or size is small for simple tests)
 from matplotlib import pyplot
 from math import cos, sin, atan
 import random
@@ -34,7 +34,7 @@ from tqdm import tqdm
 from emnist import extract_training_samples, extract_test_samples
 
 def np_array(x):
-    return np.array(x) #, dtype = np.float32) # float32 is 30 times faster on batch training with GTX1070Ti and 3 times faster than i7-4790K with float64, cpu does not help float32 a lot, this varys a lot with sizes and if stability is used.)
+    return np.array(x, dtype = np.float32) # float32 is 30 times faster on batch training with GTX1070Ti and 3 times faster than i7-4790K with float64, cpu does not help float32 a lot, this varys a lot with sizes and if stability is used.)
 check_for_nan = True
 
 pyplot.rcParams['figure.dpi'] = 150
@@ -48,12 +48,12 @@ check_output_limit = 128        # number of output combinations, as not every ne
 multi_test = -1 #1000             # -1 to turn off
 max_iter = 30
 
-hidden_size = 28*28
+hidden_size = 2048
 two_hidden_layers = True
 use_bias = False
 
 lr = 2
-lr_few_shot = 0.5
+lr_few_shot = 0.1
 use_stability = False
 stability_mean = 0.1
 clip_weights = 1 # (clipping to 1 was used for most tests)
@@ -105,7 +105,7 @@ do_pm = False
 use_emnist = True
 load_mnist = True
 
-do_batch_training = 10000
+do_batch_training = 100000
 do_drop_weights = [] # [0.9,0.9]
 initial_net_first_layer_slow_learning = 1 # 0.1 # most tests are done with 0.1 here, just try if it was really necessary
 
@@ -791,6 +791,7 @@ if do_batch_training >= 0:
                     while epoch < few_shot_max_try:
                         NN2.forward()
                         NN2.backward()
+                        epoch += 1
                         # criterium for stopping is only used for the first element, which is the one few shot is done for. The other elements are not checked, but only used for stabilizing old learned data
                         if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
                             biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
