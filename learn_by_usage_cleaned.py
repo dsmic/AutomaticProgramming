@@ -23,8 +23,8 @@ REMARKS:
 loss function used = 1/2 SUM(error**2) // making the derivative error
 """
 
-import cupy as np # helps with the math (Cuda supported: faster for hidden_size > 256 probably and most mnist cases with batch training)
-#import numpy as np # helps with the math (if no Cuda is availible or size is small for simple tests)
+#import cupy as np # helps with the math (Cuda supported: faster for hidden_size > 256 probably and most mnist cases with batch training)
+import numpy as np # helps with the math (if no Cuda is availible or size is small for simple tests)
 from matplotlib import pyplot
 from math import cos, sin, atan
 import random
@@ -105,7 +105,7 @@ do_pm = False
 use_emnist = True
 load_mnist = True
 
-do_batch_training = 100000
+do_batch_training = 10000
 do_drop_weights = [] # [0.9,0.9]
 initial_net_first_layer_slow_learning = 1 # 0.1 # most tests are done with 0.1 here, just try if it was really necessary
 
@@ -382,10 +382,9 @@ class Layer():
                     
     def backward(self, post_error):
         
-        error_between_sigmoid_and_full = post_error * sigmoid_derivative(self.between_full_sigmoid) # this is the straight forward way of the derivative
+        #error_between_sigmoid_and_full = post_error * sigmoid_derivative(self.between_full_sigmoid) # this is the straight forward way of the derivative
         
-        # this has to be checked to be mathematically correct !!!!!!!!!!!!!!!!!!! (shift and scale is not used here, as this is the derivative of sigmoid only)
-        #error_between_sigmoid_and_full = post_error * (self.post_layer * (1 - self.post_layer)) # this version of the derivative uses the result from forward
+        error_between_sigmoid_and_full = post_error * scale_sigmoid * self.post_layer * (1 - self.post_layer) # this version of the derivative uses the result from forward
         
         pre_error = np.dot(error_between_sigmoid_and_full, self.weights.T) 
         d_weights = np.dot(self.values.T, error_between_sigmoid_and_full) / len(post_error) # scale learning rate per input
@@ -401,10 +400,9 @@ class Layer():
         self.between_full_sigmoid = np.dot(pre_layer, self.weights)
         if use_bias:
             self.between_full_sigmoid += self.bias
-        post_layer = sigmoid(self.between_full_sigmoid)
-        self.post_layer = post_layer
+        self.post_layer = sigmoid(self.between_full_sigmoid)
         if dostability:
-            post_l = np.expand_dims(post_layer,-2)
+            post_l = np.expand_dims(self.post_layer,-2)
             pre_l_2d = np.expand_dims(pre_layer, -2)
             
             # this is necessary if 0 1 neurons are used, not if -1 1 ones
@@ -420,7 +418,7 @@ class Layer():
             #print(stability)
             #self.stability = stability_mean * pre_layer.T * stability + (1 - stability_mean * pre_layer.T) * self.stability
             self.stability = stability_mean * stability + (1 - stability_mean) * self.stability
-        return post_layer
+        return self.post_layer
         
     def change_weights(self, d_weights, d_bias):
         if use_stability:
