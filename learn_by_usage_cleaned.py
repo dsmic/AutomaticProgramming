@@ -106,7 +106,7 @@ do_pm = False
 use_emnist = True
 load_mnist = True
 
-do_batch_training = 100000
+do_batch_training = 20000
 do_drop_weights = [] # [0.9,0.9]
 initial_net_first_layer_slow_learning = 1 # 0.1 # most tests are done with 0.1 here, just try if it was really necessary
 
@@ -116,7 +116,7 @@ label_to_one = 5
 num_outputs = 10 # most early test need this to be 1, later with mnist dataset this can be set to 10 eg.
 
 try_mnist_few_shot = 10
-use_every_shot_n_times = 10 # every data is used n times. so one shot means the data from first shot is used n times
+use_every_shot_n_times = 1 # every data is used n times. so one shot means the data from first shot is used n times
 change_first_layers_slow_learning = [0.1, 1] # [0, 0.1]
 
 
@@ -146,8 +146,18 @@ def sparse_rand(M,N,d):
         sps_acc = sps_acc + sparse.coo_matrix((d, (r, c)), shape=(rows, cols))
     return sps_acc
 
-C_test = sparse_rand(1000, 100000, 1e-6)
-print(C_test.data, len(C_test.data))
+def dot_sparse_result(Mask,U,V):
+    # use A to select elements of U and V
+    A3=sparse.coo_matrix(Mask) # Mask.copy()
+    U1=U[A3.row,:]
+    V1=V[:,A3.col]
+    A3.data[:] = np.einsum('ij,ji->i', U1, V1, optimize='optimal')
+    #A3.data = np.diag(np.dot(U1,V1))
+    return A3
+
+
+#C_test = sparse_rand(1000, 100000, 1e-6)
+#print(C_test.data, len(C_test.data))
 
 NN2_file_identifier = '_' + str(do_batch_training) + '_' + str(hidden_size) # used for the pickle file to reload pretrained files with different parameters
 
@@ -763,6 +773,10 @@ if do_batch_training >= 0:
     try:
         print('few shot accuracy results')
         print('shot     try       old labels            new labels  new labels (forced)              over all')
+        (inputs, outputs, bbs) = run_load_mnist(use_test = False)
+        (inputs1, outputs1, _) = run_load_mnist(use_test = True,limit_labels=all_labels[:-2], only_load_num=few_shot_fast_load_num)
+        (inputs2, outputs2, _) = run_load_mnist(use_test = True,limit_labels=all_labels[-2:], only_load_num=few_shot_fast_load_num)
+        (inputs3, outputs3, _) = run_load_mnist(use_test = True, only_load_num=few_shot_fast_load_num)
         for i_shot in range(try_mnist_few_shot): # some shots
             if change_first_layers_slow_learning is not None:
                 for l in range(len(change_first_layers_slow_learning)):
@@ -774,7 +788,6 @@ if do_batch_training >= 0:
             lr = lr_few_shot
             if verbose > 0:
                 print('\n',i_shot + 1,'. shot --- lr changed from',before,'to', lr)
-            (inputs, outputs, bbs) = run_load_mnist(use_test = False)
             few1 = all_labels[-2]
             few2 = all_labels[-1]
             ok1 = False
@@ -832,14 +845,12 @@ if do_batch_training >= 0:
                     NN2.set_input(inputs, outputs, batch_size=1000)
                     NN2.forward()
                     print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
-                (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=all_labels[:-2], only_load_num=few_shot_fast_load_num)
-                NN2.set_input(inputs, outputs, batch_size=1000)
+                NN2.set_input(inputs1, outputs1, batch_size=1000)
                 NN2.forward()
                 acc_only_old_labels = float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y)
                 if verbose > 0:
                     print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
-                (inputs, outputs, bbs) = run_load_mnist(use_test = True,limit_labels=all_labels[-2:], only_load_num=few_shot_fast_load_num)
-                NN2.set_input(inputs, outputs, batch_size=1000)
+                NN2.set_input(inputs2, outputs2, batch_size=1000)
                 NN2.forward()
                 acc_only_new_labels = float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y)
                 if verbose > 0:
@@ -860,8 +871,7 @@ if do_batch_training >= 0:
                 
                 
                 
-                (inputs, outputs, bbs) = run_load_mnist(use_test = True, only_load_num=few_shot_fast_load_num)
-                NN2.set_input(inputs, outputs, batch_size=1000)
+                NN2.set_input(inputs3, outputs3, batch_size=1000)
                 NN2.forward()
                 acc_only_overall_labels = float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y)
                 if verbose > 0:
