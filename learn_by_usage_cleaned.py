@@ -25,7 +25,10 @@ loss function used = 1/2 SUM(error**2) // making the derivative error
 
 import cupy as np # helps with the math (Cuda supported: faster for hidden_size > 256 probably and most mnist cases with batch training)
 import cupy.sparse as sparse
+
 #import numpy as np # helps with the math (if no Cuda is availible or size is small for simple tests)
+#import scipy.sparse as sparse
+
 from matplotlib import pyplot
 from math import cos, sin, atan
 import random
@@ -34,8 +37,10 @@ from datetime import datetime
 from tqdm import tqdm
 from emnist import extract_training_samples, extract_test_samples
 
+
+our_dtype = np.float32   # float32 is 30 times faster on batch training with GTX1070Ti and 3 times faster than i7-4790K with float64, cpu does not help float32 a lot, this varys a lot with sizes and if stability is used.)
 def np_array(x):
-    return np.array(x, dtype = np.float32) # float32 is 30 times faster on batch training with GTX1070Ti and 3 times faster than i7-4790K with float64, cpu does not help float32 a lot, this varys a lot with sizes and if stability is used.)
+    return np.array(x, dtype = our_dtype) 
 check_for_nan = True
 
 pyplot.rcParams['figure.dpi'] = 150
@@ -49,7 +54,7 @@ check_output_limit = 128        # number of output combinations, as not every ne
 multi_test = -1 #1000             # -1 to turn off
 max_iter = 30
 
-hidden_size = 1024
+hidden_size = 4096
 two_hidden_layers = True
 use_bias = False
 
@@ -106,7 +111,7 @@ do_pm = False
 use_emnist = True
 load_mnist = True
 
-do_batch_training = 20000
+do_batch_training = 200000
 do_drop_weights = [] # [0.9,0.9]
 initial_net_first_layer_slow_learning = 1 # 0.1 # most tests are done with 0.1 here, just try if it was really necessary
 
@@ -120,6 +125,10 @@ use_every_shot_n_times = 1 # every data is used n times. so one shot means the d
 change_first_layers_slow_learning = [0.1, 1] # [0, 0.1]
 
 
+sparse_layers = [0.01, 0.01, 0.01, 0.01]
+
+
+
 disable_progressbar = False
 
 # uncomment to run in jupyter notebook
@@ -131,9 +140,12 @@ disable_progressbar = False
 # uncomment line before to run in jupyter notebook with command after constant definition
 
 
-def sparse_rand(M,N,d):
+def sparse_rand(M,N,d=None, add_const=0):
+    if d == None or d == 1:
+        return np_array(np.random.rand(M,N)) + add_const
+        
     rows, cols = M, N
-    sps_acc = sparse.coo_matrix((rows, cols)) # empty matrix
+    sps_acc = sparse.coo_matrix((rows, cols), dtype=our_dtype) # empty matrix
     num_data = int(M * N * d)
     #for j in range(100): # add 100 sets of 100 1's
     while len(sps_acc.data) < num_data:
@@ -142,13 +154,15 @@ def sparse_rand(M,N,d):
             add_num = 100
         r = np.random.randint(rows, size=add_num)
         c = np.random.randint(cols, size=add_num)
-        d = np.random.rand(add_num)
-        sps_acc = sps_acc + sparse.coo_matrix((d, (r, c)), shape=(rows, cols))
+        d = np.random.rand(add_num) + add_const
+        sps_acc = sps_acc + sparse.coo_matrix((d, (r, c)), shape=(rows, cols), dtype=our_dtype)
     return sps_acc
 
 def dot_sparse_result(Mask,U,V):
+    if isinstance(Mask, np.ndarray):
+        return np.dot(U,V)
     # use A to select elements of U and V
-    A3=sparse.coo_matrix(Mask) # Mask.copy()
+    A3=sparse.coo_matrix(Mask, dtype=our_dtype) # Mask.copy()
     U1=U[A3.row,:]
     V1=V[:,A3.col]
     A3.data[:] = np.einsum('ij,ji->i', U1, V1, optimize='optimal')
@@ -415,8 +429,17 @@ class Layer():
         
         error_between_sigmoid_and_full = post_error * scale_sigmoid * self.post_layer * (1 - self.post_layer) # this version of the derivative uses the result from forward
         
-        pre_error = np.dot(error_between_sigmoid_and_full, self.weights.T) 
-        d_weights = np.dot(self.values.T, error_between_sigmoid_and_full) / len(post_error) # scale learning rate per input
+        if len(sparse_layers) < 0:
+            pre_error = np.dot(error_between_sigmoid_and_full, self.weights.T) 
+        else:
+            pre_error = self.weights.dot(error_between_sigmoid_and_full.T).T
+        
+        if len(sparse_layers) == 0:
+            d_weights = np.dot(self.values.T, error_between_sigmoid_and_full) 
+            d_weights *= 1 / len(post_error) # scale learning rate per input
+        else:
+            d_weights = dot_sparse_result(self.weights, self.values.T, error_between_sigmoid_and_full) 
+            d_weights *=   1 / len(post_error)  # scale learning rate per input
         d_bias = np.sum(error_between_sigmoid_and_full, axis = 0) /len(post_error) 
         
         self.change_weights(d_weights, d_bias)
@@ -426,7 +449,10 @@ class Layer():
         self.values = pre_layer
         if self.weights is None:
             return pre_layer
-        self.between_full_sigmoid = np.dot(pre_layer, self.weights)
+        if len(sparse_layers) < 0:
+            self.between_full_sigmoid = np.dot(pre_layer, self.weights)
+        else:
+            self.between_full_sigmoid = self.weights.T.dot(pre_layer.T).T
         if use_bias:
             self.between_full_sigmoid += self.bias
         self.post_layer = sigmoid(self.between_full_sigmoid)
@@ -458,7 +484,10 @@ class Layer():
             self.weights += d_weights * lr * self.slow_learning
             self.bias +=  d_bias * lr * self.slow_learning
         if clip_weights is not None:
-            np.clip(self.weights, -clip_weights, clip_weights, self.weights)
+            if isinstance(self.weights, np.ndarray):
+                np.clip(self.weights, -clip_weights, clip_weights, self.weights)
+            else:
+                np.clip(self.weights.data, -clip_weights, clip_weights, self.weights.data)
         if clip_bias is not None:
             np.clip(self.bias, -clip_bias, clip_bias, self.bias)
         if self.drop_weights is not None:
@@ -600,14 +629,15 @@ class DrawNet():
         return count, drops
 
 def setup_net():
+    sparse_l = sparse_layers.copy()
     NN2 = DrawNet()
     input_len = len(inputs[0])
     if test_from_random_input:
         input_len = i_bits
-    NN2.add_layer(input_len, init_rand_ampl0 * np_array(np.random.rand(input_len, hidden_size) - 0.5), init_rand_ampl0 * np_array(np.random.rand(hidden_size) - 0.5), None, slow_learning = initial_net_first_layer_slow_learning)
+    NN2.add_layer(input_len, init_rand_ampl0 * sparse_rand(input_len, hidden_size, sparse_l.pop(0) if sparse_l else None, -0.5), init_rand_ampl0 * np_array(np.random.rand(hidden_size) - 0.5), None, slow_learning = initial_net_first_layer_slow_learning)
     if two_hidden_layers:
-        NN2.add_layer(hidden_size, init_rand_ampl * np_array(np.random.rand(hidden_size, hidden_size) - 0.5), init_rand_ampl * np_array(np.random.rand(hidden_size) - 0.5), None)
-    NN2.add_layer(hidden_size, init_rand_ampl * np_array(np.random.rand(hidden_size, num_outputs)- 0.5), init_rand_ampl * np_array(np.random.rand(num_outputs) - 0.5), None)
+        NN2.add_layer(hidden_size, init_rand_ampl * sparse_rand(hidden_size, hidden_size, sparse_l.pop(0) if sparse_l else None, - 0.5), init_rand_ampl * np_array(np.random.rand(hidden_size) - 0.5), None)
+    NN2.add_layer(hidden_size, init_rand_ampl * sparse_rand(hidden_size, num_outputs, sparse_l.pop(0) if sparse_l else None, - 0.5), init_rand_ampl * np_array(np.random.rand(num_outputs) - 0.5), None)
     NN2.add_layer(num_outputs, None, None, None)
     NN2.set_input(inputs, outputs)
     count_drops = 0
