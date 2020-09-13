@@ -24,6 +24,7 @@ loss function used = 1/2 SUM(error**2) // making the derivative error
 """
 
 import cupy as np # helps with the math (Cuda supported: faster for hidden_size > 256 probably and most mnist cases with batch training)
+import cupy.sparse as sparse
 #import numpy as np # helps with the math (if no Cuda is availible or size is small for simple tests)
 from matplotlib import pyplot
 from math import cos, sin, atan
@@ -48,7 +49,7 @@ check_output_limit = 128        # number of output combinations, as not every ne
 multi_test = -1 #1000             # -1 to turn off
 max_iter = 30
 
-hidden_size = 2048
+hidden_size = 1024
 two_hidden_layers = True
 use_bias = False
 
@@ -70,7 +71,7 @@ scale_sigmoid = 3
 shift_sigmoid = 1
 
 few_shot_end = 0.2 # for early tests (no mnist)
-few_shot_max_try = 100
+few_shot_max_try = 10000
 few_shot_threshold_ratio = 1.5 # for mnist
 few_shot_threshold = 0.3
 
@@ -129,6 +130,24 @@ disable_progressbar = False
 # %%writefile _code_.py 
 # uncomment line before to run in jupyter notebook with command after constant definition
 
+
+def sparse_rand(M,N,d):
+    rows, cols = M, N
+    sps_acc = sparse.coo_matrix((rows, cols)) # empty matrix
+    num_data = int(M * N * d)
+    #for j in range(100): # add 100 sets of 100 1's
+    while len(sps_acc.data) < num_data:
+        add_num = num_data - len(sps_acc.data) 
+        if add_num > 100:
+            add_num = 100
+        r = np.random.randint(rows, size=add_num)
+        c = np.random.randint(cols, size=add_num)
+        d = np.random.rand(add_num)
+        sps_acc = sps_acc + sparse.coo_matrix((d, (r, c)), shape=(rows, cols))
+    return sps_acc
+
+C_test = sparse_rand(1000, 100000, 1e-6)
+print(C_test.data, len(C_test.data))
 
 NN2_file_identifier = '_' + str(do_batch_training) + '_' + str(hidden_size) # used for the pickle file to reload pretrained files with different parameters
 
