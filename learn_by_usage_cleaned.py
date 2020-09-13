@@ -38,7 +38,7 @@ from tqdm import tqdm
 from emnist import extract_training_samples, extract_test_samples
 
 
-our_dtype = np.float32   # float32 is 30 times faster on batch training with GTX1070Ti and 3 times faster than i7-4790K with float64, cpu does not help float32 a lot, this varys a lot with sizes and if stability is used.)
+our_dtype = np.float64   # float32 is 30 times faster on batch training with GTX1070Ti and 3 times faster than i7-4790K with float64, cpu does not help float32 a lot, this varys a lot with sizes and if stability is used.)
 def np_array(x):
     return np.array(x, dtype = our_dtype) 
 check_for_nan = True
@@ -54,11 +54,11 @@ check_output_limit = 128        # number of output combinations, as not every ne
 multi_test = -1 #1000             # -1 to turn off
 max_iter = 30
 
-hidden_size = 4096
+hidden_size = 256
 two_hidden_layers = True
 use_bias = False
 
-lr = 2
+lr = 0.2
 lr_few_shot = 0.1
 use_stability = False
 stability_mean = 0.1
@@ -111,7 +111,7 @@ do_pm = False
 use_emnist = True
 load_mnist = True
 
-do_batch_training = 200000
+do_batch_training = 20000
 do_drop_weights = [] # [0.9,0.9]
 initial_net_first_layer_slow_learning = 1 # 0.1 # most tests are done with 0.1 here, just try if it was really necessary
 
@@ -125,7 +125,7 @@ use_every_shot_n_times = 1 # every data is used n times. so one shot means the d
 change_first_layers_slow_learning = [0.1, 1] # [0, 0.1]
 
 
-sparse_layers = [0.01, 0.01, 0.01, 0.01]
+sparse_layers = [1, 0.9] # [0.999,0.999,0.999,0.999]
 
 
 
@@ -161,13 +161,19 @@ def sparse_rand(M,N,d=None, add_const=0):
 def dot_sparse_result(Mask,U,V):
     if isinstance(Mask, np.ndarray):
         return np.dot(U,V)
+    
     # use A to select elements of U and V
     A3=sparse.coo_matrix(Mask, dtype=our_dtype) # Mask.copy()
+    
+    #A3.data[:] = 1
+    #return A3.todense() * np.dot(U,V)
+    
+    
     U1=U[A3.row,:]
     V1=V[:,A3.col]
     A3.data[:] = np.einsum('ij,ji->i', U1, V1, optimize='optimal')
     #A3.data = np.diag(np.dot(U1,V1))
-    return A3
+    return A3 #.todense()
 
 
 #C_test = sparse_rand(1000, 100000, 1e-6)
@@ -337,6 +343,7 @@ class Layer():
         self.weights = weights
         if weights is not None:
             self.stability = np.zeros(weights.shape)
+            self.mask = weights.copy()
         self.drop_weights = None
         self.bias = bias
         self.values = values
@@ -434,11 +441,11 @@ class Layer():
         else:
             pre_error = self.weights.dot(error_between_sigmoid_and_full.T).T
         
-        if len(sparse_layers) == 0:
+        if len(sparse_layers) < 0:
             d_weights = np.dot(self.values.T, error_between_sigmoid_and_full) 
             d_weights *= 1 / len(post_error) # scale learning rate per input
         else:
-            d_weights = dot_sparse_result(self.weights, self.values.T, error_between_sigmoid_and_full) 
+            d_weights = dot_sparse_result(self.mask, self.values.T, error_between_sigmoid_and_full) 
             d_weights *=   1 / len(post_error)  # scale learning rate per input
         d_bias = np.sum(error_between_sigmoid_and_full, axis = 0) /len(post_error) 
         
