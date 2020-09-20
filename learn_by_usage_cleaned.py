@@ -23,12 +23,15 @@ REMARKS:
 loss function used = 1/2 SUM(error**2) // making the derivative error
 """
 
-import cupy as np # helps with the math (Cuda supported: faster for hidden_size > 256 probably and most mnist cases with batch training)
-import cupy.sparse as sparse
+use_cuda = False
+if use_cuda:
+    import cupy as np # helps with the math (Cuda supported: faster for hidden_size > 256 probably and most mnist cases with batch training)
+    import cupyx.scipy.sparse as sparse
+else:
+    import numpy as np # helps with the math (if no Cuda is availible or size is small for simple tests)
+    import scipy.sparse as sparse
 
-#import numpy as np # helps with the math (if no Cuda is availible or size is small for simple tests)
-#import scipy.sparse as sparse
-
+import time
 from matplotlib import pyplot
 from math import cos, sin, atan
 import random
@@ -38,7 +41,7 @@ from tqdm import tqdm
 from emnist import extract_training_samples, extract_test_samples
 
 
-our_dtype = np.float64   # float32 is 30 times faster on batch training with GTX1070Ti and 3 times faster than i7-4790K with float64, cpu does not help float32 a lot, this varys a lot with sizes and if stability is used.)
+our_dtype = np.float32   # float32 is 30 times faster on batch training with GTX1070Ti and 3 times faster than i7-4790K with float64, cpu does not help float32 a lot, this varys a lot with sizes and if stability is used.)
 def np_array(x):
     return np.array(x, dtype = our_dtype) 
 check_for_nan = True
@@ -54,18 +57,18 @@ check_output_limit = 128        # number of output combinations, as not every ne
 multi_test = -1 #1000             # -1 to turn off
 max_iter = 30
 
-hidden_size = 256
+hidden_size = 512
 two_hidden_layers = True
 use_bias = False
 
-lr = 0.2
-lr_few_shot = 0.1
+lr =            0.0002
+lr_few_shot =   0.005
 use_stability = False
 stability_mean = 0.1
 clip_weights = 1 # (clipping to 1 was used for most tests)
 clip_bias = 1
-init_rand_ampl = 0.1
-init_rand_ampl0 = 0.1 #2 # for first layer    (2 was used for most tests to make the first layer a mostly random layer)
+init_rand_ampl = 0.5
+init_rand_ampl0 = [] # [1,0.5,1] #2 # for first layers    ([2] was used for most tests to make the first layer a mostly random layer)
 
 # drawing parameters
 scale_linewidth = 0.1
@@ -76,7 +79,7 @@ scale_sigmoid = 3
 shift_sigmoid = 1
 
 few_shot_end = 0.2 # for early tests (no mnist)
-few_shot_max_try = 10000
+few_shot_max_try = 100000
 few_shot_threshold_ratio = 1.5 # for mnist
 few_shot_threshold = 0.3
 
@@ -86,7 +89,7 @@ check_wrong = True
 
 all_labels = [0, 1, 9, 3, 4, 5, 6, 7, 8, 2]
 # random.shuffle(all_labels)    # if shuffeld, preloading can not work !!!!!
-try_load_pretrained = False
+try_load_pretrained = True
 few_shot_fast_load_num = 4000 # should also handle the batch_sizes for displaying batch training results properly
 
 test_from_random_input = False
@@ -122,10 +125,10 @@ num_outputs = 10 # most early test need this to be 1, later with mnist dataset t
 
 try_mnist_few_shot = 10
 use_every_shot_n_times = 1 # every data is used n times. so one shot means the data from first shot is used n times
-change_first_layers_slow_learning = [0.1, 1] # [0, 0.1]
+change_first_layers_slow_learning = [] # [0,1,0] # [0.1, 1] # [0, 0.1]
 
 
-sparse_layers = [1, 0.9] # [0.999,0.999,0.999,0.999]
+sparse_layers = [] # [1, 0.00001] # [0.999,0.999,0.999,0.999]
 
 
 
@@ -150,8 +153,8 @@ def sparse_rand(M,N,d=None, add_const=0):
     #for j in range(100): # add 100 sets of 100 1's
     while len(sps_acc.data) < num_data:
         add_num = num_data - len(sps_acc.data) 
-        if add_num > 100:
-            add_num = 100
+        if add_num > 10000:
+            add_num = 10000
         r = np.random.randint(rows, size=add_num)
         c = np.random.randint(cols, size=add_num)
         d = np.random.rand(add_num) + add_const
@@ -162,18 +165,24 @@ def dot_sparse_result(Mask,U,V):
     if isinstance(Mask, np.ndarray):
         return np.dot(U,V)
     
-    # use A to select elements of U and V
-    A3=sparse.coo_matrix(Mask, dtype=our_dtype) # Mask.copy()
+    # use Mask to select elements of U and V
+    A3=sparse.coo_matrix(Mask, dtype=our_dtype) 
     
-    #A3.data[:] = 1
-    #return A3.todense() * np.dot(U,V)
+    # slower
+    #for i in range(len(A3.data)):
+    #    A3.data[i] = np.inner(U[A3.row[i],:],V[:,A3.col[i]])
+    #return A3
     
+    # U1=U[A3.row,:]
+    # V1=V[:,A3.col]
+    # A3.data[:] = np.einsum('ij,ji->i', U1, V1, optimize='optimal')
+    # return A3
     
-    U1=U[A3.row,:]
-    V1=V[:,A3.col]
-    A3.data[:] = np.einsum('ij,ji->i', U1, V1, optimize='optimal')
-    #A3.data = np.diag(np.dot(U1,V1))
-    return A3 #.todense()
+    for i in range(0, len(A3.data), 1000):
+        U1=U[A3.row[i:i+1000],:]
+        V1=V[:,A3.col[i:i+1000]]
+        A3.data[i:i+1000] = np.einsum('ij,ji->i', U1, V1, optimize='optimal')
+    return A3
 
 
 #C_test = sparse_rand(1000, 100000, 1e-6)
@@ -342,7 +351,8 @@ class Layer():
         self.neurons = self.__intialise_neurons(number_of_neurons)
         self.weights = weights
         if weights is not None:
-            self.stability = np.zeros(weights.shape)
+            if use_stability:
+                self.stability = np.zeros(weights.shape)
             self.mask = weights.copy()
         self.drop_weights = None
         self.bias = bias
@@ -430,33 +440,34 @@ class Layer():
                             self.__line_between_two_neurons(neuron, previous_layer_neuron, 4, 0.3)
                     self.__line_between_two_neurons(neuron, previous_layer_neuron, weight)
                     
-    def backward(self, post_error):
+    def backward(self, post_error, direction_factor = 1):
         
         #error_between_sigmoid_and_full = post_error * sigmoid_derivative(self.between_full_sigmoid) # this is the straight forward way of the derivative
         
         error_between_sigmoid_and_full = post_error * scale_sigmoid * self.post_layer * (1 - self.post_layer) # this version of the derivative uses the result from forward
         
-        if len(sparse_layers) < 0:
+        if len(sparse_layers) == 0:
             pre_error = np.dot(error_between_sigmoid_and_full, self.weights.T) 
         else:
             pre_error = self.weights.dot(error_between_sigmoid_and_full.T).T
         
-        if len(sparse_layers) < 0:
-            d_weights = np.dot(self.values.T, error_between_sigmoid_and_full) 
-            d_weights *= 1 / len(post_error) # scale learning rate per input
-        else:
-            d_weights = dot_sparse_result(self.mask, self.values.T, error_between_sigmoid_and_full) 
-            d_weights *=   1 / len(post_error)  # scale learning rate per input
-        d_bias = np.sum(error_between_sigmoid_and_full, axis = 0) /len(post_error) 
+        if self.slow_learning != 0: # speed up, if learning is disabled
+            if len(sparse_layers) == 0:
+                self.d_weights = np.dot(self.values.T, error_between_sigmoid_and_full) 
+                # d_weights *= 1 / len(post_error) # scale learning rate per input
+            else:
+                self.d_weights = dot_sparse_result(self.mask, self.values.T, error_between_sigmoid_and_full) 
+                # d_weights *=   1 / len(post_error)  # scale learning rate per input
+            self.d_bias = np.sum(error_between_sigmoid_and_full, axis = 0) /len(post_error) 
         
-        self.change_weights(d_weights, d_bias)
+            self.change_weights(direction_factor)
         return pre_error
     
     def forward(self, pre_layer, dostability):
         self.values = pre_layer
         if self.weights is None:
             return pre_layer
-        if len(sparse_layers) < 0:
+        if len(sparse_layers) == 0:
             self.between_full_sigmoid = np.dot(pre_layer, self.weights)
         else:
             self.between_full_sigmoid = self.weights.T.dot(pre_layer.T).T
@@ -482,14 +493,15 @@ class Layer():
             self.stability = stability_mean * stability + (1 - stability_mean) * self.stability
         return self.post_layer
         
-    def change_weights(self, d_weights, d_bias):
+    def change_weights(self, direction_factor):
         if use_stability:
             direct = 1 - self.stability
-            self.weights += d_weights * lr * direct * self.slow_learning
-            self.bias +=  d_bias * lr * np.sum(direct, axis = 0) * self.slow_learning
+            self.weights += self.d_weights *( lr * direct * self.slow_learning * direction_factor)
+            self.bias +=  self.d_bias * np.sum(direct, axis = 0) * (lr * self.slow_learning  * direction_factor)
         else:
-            self.weights += d_weights * lr * self.slow_learning
-            self.bias +=  d_bias * lr * self.slow_learning
+            self.weights += self.d_weights * (lr * self.slow_learning  * direction_factor)
+            if use_bias:
+                self.bias +=  self.d_bias * (lr * self.slow_learning  * direction_factor)
         if clip_weights is not None:
             if isinstance(self.weights, np.ndarray):
                 np.clip(self.weights, -clip_weights, clip_weights, self.weights)
@@ -529,12 +541,12 @@ class DrawNet():
                 print('nan')
         return outp
     
-    def backward(self):
+    def backward(self, direction_factor = 1):
         #self.error = pre_error = self.y - self.layers[-1].values # forward must be called first anyway
         pre_error = self.error
         for layer in reversed(self.layers[:-1]):
             #print('pre_error', pre_error.flatten())
-            pre_error = layer.backward(pre_error)
+            pre_error = layer.backward(pre_error, direction_factor)
         return pre_error
     
     def train(self, epochs=1000):
@@ -557,6 +569,26 @@ class DrawNet():
             else:
                 ttt.set_description("Err %6.3f" % (err), refresh=False)
         self.forward() # to update the output layer, if one needs to print infos...
+    
+    def one_shot(self):
+        epoch = 0
+        while epoch < few_shot_max_try:
+            self.forward()
+            self.backward()
+            epoch += 1
+            # criterium for stopping is only used for the first element, which is the one few shot is done for. The other elements are not checked, but only used for stabilizing old learned data
+            if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
+                biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
+                if do_pm:
+                    ratio = (biggest_two[-1] + 1) / (biggest_two[-2] + 1) / 2 # do_pm means rsults between -1 and 1
+                else:
+                    ratio = biggest_two[-1] / biggest_two[-2]
+                if verbose > 0:
+                    print(biggest_two, ratio)
+                if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
+                    break
+        return epoch < few_shot_max_try
+    
     
     def plot_train_history(self):
         pyplot.figure(figsize=(15,5))
@@ -628,7 +660,10 @@ class DrawNet():
         drops = 0
         for l in self.layers:
             if l.weights is not None:
-                count += l.weights.size
+                if isinstance(l.weights, np.ndarray):
+                    count += l.weights.size
+                else:
+                    count += l.weights.data.size
                 if use_bias:
                     count += l.bias.size
                 if l.drop_weights is not None:
@@ -637,14 +672,18 @@ class DrawNet():
 
 def setup_net():
     sparse_l = sparse_layers.copy()
+    randamp = init_rand_ampl0.copy()
+    randamp = randamp + [init_rand_ampl] * 5
     NN2 = DrawNet()
     input_len = len(inputs[0])
     if test_from_random_input:
         input_len = i_bits
-    NN2.add_layer(input_len, init_rand_ampl0 * sparse_rand(input_len, hidden_size, sparse_l.pop(0) if sparse_l else None, -0.5), init_rand_ampl0 * np_array(np.random.rand(hidden_size) - 0.5), None, slow_learning = initial_net_first_layer_slow_learning)
+    NN2.add_layer(input_len, randamp[0] * sparse_rand(input_len, hidden_size, sparse_l.pop(0) if sparse_l else None, -0.5), randamp[0] * np_array(np.random.rand(hidden_size) - 0.5), None, slow_learning = initial_net_first_layer_slow_learning)
+    randamp.pop(0)
     if two_hidden_layers:
-        NN2.add_layer(hidden_size, init_rand_ampl * sparse_rand(hidden_size, hidden_size, sparse_l.pop(0) if sparse_l else None, - 0.5), init_rand_ampl * np_array(np.random.rand(hidden_size) - 0.5), None)
-    NN2.add_layer(hidden_size, init_rand_ampl * sparse_rand(hidden_size, num_outputs, sparse_l.pop(0) if sparse_l else None, - 0.5), init_rand_ampl * np_array(np.random.rand(num_outputs) - 0.5), None)
+        NN2.add_layer(hidden_size, randamp[0] * sparse_rand(hidden_size, hidden_size, sparse_l.pop(0) if sparse_l else None, - 0.5), randamp[0] * np_array(np.random.rand(hidden_size) - 0.5), None)
+        randamp.pop(0)
+    NN2.add_layer(hidden_size, randamp[0] * sparse_rand(hidden_size, num_outputs, sparse_l.pop(0) if sparse_l else None, - 0.5), randamp[0] * np_array(np.random.rand(num_outputs) - 0.5), None)
     NN2.add_layer(num_outputs, None, None, None)
     NN2.set_input(inputs, outputs)
     count_drops = 0
@@ -814,6 +853,7 @@ if do_batch_training >= 0:
         (inputs1, outputs1, _) = run_load_mnist(use_test = True,limit_labels=all_labels[:-2], only_load_num=few_shot_fast_load_num)
         (inputs2, outputs2, _) = run_load_mnist(use_test = True,limit_labels=all_labels[-2:], only_load_num=few_shot_fast_load_num)
         (inputs3, outputs3, _) = run_load_mnist(use_test = True, only_load_num=few_shot_fast_load_num)
+        start = time.time()
         for i_shot in range(try_mnist_few_shot): # some shots
             if change_first_layers_slow_learning is not None:
                 for l in range(len(change_first_layers_slow_learning)):
@@ -851,27 +891,31 @@ if do_batch_training >= 0:
                     for ii in range(1, few_shot_more_at_once):
                         if outp_2[ii].argmax() == few1:
                             ok1 = False
+            mark_to_many_tries = ""
             for m in range(use_every_shot_n_times):
                 for (inp,outp) in [(inp_1,outp_1), (inp_2,outp_2)]:
                     if verbose > 0:
                         print('start training', outp)
                     epoch = 0
                     NN2.set_input(inp, outp)
-                    while epoch < few_shot_max_try:
-                        NN2.forward()
-                        NN2.backward()
-                        epoch += 1
-                        # criterium for stopping is only used for the first element, which is the one few shot is done for. The other elements are not checked, but only used for stabilizing old learned data
-                        if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
-                            biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
-                            if do_pm:
-                                ratio = (biggest_two[-1] + 1) / (biggest_two[-2] + 1) / 2 # do_pm means rsults between -1 and 1
-                            else:
-                                ratio = biggest_two[-1] / biggest_two[-2]
-                            if verbose > 0:
-                                print(biggest_two, ratio)
-                            if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
-                                break
+                    # while epoch < few_shot_max_try:
+                    #     NN2.forward()
+                    #     NN2.backward()
+                    #     epoch += 1
+                    #     # criterium for stopping is only used for the first element, which is the one few shot is done for. The other elements are not checked, but only used for stabilizing old learned data
+                    #     if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
+                    #         biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
+                    #         if do_pm:
+                    #             ratio = (biggest_two[-1] + 1) / (biggest_two[-2] + 1) / 2 # do_pm means rsults between -1 and 1
+                    #         else:
+                    #             ratio = biggest_two[-1] / biggest_two[-2]
+                    #         if verbose > 0:
+                    #             print(biggest_two, ratio)
+                    #         if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
+                    #             break
+                    # if epoch == few_shot_max_try:
+                    if not NN2.one_shot():
+                        mark_to_many_tries = '*'
                 if verbose > 0:
                     print('Results after few shot', i_shot + 1, 'used the ', m + 1, '. time')
                     (inputs, outputs, bbs) = run_load_mnist(use_test = False,limit_labels=all_labels[:-2], only_load_num=few_shot_fast_load_num)
@@ -913,7 +957,9 @@ if do_batch_training >= 0:
                 acc_only_overall_labels = float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y)
                 if verbose > 0:
                     print('outputs', len(outputs), 'batch_size', NN2.batch_size, 'few1:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few1), 'few2:', np.sum(NN2.layers[-1].values.argmax(axis = 1) == few2), 'correct', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()), 'of', len(NN2.y), 'Ratio', float((NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1)).sum()) / len(NN2.y), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
-                print("%4d    %3d           %7.3f               %7.3f              %7.3f               %7.3f" % (i_shot + 1, m + 1, acc_only_old_labels, acc_only_new_labels, acc_only_new_labels_forced, acc_only_overall_labels))
+                print("%4d    %3d           %7.3f               %7.3f              %7.3f               %7.3f %s" % (i_shot + 1, m + 1, acc_only_old_labels, acc_only_new_labels, acc_only_new_labels_forced, acc_only_overall_labels, mark_to_many_tries))
+        end = time.time()
+        print("time for shots", end - start)
     except KeyboardInterrupt:
         print('Interrupted')
 else:
