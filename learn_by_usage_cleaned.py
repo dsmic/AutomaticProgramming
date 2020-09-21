@@ -62,7 +62,7 @@ two_hidden_layers = True
 use_bias = False
 
 lr =            0.0002
-lr_few_shot =   0.005
+lr_few_shot =   0.02
 use_stability = False
 stability_mean = 0.1
 clip_weights = 1 # (clipping to 1 was used for most tests)
@@ -79,7 +79,7 @@ scale_sigmoid = 3
 shift_sigmoid = 1
 
 few_shot_end = 0.2 # for early tests (no mnist)
-few_shot_max_try = 100000
+few_shot_max_try = 10000
 few_shot_threshold_ratio = 1.5 # for mnist
 few_shot_threshold = 0.3
 
@@ -549,6 +549,13 @@ class DrawNet():
             pre_error = layer.backward(pre_error, direction_factor)
         return pre_error
     
+    def change_weights(self,grad_direct):
+        for layer in self.layers[:-1]:
+            layer.change_weights(grad_direct)
+    
+    def loss(self):
+        return np.sum(np.square(self.error))
+    
     def train(self, epochs=1000):
         self.epochs = epochs # just to know how it was trained for output
         self.error_history = []
@@ -561,7 +568,7 @@ class DrawNet():
             self.backward()
             self.next_batch()
             # keep track of the error history over each epoch
-            err = np.sum(np.square(self.error))
+            err = self.loss()
             self.error_history.append(err)
             self.epoch_list.append(epoch)
             if self.batch_size is not None:
@@ -574,8 +581,6 @@ class DrawNet():
         epoch = 0
         while epoch < few_shot_max_try:
             self.forward()
-            self.backward()
-            epoch += 1
             # criterium for stopping is only used for the first element, which is the one few shot is done for. The other elements are not checked, but only used for stabilizing old learned data
             if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
                 biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
@@ -587,7 +592,52 @@ class DrawNet():
                     print(biggest_two, ratio)
                 if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
                     break
+            self.backward()
+            epoch += 1
+            
         return epoch < few_shot_max_try
+    
+    def one_shot_2(self):
+        epoch = 0
+        while epoch < few_shot_max_try:
+            self.forward()
+            old_loss = self.loss()
+            self.backward()
+            grad_direct = 1
+            self.forward()
+            new_loss = self.loss()
+            stop_it = False
+            for devided in range(10):
+                while new_loss < old_loss:
+                    old_loss = new_loss
+                    self.change_weights(grad_direct)
+                    self.forward()
+                    new_loss = self.loss()
+                    #print('newloss', new_loss)
+                    epoch += 1
+                    if epoch >= few_shot_max_try:
+                        stop_it = True
+                        break
+                    if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
+                        biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
+                        if do_pm:
+                            ratio = (biggest_two[-1] + 1) / (biggest_two[-2] + 1) / 2 # do_pm means rsults between -1 and 1
+                        else:
+                            ratio = biggest_two[-1] / biggest_two[-2]
+                        if verbose > 0:
+                            print(biggest_two, ratio)
+                        if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
+                            stop_it = True
+                            break
+                    
+                if stop_it:
+                    break
+                grad_direct /= -0.5
+                #print('new_direct', devided)
+            if stop_it:
+                break
+        print('ready')
+                    
     
     
     def plot_train_history(self):
