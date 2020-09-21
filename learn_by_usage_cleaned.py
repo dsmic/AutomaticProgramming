@@ -604,16 +604,16 @@ class DrawNet():
             old_loss = self.loss()
             self.backward()
             grad_direct = 1
-            self.forward()
-            new_loss = self.loss()
             stop_it = False
             for devided in range(10):
+                self.forward()
+                new_loss = self.loss()
                 while new_loss < old_loss:
                     old_loss = new_loss
                     self.change_weights(grad_direct)
                     self.forward()
                     new_loss = self.loss()
-                    #print('newloss', new_loss)
+                    print('newloss', new_loss)
                     epoch += 1
                     if epoch >= few_shot_max_try:
                         stop_it = True
@@ -632,8 +632,10 @@ class DrawNet():
                     
                 if stop_it:
                     break
-                grad_direct /= -0.5
-                #print('new_direct', devided)
+                old_loss = new_loss
+                grad_direct *= -0.5
+                self.change_weights(grad_direct)
+                print('new_direct', devided, grad_direct, old_loss)
             if stop_it:
                 break
         print('ready')
