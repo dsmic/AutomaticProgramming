@@ -469,8 +469,8 @@ class Layer():
                 self.d_weights = dot_sparse_result(self.mask, self.values.T, error_between_sigmoid_and_full) 
                 # d_weights *=   1 / len(post_error)  # scale learning rate per input
             if last_d_weights is not None:
-                mean_len_d_weights = (np.linalg.norm(last_d_weights.flatten()) + np.linalg.norm(self.d_weights.flatten())) / 2
-                diff_d_weights = np.linalg.norm(last_d_weights.flatten() - self.d_weights.flatten())
+                mean_len_d_weights = (np.linalg.norm(last_d_weights) + np.linalg.norm(self.d_weights)) / 2
+                diff_d_weights = np.linalg.norm(last_d_weights - self.d_weights)
                 self.d_weights_ratio = diff_d_weights / mean_len_d_weights
                 #print(self.d_weights_ratio)
             
