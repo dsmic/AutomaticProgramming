@@ -63,8 +63,10 @@ use_bias = False
 
 lr =            0.0002
 
-lr_few_shot =   0.005
-scale_lr_treshold = 0.1
+lr_few_shot =   0.001
+scale_lr_treshold = 0.05
+
+pretrain_with_few_shot = 2000 # overwrites do_batch_training if > 0
 
 use_stability = False
 stability_mean = 0.1
@@ -92,7 +94,7 @@ check_wrong = True
 
 all_labels = [0, 1, 9, 3, 4, 5, 6, 7, 8, 2]
 # random.shuffle(all_labels)    # if shuffeld, preloading can not work !!!!!
-try_load_pretrained = True
+try_load_pretrained = False
 few_shot_fast_load_num = 4000 # should also handle the batch_sizes for displaying batch training results properly
 
 test_from_random_input = False
@@ -593,6 +595,29 @@ class DrawNet():
                 ttt.set_description("Err %6.3f" % (err), refresh=False)
         self.forward() # to update the output layer, if one needs to print infos...
     
+    def train_2(self, shots=1000):
+        self.epochs = shots # just to know how it was trained for output
+        self.error_history = []
+        self.epoch_list = []
+        ttt = tqdm(range(shots), mininterval = 10, disable=disable_progressbar)
+        for shot in ttt:
+            # flow forward and produce an output
+            begin = shot - few_shot_more_at_once
+            if begin < 0:
+                begin = 0
+            self.layers[0].values = self.all_input[begin:shot+1]
+            self.y = self.all_output[begin:shot+1]
+            
+            self.one_shot_3()
+            
+            err = self.loss()
+            self.error_history.append(err)
+            self.epoch_list.append(shot)
+            ttt.set_description("Err %6.3f" % (err), refresh=False)
+            
+        self.forward() # to update the output layer, if one needs to print infos...
+    
+    
     def one_shot(self):
         epoch = 0
         while epoch < few_shot_max_try:
@@ -641,10 +666,11 @@ class DrawNet():
                         max_weight_ratio = wr
             if verbose > 0:
                 print(max_weight_ratio, scale_lr)
-            if max_weight_ratio > scale_lr_treshold * 2:
-                scale_lr /= 2
-            if max_weight_ratio < scale_lr_treshold:
-                scale_lr *= 2
+            if max_weight_ratio is not None:
+                if max_weight_ratio > scale_lr_treshold * 2:
+                    scale_lr /= 2
+                if max_weight_ratio < scale_lr_treshold:
+                    scale_lr *= 2
                         
                 
             epoch += 1
@@ -900,7 +926,10 @@ if do_batch_training >= 0:
     if not loaded_pretrained:
         try:
             print('start', datetime.now().strftime("%H:%M:%S"))
-            NN2.train(do_batch_training)
+            if pretrain_with_few_shot > 0:
+                NN2.train_2(pretrain_with_few_shot)
+            else:
+                NN2.train(do_batch_training)
             print('end', datetime.now().strftime("%H:%M:%S"))
             with open("pickled_NN2" + NN2_file_identifier + ".pkl", "bw") as fh:
                 pickle.dump(NN2, fh)
