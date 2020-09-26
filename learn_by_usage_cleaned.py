@@ -62,12 +62,15 @@ two_hidden_layers = True
 use_bias = False
 
 lr =            0.0002
-lr_few_shot =   0.02
+
+lr_few_shot =   0.005
+scale_lr_treshold = 0.1
+
 use_stability = False
 stability_mean = 0.1
 clip_weights = 1 # (clipping to 1 was used for most tests)
 clip_bias = 1
-init_rand_ampl = 0.5
+init_rand_ampl = 0.1
 init_rand_ampl0 = [] # [1,0.5,1] #2 # for first layers    ([2] was used for most tests to make the first layer a mostly random layer)
 
 # drawing parameters
@@ -79,7 +82,7 @@ scale_sigmoid = 3
 shift_sigmoid = 1
 
 few_shot_end = 0.2 # for early tests (no mnist)
-few_shot_max_try = 10000
+few_shot_max_try = 100000
 few_shot_threshold_ratio = 1.5 # for mnist
 few_shot_threshold = 0.3
 
@@ -125,7 +128,7 @@ num_outputs = 10 # most early test need this to be 1, later with mnist dataset t
 
 try_mnist_few_shot = 10
 use_every_shot_n_times = 1 # every data is used n times. so one shot means the data from first shot is used n times
-change_first_layers_slow_learning = [] # [0,1,0] # [0.1, 1] # [0, 0.1]
+change_first_layers_slow_learning = [0.1] # [0,1,0] # [0.1, 1] # [0, 0.1]
 
 
 sparse_layers = [] # [1, 0.00001] # [0.999,0.999,0.999,0.999]
@@ -358,6 +361,9 @@ class Layer():
         self.bias = bias
         self.values = values
         self.slow_learning = slow_learning
+        
+        self.d_weights = None
+        self.d_weights_ratio = None
 
     def __intialise_neurons(self, number_of_neurons):
         neurons = []
@@ -452,12 +458,22 @@ class Layer():
             pre_error = self.weights.dot(error_between_sigmoid_and_full.T).T
         
         if self.slow_learning != 0: # speed up, if learning is disabled
+            if scale_lr_treshold > 0 and self.d_weights is not None:
+                last_d_weights = self.d_weights
+            else:
+                last_d_weights = None
             if len(sparse_layers) == 0:
                 self.d_weights = np.dot(self.values.T, error_between_sigmoid_and_full) 
                 # d_weights *= 1 / len(post_error) # scale learning rate per input
             else:
                 self.d_weights = dot_sparse_result(self.mask, self.values.T, error_between_sigmoid_and_full) 
                 # d_weights *=   1 / len(post_error)  # scale learning rate per input
+            if last_d_weights is not None:
+                mean_len_d_weights = (np.linalg.norm(last_d_weights.flatten()) + np.linalg.norm(self.d_weights.flatten())) / 2
+                diff_d_weights = np.linalg.norm(last_d_weights.flatten() - self.d_weights.flatten())
+                self.d_weights_ratio = diff_d_weights / mean_len_d_weights
+                #print(self.d_weights_ratio)
+            
             self.d_bias = np.sum(error_between_sigmoid_and_full, axis = 0) /len(post_error) 
         
             self.change_weights(direction_factor)
@@ -597,6 +613,44 @@ class DrawNet():
             
         return epoch < few_shot_max_try
     
+    def one_shot_3(self):
+        epoch = 0
+        scale_lr = 1
+        while epoch < few_shot_max_try:
+            self.forward()
+            # criterium for stopping is only used for the first element, which is the one few shot is done for. The other elements are not checked, but only used for stabilizing old learned data
+            if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
+                biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
+                if do_pm:
+                    ratio = (biggest_two[-1] + 1) / (biggest_two[-2] + 1) / 2 # do_pm means rsults between -1 and 1
+                else:
+                    ratio = biggest_two[-1] / biggest_two[-2]
+                if verbose > 0:
+                    print(biggest_two, ratio)
+                if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
+                    break
+            self.backward(scale_lr)
+            max_weight_ratio = None
+            for l in self.layers:
+                wr = l.d_weights_ratio
+                if wr is not None:
+                    if max_weight_ratio is not None:
+                        if wr > max_weight_ratio:
+                            max_weight_ratio = wr
+                    else:
+                        max_weight_ratio = wr
+            if verbose > 0:
+                print(max_weight_ratio, scale_lr)
+            if max_weight_ratio > scale_lr_treshold * 2:
+                scale_lr /= 2
+            if max_weight_ratio < scale_lr_treshold:
+                scale_lr *= 2
+                        
+                
+            epoch += 1
+            
+        return epoch < few_shot_max_try
+    
     def one_shot_2(self):
         epoch = 0
         while epoch < few_shot_max_try:
@@ -613,7 +667,8 @@ class DrawNet():
                     self.change_weights(grad_direct)
                     self.forward()
                     new_loss = self.loss()
-                    print('newloss', new_loss)
+                    if verbose > 0:
+                        print('newloss', old_loss, new_loss, new_loss-old_loss)
                     epoch += 1
                     if epoch >= few_shot_max_try:
                         stop_it = True
@@ -625,7 +680,8 @@ class DrawNet():
                         else:
                             ratio = biggest_two[-1] / biggest_two[-2]
                         if verbose > 0:
-                            print(biggest_two, ratio)
+                            if verbose > 0:
+                                print(biggest_two, ratio)
                         if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
                             stop_it = True
                             break
@@ -635,10 +691,12 @@ class DrawNet():
                 old_loss = new_loss
                 grad_direct *= -0.5
                 self.change_weights(grad_direct)
-                print('new_direct', devided, grad_direct, old_loss)
+                if verbose > 0:
+                    print('new_direct', devided, grad_direct, old_loss)
             if stop_it:
                 break
-        print('ready')
+        if verbose > 0:
+            print('ready')
                     
     
     
@@ -966,7 +1024,7 @@ if do_batch_training >= 0:
                     #         if ratio > few_shot_threshold_ratio and biggest_two[-1] > few_shot_threshold:
                     #             break
                     # if epoch == few_shot_max_try:
-                    if not NN2.one_shot():
+                    if not NN2.one_shot_3():
                         mark_to_many_tries = '*'
                 if verbose > 0:
                     print('Results after few shot', i_shot + 1, 'used the ', m + 1, '. time')
