@@ -21,14 +21,22 @@ def string_to_simelar_has(x):
         return string_to_bin_narray(x)
     for i in range(len(x)-3):
         h += string_to_bin_narray(x[i:i+3])
-    return h #/ (len(x)-3)
+    return np.tanh(h)/2+0.5
 
 
 
+comp = string_to_simelar_has("hallo was ist das")
 
-print(string_to_simelar_has("hallo was ist das"))
-print(string_to_simelar_has("halo was ist das"))
-print(string_to_simelar_has("hallo was it das"))
-print(string_to_simelar_has("hal"))
+def printcomp(xx):
+    print(xx, np.sum((comp-xx)**2))
 
-print(string_to_simelar_has("hallo was ist dasd"))
+np.set_printoptions(precision=2, suppress = True, linewidth=400)
+    
+printcomp(string_to_simelar_has("hallo was ist das"))
+printcomp(string_to_simelar_has("halo was ist das"))
+printcomp(string_to_simelar_has("hallo was it das"))
+printcomp(string_to_simelar_has("hal"))
+
+printcomp(string_to_simelar_has("hallo was ist dasd"))
+
+printcomp(string_to_simelar_has("ist es nicht gut"))
