@@ -63,16 +63,16 @@ use_bias = False
 
 lr =            0.0002
 
-lr_few_shot =   0.001
+lr_few_shot =   0.01
 scale_lr_treshold = 0.05
 
-pretrain_with_few_shot = 2000 # overwrites do_batch_training if > 0
+pretrain_with_few_shot = 1000 # overwrites do_batch_training if > 0
 
 use_stability = False
 stability_mean = 0.1
 clip_weights = 1 # (clipping to 1 was used for most tests)
-clip_bias = 1
-init_rand_ampl = 0.1
+clip_bias = None # 1
+init_rand_ampl = 0.5
 init_rand_ampl0 = [] # [1,0.5,1] #2 # for first layers    ([2] was used for most tests to make the first layer a mostly random layer)
 
 # drawing parameters
@@ -84,13 +84,13 @@ scale_sigmoid = 3
 shift_sigmoid = 1
 
 few_shot_end = 0.2 # for early tests (no mnist)
-few_shot_max_try = 100000
-few_shot_threshold_ratio = 1.5 # for mnist
-few_shot_threshold = 0.3
+few_shot_max_try = 1000
+few_shot_threshold_ratio = 1.2 # for mnist
+few_shot_threshold = 0.2
 
 # if 1 it is standard understanding of few shot learning, giving on data point at each shot, otherwize it adds more data points from availible training data to each shot
-few_shot_more_at_once = 5
-check_wrong = True
+few_shot_more_at_once = 10
+check_wrong = False
 
 all_labels = [0, 1, 9, 3, 4, 5, 6, 7, 8, 2]
 # random.shuffle(all_labels)    # if shuffeld, preloading can not work !!!!!
@@ -128,7 +128,7 @@ label_to_one = 5
 
 num_outputs = 10 # most early test need this to be 1, later with mnist dataset this can be set to 10 eg.
 
-try_mnist_few_shot = 10
+try_mnist_few_shot = 1000
 use_every_shot_n_times = 1 # every data is used n times. so one shot means the data from first shot is used n times
 change_first_layers_slow_learning = [0.1] # [0,1,0] # [0.1, 1] # [0, 0.1]
 
@@ -211,6 +211,7 @@ def sigmoid(x):
     if do_pm:
         return np.tanh(x)
     xx = scale_sigmoid * (x - shift_sigmoid)
+    #np.clip(xx,-10,10,xx) # avoid under over flow
     return 1 / (1 + np.exp(-xx)) #* 2 -1
 
 def sigmoid_derivative(x):
@@ -476,7 +477,8 @@ class Layer():
                 self.d_weights_ratio = diff_d_weights / mean_len_d_weights
                 #print(self.d_weights_ratio)
             
-            self.d_bias = np.sum(error_between_sigmoid_and_full, axis = 0) /len(post_error) 
+            if use_bias:
+                self.d_bias = np.sum(error_between_sigmoid_and_full, axis = 0) /len(post_error) 
         
             self.change_weights(direction_factor)
         return pre_error
@@ -931,18 +933,18 @@ if do_batch_training >= 0:
             else:
                 NN2.train(do_batch_training)
             print('end', datetime.now().strftime("%H:%M:%S"))
-            with open("pickled_NN2" + NN2_file_identifier + ".pkl", "bw") as fh:
-                pickle.dump(NN2, fh)
+            # with open("pickled_NN2" + NN2_file_identifier + ".pkl", "bw") as fh:
+            #     pickle.dump(NN2, fh)
         except KeyboardInterrupt:
             print('Interrupted by keyboard')
     NN2.forward() # most of the time, this should result in an OK net, but not safe, as train could be interrupted at any position
-    pyplot.figure(figsize=(15,5))
-    pyplot.plot(NN2.epoch_list, (np_array(NN2.error_history) / len(NN2.error)).tolist())
-    pyplot.xlabel('Batches')
-    pyplot.ylabel('Error')
-    pyplot.title('trained with epochs: ' + str(NN2.epochs))
-    pyplot.show()
-    pyplot.close()
+    # pyplot.figure(figsize=(15,5))
+    # pyplot.plot(NN2.epoch_list, (np_array(NN2.error_history) / len(NN2.error)).tolist())
+    # pyplot.xlabel('Batches')
+    # pyplot.ylabel('Error')
+    # pyplot.title('trained with epochs: ' + str(NN2.epochs))
+    # pyplot.show()
+    # pyplot.close()
     
     if num_outputs == 1:
         print('train', len(outputs), 'batch_size', NN2.batch_size, '1', int(np.sum(NN2.y > 0.5)), 'wrong', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))), 'Ratio', int(np.sum((NN2.y > 0.5) * (NN2.error**2 > 0.25))) / int(np.sum(NN2.y > 0.5)), 'Error', float(np.sum(NN2.error**2) / len(NN2.error)))
