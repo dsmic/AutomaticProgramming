@@ -13,23 +13,24 @@ class net_database():
         self.data = {}
         self.keys = np.empty([0,64])
         
-    def string_to_bin_narray(self, x):
-        xh = hash(x)
-        if xh > 0:
-            b = list(bin(hash(x)))[2:]
-            b = [0] * (64-len(b)) + b
-        else:
-            b = list(bin(hash(x)))[3:]
-            b = [1] + [0] * (63-len(b)) + b
-        b = np.array(b, dtype = float) - 0.5
-        return b
     
     def string_to_simelar_has(self, x):
+        def string_to_bin_narray(x):
+            xh = hash(x)
+            if xh > 0:
+                b = list(bin(hash(x)))[2:]
+                b = [0] * (64-len(b)) + b
+            else:
+                b = list(bin(hash(x)))[3:]
+                b = [1] + [0] * (63-len(b)) + b
+            b = np.array(b, dtype = float) - 0.5
+            return b
+        
         h = np.array([0] * 64, dtype = float)
         if len(x) <= 3:
-            return self.string_to_bin_narray(x)
+            return string_to_bin_narray(x)
         for i in range(len(x)-3):
-            h += self.string_to_bin_narray(x[i:i+3])
+            h += string_to_bin_narray(x[i:i+3])
         return np.tanh(h)/2+0.5
 
     def add_data(self, x):
