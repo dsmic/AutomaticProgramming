@@ -8,35 +8,52 @@ Created on Tue Oct 13 12:22:15 2020
 
 import numpy as np
 
-
-def string_to_bin_narray(x):
-    b = list(bin(abs(hash(x))))[2:]
-    b = [0] * (63-len(b)) + b
-    b = np.array(b, dtype = float) - 0.5
-    return b
-
-def string_to_simelar_has(x):
-    h = np.array([0] * 63, dtype = float)
-    if len(x) <= 3:
-        return string_to_bin_narray(x)
-    for i in range(len(x)-3):
-        h += string_to_bin_narray(x[i:i+3])
-    return np.tanh(h)/2+0.5
-
-
-
-comp = string_to_simelar_has("hallo was ist das")
-
-def printcomp(xx):
-    print(xx, np.sum((comp-xx)**2))
-
-np.set_printoptions(precision=2, suppress = True, linewidth=400)
+class net_database():
+    def __init__(self):
+        self.data = {}
+        self.keys = np.empty([0,64])
+        
+    def string_to_bin_narray(self, x):
+        xh = hash(x)
+        if xh > 0:
+            b = list(bin(hash(x)))[2:]
+            b = [0] * (64-len(b)) + b
+        else:
+            b = list(bin(hash(x)))[3:]
+            b = [1] + [0] * (63-len(b)) + b
+        b = np.array(b, dtype = float) - 0.5
+        return b
     
-printcomp(string_to_simelar_has("hallo was ist das"))
-printcomp(string_to_simelar_has("halo was ist das"))
-printcomp(string_to_simelar_has("hallo was it das"))
-printcomp(string_to_simelar_has("hal"))
+    def string_to_simelar_has(self, x):
+        h = np.array([0] * 64, dtype = float)
+        if len(x) <= 3:
+            return self.string_to_bin_narray(x)
+        for i in range(len(x)-3):
+            h += self.string_to_bin_narray(x[i:i+3])
+        return np.tanh(h)/2+0.5
 
-printcomp(string_to_simelar_has("hallo was ist dasd"))
+    def add_data(self, x):
+        key = self.string_to_simelar_has(x)
+        #print(x,key)
+        self.data[tuple(key)] = x
+        self.keys = np.append(self.keys, key.reshape((1,64)), axis = 0)
+        
+    def get_data(self, x):
+        key = self.string_to_simelar_has(x)
+        dist = np.sum((self.keys - key)**2, axis = 1)
+        m = dist.argmin()
+        print(dist, m)
+        return self.data[tuple(self.keys[m])]
+        
 
-printcomp(string_to_simelar_has("ist es nicht gut"))
+np.set_printoptions(precision=2, suppress = True, linewidth=150)
+    
+
+store = net_database()
+
+store.add_data("hallo")
+store.add_data("wer ist")
+store.add_data("ist noch was")
+
+a = store.get_data("ist noch was")
+print(a)
