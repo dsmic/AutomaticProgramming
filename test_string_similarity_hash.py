@@ -37,15 +37,18 @@ class net_database():
         #print(x,key)
         self.data[tuple(key)] = x
         self.keys = np.append(self.keys, key.reshape((1,64)), axis = 0)
-        
-    def get_data(self, x):
-        key = self.string_to_simelar_has(x)
+        return key
+    
+    def get_data_key(self, key):
         dist = np.sum((self.keys - key)**2, axis = 1)
         m = dist.argmin()
         print(dist, m)
         return self.data[tuple(self.keys[m])]
         
-
+    def get_data_string(self, x):
+        key = self.string_to_simelar_has(x)
+        return self.get_data_key(key)
+    
 np.set_printoptions(precision=2, suppress = True, linewidth=150)
     
 
@@ -55,5 +58,5 @@ store.add_data("hallo")
 store.add_data("wer ist")
 store.add_data("ist noch was")
 
-a = store.get_data("ist noch was")
+a = store.get_data_string("ist noch was")
 print(a)
