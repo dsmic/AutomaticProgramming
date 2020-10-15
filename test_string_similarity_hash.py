@@ -7,6 +7,7 @@ Created on Tue Oct 13 12:22:15 2020
 """
 
 import numpy as np
+import tokenize
 
 class net_database():
     def __init__(self):
@@ -35,9 +36,11 @@ class net_database():
 
     def add_data(self, x):
         key = self.string_to_simelar_has(x)
+        key_tuple = tuple(key)
         #print(x,key)
-        self.data[tuple(key)] = x
-        self.keys = np.append(self.keys, key.reshape((1,64)), axis = 0)
+        if key_tuple not in self.data:
+            self.data[key_tuple] = x
+            self.keys = np.append(self.keys, key.reshape((1,64)), axis = 0)
         return key
     
     def get_data_key(self, key):
@@ -61,3 +64,34 @@ store.add_data("ist noch was")
 
 a = store.get_data_string("ist noch was")
 print(a)
+
+
+def read_file(file_name):
+    txt_file = open(file_name)
+    return [line.strip('\n') for line in txt_file]
+
+limit_files = 100
+
+def load_dataset(file_names, save_tokens_file_num = 0):
+    data_set = []
+    count = 0
+    for file_name in file_names:
+        if limit_files > 0 and count > limit_files:
+            break
+        try:
+            python_file = open(file_name)
+            py_program = tokenize.generate_tokens(python_file.readline) # just check if no errors accure
+            d = list(py_program)
+            # data_set += d
+            for t in d:
+                key = store.add_data(t.string)
+                data_set.append(key)
+            count += 1
+        except UnicodeDecodeError as e:
+            print(file_name + '\n  wrong encoding ' + str(e))
+        except tokenize.TokenError as e:
+            print(file_name + '\n  token error ' + str(e))
+    return data_set
+
+
+train_data_set = load_dataset(read_file('python100k_train.txt'))    
