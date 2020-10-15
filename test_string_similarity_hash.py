@@ -118,7 +118,7 @@ def load_dataset(file_names, save_tokens_file_num = 0):
             # data_set += d
             for t in d:
                 key = store.add_data(t.string)
-                data_set.append(key)
+                data_set.append(key.tolist())
             count += 1
         except UnicodeDecodeError as e:
             print(file_name + '\n  wrong encoding ' + str(e))
@@ -128,6 +128,7 @@ def load_dataset(file_names, save_tokens_file_num = 0):
 
 
 train_data_set = load_dataset(read_file('python100k_train.txt'))    
+test_data_set = load_dataset(read_file('python50k_eval.txt'))    
 
 
 use_stability = False
@@ -664,8 +665,8 @@ class DrawNet():
 init_rand_ampl = 0.5
 init_rand_ampl0 = [] # [1,0.5,1] #2 # for first layers    ([2] was used for most tests to make the first layer a mostly random layer)
 
-inputs = [store.string_to_simelar_has("check_in")]
-outputs = [store.string_to_simelar_has("check_out")]
+inputs = np_array(train_data_set)[:-1,:]
+outputs = np_array(train_data_set)[1:,:]
 num_outputs = outputs[0].shape[0]
 do_drop_weights = []
 
