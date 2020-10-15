@@ -20,9 +20,11 @@ else:
     import scipy.sparse as sparse
 
 
+hidden_size = 100
 lr =            0.0002
 clip_weights = 1 # (clipping to 1 was used for most tests)
 clip_bias = None # 1
+two_hidden_layers = True
 
 
 few_shot_more_at_once = 5
@@ -657,3 +659,38 @@ class DrawNet():
                 if l.drop_weights is not None:
                     drops += l.drop_weights.size - np.sum(l.drop_weights)
         return count, drops
+
+
+init_rand_ampl = 0.5
+init_rand_ampl0 = [] # [1,0.5,1] #2 # for first layers    ([2] was used for most tests to make the first layer a mostly random layer)
+
+inputs = [store.string_to_simelar_has("check_in")]
+outputs = [store.string_to_simelar_has("check_out")]
+num_outputs = outputs[0].shape[0]
+do_drop_weights = []
+
+def setup_net():
+    randamp = init_rand_ampl0.copy()
+    randamp = randamp + [init_rand_ampl] * 5
+    NN2 = DrawNet()
+    input_len = inputs[0].shape[0]
+    NN2.add_layer(input_len, randamp[0] * np_array(np.random.rand(input_len,hidden_size)), randamp[0] * np_array(np.random.rand(hidden_size) - 0.5), None)
+    randamp.pop(0)
+    if two_hidden_layers:
+        NN2.add_layer(hidden_size, randamp[0] * np_array(np.random.rand(hidden_size, hidden_size)), randamp[0] * np_array(np.random.rand(hidden_size) - 0.5), None)
+        randamp.pop(0)
+    NN2.add_layer(hidden_size, randamp[0] * np_array(np.random.rand(hidden_size, num_outputs)), randamp[0] * np_array(np.random.rand(num_outputs) - 0.5), None)
+    NN2.add_layer(num_outputs, None, None, None)
+    NN2.set_input(inputs, outputs)
+    count_drops = 0
+    for l in range(len(do_drop_weights)):
+        if do_drop_weights[l] > 0:
+            NN2.layers[l].drop_weights = np.random.rand(NN2.layers[l].weights.size).reshape(NN2.layers[l].weights.shape) > do_drop_weights[l]
+            count_drops += NN2.layers[l].drop_weights.size - np.sum(NN2.layers[l].drop_weights)
+    num_params, count_drops = NN2.count_parameters()
+    if verbose > 0:
+        print('Network parameters: ', num_params, 'dropped', count_drops, 'real parameters', num_params - count_drops, 'drop definition', do_drop_weights)
+    
+    return NN2
+
+setup_net()
