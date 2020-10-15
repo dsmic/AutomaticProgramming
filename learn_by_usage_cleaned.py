@@ -625,8 +625,8 @@ class DrawNet():
         while epoch < few_shot_max_try:
             self.forward()
             # criterium for stopping is only used for the first element, which is the one few shot is done for. The other elements are not checked, but only used for stabilizing old learned data
-            if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
-                biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
+            if (self.layers[-1].values.argmax(axis = 1) == self.y.argmax(axis=1))[0]:
+                biggest_two = np.partition(self.layers[-1].values[0], -2)[-2:]
                 if do_pm:
                     ratio = (biggest_two[-1] + 1) / (biggest_two[-2] + 1) / 2 # do_pm means rsults between -1 and 1
                 else:
@@ -646,8 +646,8 @@ class DrawNet():
         while epoch < few_shot_max_try:
             self.forward()
             # criterium for stopping is only used for the first element, which is the one few shot is done for. The other elements are not checked, but only used for stabilizing old learned data
-            if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
-                biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
+            if (self.layers[-1].values.argmax(axis = 1) == self.y.argmax(axis=1))[0]:
+                biggest_two = np.partition(self.layers[-1].values[0], -2)[-2:]
                 if do_pm:
                     ratio = (biggest_two[-1] + 1) / (biggest_two[-2] + 1) / 2 # do_pm means rsults between -1 and 1
                 else:
@@ -701,8 +701,8 @@ class DrawNet():
                     if epoch >= few_shot_max_try:
                         stop_it = True
                         break
-                    if (NN2.layers[-1].values.argmax(axis = 1) == NN2.y.argmax(axis=1))[0]:
-                        biggest_two = np.partition(NN2.layers[-1].values[0], -2)[-2:]
+                    if (self.layers[-1].values.argmax(axis = 1) == self.y.argmax(axis=1))[0]:
+                        biggest_two = np.partition(self.layers[-1].values[0], -2)[-2:]
                         if do_pm:
                             ratio = (biggest_two[-1] + 1) / (biggest_two[-2] + 1) / 2 # do_pm means rsults between -1 and 1
                         else:
