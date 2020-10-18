@@ -14,6 +14,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, Callback
 from tensorflow.keras.layers import Activation, Embedding, Dense,  Lambda, Input
 from tensorflow.keras.layers import SimpleRNN, GRU, LSTM
 from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.optimizers import SGD
 import numpy as np
 import tokenize
 #from collections import OrderedDict
@@ -24,7 +25,7 @@ from threading import Lock
 #os.environ["TF_CPP_MIN_LOG_LEVEL"]="2" # remove some optimization warnings for tensorflow
 
 parser = argparse.ArgumentParser(description='train recurrent net.')
-parser.add_argument('--lr', dest='lr',  type=float, default=1e-3)
+parser.add_argument('--lr', dest='lr',  type=float, default=1e-2)
 parser.add_argument('--epochs', dest='epochs',  type=int, default=500)
 parser.add_argument('--hidden_size', dest='hidden_size',  type=int, default=50)
 parser.add_argument('--final_name', dest='final_name',  type=str, default='final_model')
@@ -63,6 +64,8 @@ parser.add_argument('--benchmark_parsing', dest='benchmark_parsing',   type=int,
 
 parser.add_argument('--save_tokens_file_num', dest='save_tokens_file_num',  type=int, default=1000) #default, as it is much better than the other tests at the moment
 parser.add_argument('--save_tokens_min_num', dest='save_tokens_min_num',  type=int, default=100)
+
+parser.add_argument('--string_hash', dest='string_hash', action='store_true')
 
 args = parser.parse_args()
 
@@ -160,9 +163,14 @@ class Token_translate:
         self.found = 0
         self.calls = 0
         self.removed_numbers = {}
+        self.num_free = num_free
         
     def translate(self,token):
         # seems to be called by different threads?!
+        if args.string_hash:
+            s = token.string
+            sh = hash(s)
+            return sh % max_output # seems to be changed after initialization
         with self.lock:
             if args.save_tokens_file_num != 0:
                 if (token[0], token[1]) in saved_tokens:
@@ -243,24 +251,25 @@ def load_dataset(file_names, save_tokens_file_num = 0):
         count += 1
         if args.limit_files >0 and count > args.limit_files:
             break
-        if save_tokens_file_num > 0 and count > save_tokens_file_num:
-            break
         try:
             python_file = open(file_name)
             py_program = tokenize.generate_tokens(python_file.readline) # just check if no errors accure
             #list(py_program) #force tokenizing to check for errors
             #program_lines = []
             if save_tokens_file_num != 0:
-                for py_token in py_program:
-                    if py_token[0] not in all_tokens:
-                        all_tokens[py_token[0]] = {}
-                    in_tokens = all_tokens[py_token[0]]
-                    if py_token[1] not in in_tokens:
-                        in_tokens[py_token[1]] = 0
-                    in_tokens[py_token[1]] += 1
-                    #print(py_token)
-                    #token_number = translator.translate(py_token)
-                    #print("---",token_number, '- ' + translator.get_string(token_number)+' -')
+                if count < save_tokens_file_num:
+                    for py_token in py_program:
+                        if py_token[0] not in all_tokens:
+                            all_tokens[py_token[0]] = {}
+                        in_tokens = all_tokens[py_token[0]]
+                        if py_token[1] not in in_tokens:
+                            in_tokens[py_token[1]] = 0
+                        in_tokens[py_token[1]] += 1
+                        #print(py_token)
+                        #token_number = translator.translate(py_token)
+                        #print("---",token_number, '- ' + translator.get_string(token_number)+' -')
+                else:
+                    list(py_program) #force tokenizing to check for errors
             else:
                 list(py_program) #force tokenizing to check for errors
             data_set.append(file_name)
@@ -444,7 +453,7 @@ tensorboard = TensorBoard(log_dir = args.tensorboard_logdir)
 
 checkpointer = ModelCheckpoint(filepath='checkpoints/model-{epoch:02d}.hdf5', verbose=1)
 
-model.compile(loss='categorical_crossentropy', optimizer = 'SGD', metrics=['categorical_accuracy'])
+model.compile(loss='categorical_crossentropy', optimizer = SGD(learning_rate=args.lr), metrics=['categorical_accuracy'])
 model.fit_generator(train_data_generator.generate(), args.epoch_size, args.epochs, 
                     validation_data=test_data_generator.generate(), validation_steps=args.epoch_size / 10, 
                     callbacks=[checkpointer, tensorboard, terminate_on_key])
