@@ -8,19 +8,23 @@ Created on Mon Oct 21 10:04:58 2019
 import os
 import pickle
 import argparse
-import tensorflow as tf
-from tensorflow.keras import Model
-from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, Callback
-from tensorflow.keras.layers import Activation, Embedding, Dense,  Lambda, Input
-from tensorflow.keras.layers import SimpleRNN, GRU, LSTM
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.optimizers import SGD
+#import tensorflow as tf
+#from tensorflow.keras import Model
+#from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, Callback
+#from tensorflow.keras.layers import Activation, Embedding, Dense,  Lambda, Input
+#from tensorflow.keras.layers import SimpleRNN, GRU, LSTM
+#from tensorflow.keras.utils import to_categorical
+#from tensorflow.keras.optimizers import SGD
 import numpy as np
 import tokenize
 #from collections import OrderedDict
 from threading import Lock
 
-from tcn import TCN #, tcn_full_summary
+import torch
+import torch.nn as nn
+
+
+#from tcn import TCN #, tcn_full_summary
 
 
 #from sortedcontainers import SortedList
@@ -78,25 +82,25 @@ args = parser.parse_args()
 
 max_output = args.token_number
 
-RNN_type = {}
-RNN_type['LSTM'] = LSTM
-RNN_type['GRU'] = GRU
-RNN_type['SimpleRNN'] = SimpleRNN
+#RNN_type = {}
+#RNN_type['LSTM'] = LSTM
+#RNN_type['GRU'] = GRU
+#RNN_type['SimpleRNN'] = SimpleRNN
 
-LSTM_use = RNN_type[args.RNN_type]
+#LSTM_use = RNN_type[args.RNN_type]
 
 #tensorflow 2.0b sets memory growth per default, seems to be changed ?!
-gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-  try:
-    # Currently, memory growth needs to be the same across GPUs
-    for gpu in gpus:
-      tf.config.experimental.set_memory_growth(gpu, True)
-    logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-    print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-  except RuntimeError as e:
-    # Memory growth must be set before GPUs have been initialized
-    print(e)
+# gpus = tf.config.experimental.list_physical_devices('GPU')
+# if gpus:
+#   try:
+#     # Currently, memory growth needs to be the same across GPUs
+#     for gpu in gpus:
+#       tf.config.experimental.set_memory_growth(gpu, True)
+#     logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+#     print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+#   except RuntimeError as e:
+#     # Memory growth must be set before GPUs have been initialized
+#     print(e)
 
 
 class token_sort:
@@ -173,72 +177,12 @@ class Token_translate:
         
     def translate(self,token):
         # seems to be called by different threads?!
-        if args.string_hash:
-            if args.remove_comments and (token[0] == tokenize.COMMENT or token[0] == tokenize.NL):
-                #print('comment removed')
-                return None
-            s = token.string
-            sh = hash(s)
-            return sh % max_output # seems to be changed after initialization
-        with self.lock:
-            if args.save_tokens_file_num != 0:
-                if (token[0], token[1]) in saved_tokens:
-                    return saved_tokens[(token[0], token[1])]
-                if (token[0]) in saved_tokens:
-                    return saved_tokens[(token[0])]
-                if token[0] != 54: #ERRORtokens may appear
-                    print('should not happen?', token, 'return', saved_pos)
-                return saved_pos
-            backok = False
-            if args.remove_comments and (token[0] == tokenize.COMMENT or token[0] == tokenize.NL):
-                #print('comment removed')
-                return None
-            if args.only_token_type or (args.only_token_detail and token[0] != tokenize.OP) or (args.only_token_detail_name and token[0] != tokenize.OP and token[0] != tokenize.NAME) or (args.no_string_details and token[0] == tokenize.STRING):
-                used_part = (token[0]) # (type , string ) of the tokenizer
-            else:
-                used_part = (token[0],token[1]) # (type , string ) of the tokenizer
-                backok =True
-            #print(used_part)
-            f = 1 - 1.0 / args.token_number
-            for aa in self.used:
-                self.used[aa] *= f
-            #self.used.update((k, v * f) for k,v in self.used.items())
-            if used_part in self.used:
-                self.used_sorted.delete(used_part)
-                self.used[used_part] += 1
-                if self.used[used_part] > args.token_number / 2:
-                    self.used[used_part] = args.token_number / 2
-                #assert(self.used_sorted.check_order())
-            else:
-                self.used[used_part] = 1
-            self.used_sorted.add(used_part)
-            #print(token)
-            self.calls += 1
-            if used_part not in self.data:
-                if len(self.free_numbers) == 0:
-                    #oldest_old = min(self.used,key=self.used.get)
-                    oldest = self.used_sorted.pop_lowest()
-                    #assert(oldest == oldest_old)
-                    self.free_numbers = [self.data[oldest]]
-                    self.removed_numbers[self.data[oldest]] = 1
-                    if args.debug:
-                        print('deleted', oldest, self.used[oldest], self.data[oldest], len(self.removed_numbers))
-                    #self.used_sorted.delete(oldest) already deleted with pop
-                    del(self.used[oldest])
-                    del(self.data[oldest])
-                next_num_of_token = self.free_numbers[0]
-                self.free_numbers=self.free_numbers[1:]
-                self.data[used_part] = next_num_of_token
-                if backok:
-                    self.back[next_num_of_token] = used_part[1] # string of used part
-                else:
-                    if token.type == tokenize.NEWLINE:
-                        self.back[next_num_of_token] = '\n'
-                    else:
-                        self.back[next_num_of_token] = "???"
-            else:
-                self.found += 1
-            return self.data[used_part]
+        if args.remove_comments and (token[0] == tokenize.COMMENT or token[0] == tokenize.NL):
+            #print('comment removed')
+            return None
+        s = token.string
+        sh = hash(s)
+        return sh % max_output # seems to be changed after initialization
 
     def get_string(self, num_of_token):
         return self.back[num_of_token]
@@ -359,6 +303,7 @@ class KerasBatchGenerator(object):
     # vocabin 
     def __init__(self, data_set):
         self.data_set = data_set
+        self.ToCategorical = torch.eye(max_output)
             
     def generate(self):
         while True:
@@ -383,9 +328,6 @@ class KerasBatchGenerator(object):
                      with open(python_file+'.ddddd','rb') as fb:
                          full_python_file_string = pickle.load(fb)
                 position=0
-                model.reset_states()
-#                if args.debug:
-#                    print("\nnext file used "+ python_file.strip())
                 while position * args.max_length < len(full_python_file_string)-2:
                     end_is = (position+1)*args.max_length
                     if end_is >= len(full_python_file_string)-2:
@@ -393,7 +335,7 @@ class KerasBatchGenerator(object):
                     tmp_x = np.array([full_python_file_string[position*args.max_length:end_is]], dtype=int)
                     tmp_y = np.array([full_python_file_string[position*args.max_length+1:end_is+1]], dtype=int)
                     position += 1
-                    ret = tmp_x, to_categorical(tmp_y, num_classes=max_output).reshape(1,-1,max_output) #wrong shape if exactly one is in
+                    ret = tmp_x, self.ToCategorical[tmp_y].reshape(1,-1,max_output) #wrong shape if exactly one is in
                     if len(ret[1].shape) != 3:
                         print(ret)
                     yield ret
@@ -401,104 +343,28 @@ class KerasBatchGenerator(object):
 train_data_generator = KerasBatchGenerator(train_data_set)
 test_data_generator = KerasBatchGenerator(test_data_set)
 
-def attentions_layer(x):
-  from keras import backend as K
-  x1 = x[:,:,1:]
-  x2 = x[:,:,0:1]
-  x2 = K.softmax(x2)
-
-  x=x1*x2
-
-  return x
-
-# at the moment loaded models seem not to support cudnn
-# https://github.com/tensorflow/tensorflow/issues/33601
-# you can use load_weights_name to load the weights into the model
-  
-if args.embed_len is not None:
-    embed_len = args.embed_len
-else:
-    embed_len = max_output
-if args.pretrained_name is not None:
-  from tensorflow.keras.models import load_model
-  model = load_model(args.pretrained_name, custom_objects={'TCN': TCN})
-else:
-  inputs = Input(batch_shape=(1,None,))
-  embeds = Embedding(max_output, embed_len, embeddings_initializer='identity', trainable=args.embeddings_trainable)(inputs)
-  if args.keras_tcn and not args.only_second_keras_tcn:
-      lstm1 = TCN(args.hidden_size, return_sequences=True, kernel_size=2, nb_stacks=1   , dilations=[1,2,4,8,16])(embeds)
-  else:
-      lstm1 = LSTM_use(args.hidden_size, return_sequences=True, stateful = True)(embeds)
-  if args.attention:
-    lstm1b = Lambda(attentions_layer)(lstm1)
-  else:
-    lstm1b = lstm1
-  if args.two_LSTM:
-      if args.keras_tcn and not args.only_first_keras_tcn:
-          lstm4 = TCN(args.hidden_size, return_sequences=True)(lstm1b)
-      else:
-          lstm4 = LSTM_use(args.hidden_size, return_sequences=True, stateful = True)(lstm1b)
-  else:
-      lstm4 = lstm1b
-
-  x = Dense(max_output)(lstm4)
-  predictions = Activation('softmax')(x)
-  model = Model(inputs=inputs, outputs=predictions)
-print(model.summary())
-
-if args.load_weights_name:
-    model.load_weights(args.load_weights_name, by_name=True)
-    print('weights loaded')
-
-if args.benchmark_parsing > 0:
-    performance_test = train_data_generator.generate()
-    for i in range(args.benchmark_parsing):
-        next(performance_test)
-        print(i)
-    import sys
-    sys.exit()
-
-print("starting",args)
-class TerminateKey(Callback):
-    def on_epoch_end(self, batch, logs=None):
-        if os.path.exists(args.EarlyStop):
-            self.model.stop_training = True
-
-terminate_on_key = TerminateKey()
-
-tensorboard = TensorBoard(log_dir = args.tensorboard_logdir)
-
-checkpointer = ModelCheckpoint(filepath='checkpoints/model-{epoch:02d}.hdf5', verbose=1)
-
-model.compile(loss='categorical_crossentropy', optimizer = SGD(learning_rate=args.lr), metrics=['categorical_accuracy'])
-model.fit_generator(train_data_generator.generate(), args.epoch_size, args.epochs, 
-                    validation_data=test_data_generator.generate(), validation_steps=args.epoch_size / 10, 
-                    callbacks=[checkpointer, tensorboard, terminate_on_key])
-
-if os.path.exists(args.EarlyStop) and os.path.getsize(args.EarlyStop)==0:
-    os.remove(args.EarlyStop)
-    print('removed',args.EarlyStop)
-
-model.save(args.final_name+'.hdf5')
-model.save_weights(args.final_name+'-weights.hdf5')
-
-def save_dict_to_file(dic, file_name):
-    f = open(file_name+'.dict','w')
-    f.write(str(dic))
-    f.close()
-
-def load_dict_from_file(file_name):
-    f = open(file_name+'.dict','r')
-    data=f.read()
-    f.close()
-    return eval(data)
-
-print(len(translator.free_numbers))
-print(translator.found / translator.calls, translator.calls)
-save_dict_to_file(translator.back, args.final_name+'_back')
-save_dict_to_file(translator.used, args.final_name+'_used')
-save_dict_to_file(translator.data, args.final_name+'_data')
-save_dict_to_file(translator.free_numbers, args.final_name+'_free_numbers')
 
 
+input_dim = max_output
+hidden_dim = max_output
+n_layers = 1
 
+lstm_layer = nn.LSTM(input_dim, hidden_dim, n_layers, batch_first=True)
+
+batch_size = 1
+seq_len = 1 # overwrite with more later
+
+inp = torch.randn(batch_size, seq_len, input_dim)
+hidden_state = torch.randn(n_layers, batch_size, hidden_dim)
+cell_state = torch.randn(n_layers, batch_size, hidden_dim)
+hidden = (hidden_state, cell_state)
+
+
+l = train_data_generator.generate()
+ii, oo = next(l)
+
+print(ii.shape, oo.shape)
+
+inp = train_data_generator.ToCategorical[ii].reshape(1,-1,max_output) 
+
+out = lstm_layer(inp, hidden)
