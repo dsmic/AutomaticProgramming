@@ -349,15 +349,12 @@ input_dim = max_output
 hidden_dim = max_output
 n_layers = 1
 
-lstm_layer = nn.LSTM(input_dim, hidden_dim, n_layers, batch_first=True)
+
 
 batch_size = 1
 seq_len = 1 # overwrite with more later
 
 inp = torch.randn(batch_size, seq_len, input_dim)
-hidden_state = torch.randn(n_layers, batch_size, hidden_dim)
-cell_state = torch.randn(n_layers, batch_size, hidden_dim)
-hidden = (hidden_state, cell_state)
 
 
 l = train_data_generator.generate()
@@ -367,4 +364,30 @@ print(ii.shape, oo.shape)
 
 inp = train_data_generator.ToCategorical[ii].reshape(1,-1,max_output) 
 
-out = lstm_layer(inp, hidden)
+class Model(nn.Module):
+    def __init__(self):
+        super(Model, self).__init__()
+        self.lstm_layer = nn.LSTM(input_dim, hidden_dim, n_layers, batch_first=True)
+        self.register_buffer('hidden_state', torch.randn(n_layers, batch_size, hidden_dim))
+        self.register_buffer('cell_state', torch.randn(n_layers, batch_size, hidden_dim))
+
+    def forward(self, x):
+        y, (self.hidden_state, self.cell_state) = self.lstm_layer(x, (self.hidden_state, self.cell_state))
+        return y
+
+# out, hidden2 = lstm_layer(inp, hidden)
+net_model = Model()
+out = net_model.forward(inp)
+
+def error(pred, target): return ((pred-target)**2).mean()
+
+loss = error(out, oo)
+
+loss.backward()
+print(net_model.lstm_layer.weight_ih_l0.grad)
+
+net_model.lstm_layer.weight_ih_l0.grad.zero_()
+
+print(net_model.lstm_layer.weight_ih_l0.grad)
+
+for name, W in net_model.named_parameters(): print(name)
