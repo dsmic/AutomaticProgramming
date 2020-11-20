@@ -23,6 +23,8 @@ from threading import Lock
 import torch
 import torch.nn as nn
 
+cuda = torch.device('cuda') 
+
 
 #from tcn import TCN #, tcn_full_summary
 
@@ -381,6 +383,7 @@ class Model(nn.Module):
 net_model = Model()
 out = net_model.forward(inp)
 
+
 def error(pred, target): return ((pred-target)**2).mean()
 
 loss = error(out, oo)
@@ -394,25 +397,26 @@ print(net_model.lstm_layer.weight_ih_l0.grad)
 
 for name, W in net_model.named_parameters(): print(name)
 
-lr = 10
+lr = 0.1
 
 def one_step(ii, oo):
     xx = train_data_generator.ToCategorical[ii].reshape(1,-1,max_output)
-    out = net_model.forward(xx)
+    out = net_model.forward(xx.to(cuda))
     net_model.zero_grad()
-    loss = error(out, oo)
+    loss = error(out,oo.to(cuda))
     loss.backward()
     for l in net_model.parameters():
-        l.data = l.data - lr * l.grad
-    print('loss', float(loss))
-    
-    
+        l.data -= lr * l.grad
+    print('loss', float(loss), ' acc', float((torch.argmax(oo.to(cuda),2) == torch.argmax(out,2)).type(torch.FloatTensor).mean()))
+
+
+net_model.to(cuda)    
 ii, oo = next(l)
-for _ in range(10000):
+for _ in range(100000):
     one_step(ii,oo)
     
 
-for _ in range(10000):
+for _ in range(100000):
     ii, oo = next(l)
     one_step(ii,oo)
     
