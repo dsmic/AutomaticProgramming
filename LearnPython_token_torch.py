@@ -368,12 +368,14 @@ class Model(nn.Module):
     def __init__(self):
         super(Model, self).__init__()
         self.lstm_layer = nn.LSTM(input_dim, hidden_dim, n_layers, batch_first=True)
-        self.register_buffer('hidden_state', torch.randn(n_layers, batch_size, hidden_dim))
-        self.register_buffer('cell_state', torch.randn(n_layers, batch_size, hidden_dim))
+        self.sigmoid = nn.Sigmoid()
+        self.register_buffer('hidden_state', torch.zeros(n_layers, batch_size, hidden_dim))
+        self.register_buffer('cell_state', torch.zeros(n_layers, batch_size, hidden_dim))
 
     def forward(self, x):
-        y, (self.hidden_state, self.cell_state) = self.lstm_layer(x, (self.hidden_state, self.cell_state))
-        return y
+        #y, (self.hidden_state, self.cell_state) = self.lstm_layer(x, (self.hidden_state, self.cell_state)) # would be statefull, but problem with backward ??
+        y, _ = self.lstm_layer(x, (self.hidden_state, self.cell_state)) # stateless with _
+        return self.sigmoid(y)
 
 # out, hidden2 = lstm_layer(inp, hidden)
 net_model = Model()
@@ -391,3 +393,26 @@ net_model.lstm_layer.weight_ih_l0.grad.zero_()
 print(net_model.lstm_layer.weight_ih_l0.grad)
 
 for name, W in net_model.named_parameters(): print(name)
+
+lr = 10
+
+def one_step(ii, oo):
+    xx = train_data_generator.ToCategorical[ii].reshape(1,-1,max_output)
+    out = net_model.forward(xx)
+    net_model.zero_grad()
+    loss = error(out, oo)
+    loss.backward()
+    for l in net_model.parameters():
+        l.data = l.data - lr * l.grad
+    print('loss', float(loss))
+    
+    
+ii, oo = next(l)
+for _ in range(10000):
+    one_step(ii,oo)
+    
+
+for _ in range(10000):
+    ii, oo = next(l)
+    one_step(ii,oo)
+    
