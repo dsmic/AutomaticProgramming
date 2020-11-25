@@ -105,77 +105,9 @@ max_output = args.token_number
 #     print(e)
 
 
-class token_sort:
-    def __init__(self, used_dict):
-        self.np_sorted=[]
-        self.used_dict = used_dict
-        
-    def add(self, entry):
-        value = self.used_dict[entry]
-        up_bound = len(self.np_sorted)
-        low_bound = 0
-        while (up_bound - low_bound > 1):
-            pos = int((up_bound+low_bound) / 2)
-            if self.used_dict[self.np_sorted[pos]] < value:
-                up_bound = pos
-            else:
-                low_bound = pos
-        if up_bound-low_bound > 0 and self.used_dict[self.np_sorted[low_bound]] < value:
-            up_bound = low_bound
-        self.np_sorted.insert(up_bound,entry)
-        
-    def delete(self, entry):
-        value = self.used_dict[entry]
-        up_bound = len(self.np_sorted)
-        low_bound = 0
-        while (up_bound - low_bound > 1):
-            pos = int((up_bound+low_bound) / 2)
-            if self.used_dict[self.np_sorted[pos]] < value:
-                up_bound = pos
-            else:
-                low_bound = pos
-        if up_bound-low_bound > 0 and self.used_dict[self.np_sorted[low_bound]] < value:
-            up_bound = low_bound
-        up_bound -= 1
-        while (self.used_dict[self.np_sorted[up_bound]] == value):
-            if self.np_sorted[up_bound] == entry:
-                #print("remove", entry)
-                self.np_sorted.pop(up_bound)
-                return
-            up_bound -= 1
-        raise NameError('should not happen ',entry,'not found')
-        
-    def pop_lowest(self):
-        return self.np_sorted.pop()
-    
-    def display(self):
-        print('***************************')
-        for i in self.np_sorted:
-            print(i, self.used_dict[i])
-        print('---------------------------')
-            
-    def check_order(self):
-        p = 0
-        for i in self.np_sorted:
-            if self.used_dict[i] < p:
-                self.display()
-                return False
-            p= self.used_dict[i]
-        return True
-            
-        
 class Token_translate:
     def __init__(self, num_free):
-        self.data = {}
-        self.used = {} #OrderedDict([])
-        self.used_sorted = token_sort(self.used)
         self.back = {}
-        self.free_numbers = [i for i in range(num_free)] 
-        self.lock = Lock()
-        self.found = 0
-        self.calls = 0
-        self.removed_numbers = {}
-        self.num_free = num_free
         
     def translate(self,token):
         # seems to be called by different threads?!
@@ -345,13 +277,10 @@ class KerasBatchGenerator(object):
 train_data_generator = KerasBatchGenerator(train_data_set)
 test_data_generator = KerasBatchGenerator(test_data_set)
 
-
-
 input_dim = max_output
-hidden_dim = max_output
+embed_dim = 500
+hidden_dim = 500
 n_layers = 1
-
-
 
 batch_size = 1
 seq_len = 1 # overwrite with more later
@@ -359,8 +288,9 @@ seq_len = 1 # overwrite with more later
 inp = torch.randn(batch_size, seq_len, input_dim)
 
 
-l = train_data_generator.generate()
-ii, oo = next(l)
+train_gen = train_data_generator.generate()
+test_gen = test_data_generator.generate()
+ii, oo = next(train_gen)
 
 print(ii.shape, oo.shape)
 
@@ -369,54 +299,101 @@ inp = train_data_generator.ToCategorical[ii].reshape(1,-1,max_output)
 class Model(nn.Module):
     def __init__(self):
         super(Model, self).__init__()
-        self.lstm_layer = nn.LSTM(input_dim, hidden_dim, n_layers, batch_first=True)
+        self.embedding = nn.Embedding(input_dim, embed_dim)
+        #self.lstm_layer = nn.LSTM(input_dim, hidden_dim, n_layers, batch_first=True)
+        self.gru_layer = nn.GRU(embed_dim, hidden_dim, n_layers, batch_first=True)
+        self.fc = nn.Linear(hidden_dim, input_dim)
         self.sigmoid = nn.Sigmoid()
         self.register_buffer('hidden_state', torch.zeros(n_layers, batch_size, hidden_dim))
-        self.register_buffer('cell_state', torch.zeros(n_layers, batch_size, hidden_dim))
+        #self.register_buffer('cell_state', torch.zeros(n_layers, batch_size, hidden_dim))
 
     def forward(self, x):
         #y, (self.hidden_state, self.cell_state) = self.lstm_layer(x, (self.hidden_state, self.cell_state)) # would be statefull, but problem with backward ??
-        y, _ = self.lstm_layer(x, (self.hidden_state, self.cell_state)) # stateless with _
-        return self.sigmoid(y)
+        x = self.embedding(x)
+        #y, (self.hidden_state, self.cell_state) = self.lstm_layer(x, (self.hidden_state.detach(), self.cell_state.detach())) # stateless with _
+        x, self.hidden_state = self.gru_layer(x, self.hidden_state.detach()) # stateless with _
+        #x, _ = self.gru_layer(x, self.hidden_state.detach()) # stateless with _
+        x = self.fc(x)
+        return self.sigmoid(x)
 
-# out, hidden2 = lstm_layer(inp, hidden)
 net_model = Model()
-out = net_model.forward(inp)
-
 
 def error(pred, target): return ((pred-target)**2).mean()
 
-loss = error(out, oo)
-
-loss.backward()
-print(net_model.lstm_layer.weight_ih_l0.grad)
-
-net_model.lstm_layer.weight_ih_l0.grad.zero_()
-
-print(net_model.lstm_layer.weight_ih_l0.grad)
-
 for name, W in net_model.named_parameters(): print(name)
 
-lr = 0.1
+lr = torch.tensor(10).to(cuda)
+
+loss_sum = 0
+loss_count = 0
+acc_sum = 0
+acc_count = 0
+acc_factor = 0.01
+plt_data = []
+acc_mean = None
+
+#optimizer = torch.optim.SGD(net_model.parameters(), lr=10, momentum=0.6)
+optimizer = torch.optim.Adam(net_model.parameters(), lr=0.001)
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter()
 
 def one_step(ii, oo):
-    xx = train_data_generator.ToCategorical[ii].reshape(1,-1,max_output)
-    out = net_model.forward(xx.to(cuda))
-    net_model.zero_grad()
-    loss = error(out,oo.to(cuda))
+    global acc_mean
+    oo = oo.to(cuda)
+    #xx = train_data_generator.ToCategorical[ii].reshape(1,-1,max_output)
+    
+    # net_model.zero_grad()
+    optimizer.zero_grad()
+    out = net_model.forward(torch.tensor(ii).to(cuda))
+    loss = error(out,oo)
     loss.backward()
-    for l in net_model.parameters():
-        l.data -= lr * l.grad
-    print('loss', float(loss), ' acc', float((torch.argmax(oo.to(cuda),2) == torch.argmax(out,2)).type(torch.FloatTensor).mean()))
-
+    
+    # for l in net_model.parameters():
+    #     l.data -= lr * l.grad
+    optimizer.step()
+    
+    acc = float((torch.argmax(oo,2) == torch.argmax(out,2)).type(torch.FloatTensor).mean())
+    if acc_mean is None:
+        acc_mean = acc
+    acc_mean = (1-acc_factor) * acc_mean + acc_factor*acc
+    
+    return 'loss {:7.5f} acc {:7.5f} acc_mean {:7.5f}'.format(float(loss),  acc, acc_mean), loss, acc
 
 net_model.to(cuda)    
-ii, oo = next(l)
-for _ in range(100000):
-    one_step(ii,oo)
+ii, oo = next(train_gen)
+for _ in range(1,10):
+    print(one_step(ii,oo))
     
 
-for _ in range(100000):
-    ii, oo = next(l)
-    one_step(ii,oo)
-    
+for cc in range(1,1000000):
+    ii, oo = next(train_gen)
+    v, loss, acc = one_step(ii,oo)
+    loss_sum += loss
+    acc_sum += acc
+    loss_count +=1
+    acc_count += 1
+    if cc % 1000 == 0:
+        print(cc, float(loss_sum / loss_count), float(acc_sum / acc_count))
+        writer.add_scalar('Loss/train', loss_sum / loss_count, cc)
+        writer.add_scalar('Accuracy/train', acc_sum / acc_count, cc)
+        loss_count = 0
+        loss_sum = 0
+        acc_count = 0
+        acc_sum = 0
+        for i in range(10):
+            ii, oo = next(test_gen)
+            out = net_model.forward(torch.tensor(ii).to(cuda))
+            loss = error(out,oo.to(cuda))
+            loss_sum += loss
+            acc_sum += acc
+            loss_count +=1
+            acc_count += 1
+        print('test', float(loss_sum / loss_count), float(acc_sum / acc_count))
+        writer.add_scalar('Loss/test', loss_sum / loss_count, cc)
+        writer.add_scalar('Accuracy/test', acc_sum / acc_count, cc)
+        loss_count = 0
+        loss_sum = 0
+        acc_count = 0
+        acc_sum = 0
+        
+
