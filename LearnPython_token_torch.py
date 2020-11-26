@@ -23,7 +23,7 @@ from threading import Lock
 import torch
 import torch.nn as nn
 
-cuda = torch.device('cpu') 
+cuda = torch.device('cuda') 
 
 
 from torch.nn.utils import weight_norm
@@ -341,8 +341,8 @@ train_data_generator = KerasBatchGenerator(train_data_set)
 test_data_generator = KerasBatchGenerator(test_data_set)
 
 input_dim = max_output
-embed_dim = 100
-hidden_dim = 100
+embed_dim = 300
+hidden_dim = 300
 n_layers = 1
 
 batch_size = 1
@@ -365,10 +365,10 @@ class Model(nn.Module):
         self.embedding = nn.Embedding(input_dim, embed_dim)
         #self.lstm_layer = nn.LSTM(input_dim, hidden_dim, n_layers, batch_first=True)
         #self.gru_layer = nn.GRU(embed_dim, hidden_dim, n_layers, batch_first=True)
-        self.tcn_layer = TemporalConvNet(embed_dim, [hidden_dim]*3)
+        self.tcn_layer = TemporalConvNet(embed_dim, [hidden_dim]*3, dropout=0)
         self.fc = nn.Linear(hidden_dim, input_dim)
         self.sigmoid = nn.Sigmoid()
-        self.register_buffer('hidden_state', torch.zeros(n_layers, batch_size, hidden_dim))
+        #self.register_buffer('hidden_state', torch.zeros(n_layers, batch_size, hidden_dim))
         #self.register_buffer('cell_state', torch.zeros(n_layers, batch_size, hidden_dim))
 
     def forward(self, x):
@@ -397,8 +397,8 @@ acc_factor = 0.01
 plt_data = []
 acc_mean = None
 
-#optimizer = torch.optim.SGD(net_model.parameters(), lr=10, momentum=0.6)
-optimizer = torch.optim.Adam(net_model.parameters(), lr=0.001)
+#optimizer = torch.optim.SGD(net_model.parameters(), lr=1, momentum=0.6)
+optimizer = torch.optim.AdamW(net_model.parameters(), lr=0.0001)
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter()
 
@@ -426,7 +426,7 @@ def one_step(ii, oo):
 
 net_model.to(cuda)    
 ii, oo = next(train_gen)
-for _ in range(1,10):
+for _ in range(1,100):
     print(one_step(ii,oo))
     
 
