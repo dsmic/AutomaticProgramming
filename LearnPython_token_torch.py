@@ -18,7 +18,7 @@ import argparse
 import numpy as np
 import tokenize
 #from collections import OrderedDict
-from threading import Lock
+#from threading import Lock
 
 import torch
 import torch.nn as nn
@@ -72,19 +72,37 @@ class TemporalBlock(nn.Module):
 
 
 class TemporalConvNet(nn.Module):
-    def __init__(self, num_inputs, num_channels, kernel_size=2, dropout=0.2):
+    def __init__(self, num_inputs, num_channels, kernel_size=2, dropout=0.2, dilitation_base = 2):
         super(TemporalConvNet, self).__init__()
         layers = []
         num_levels = len(num_channels)
         for i in range(num_levels):
-            dilation_size = 2 ** i
+            dilation_size = dilitation_base ** i
             in_channels = num_inputs if i == 0 else num_channels[i-1]
             out_channels = num_channels[i]
             layers += [TemporalBlock(in_channels, out_channels, kernel_size, stride=1, dilation=dilation_size,
                                      padding=(kernel_size-1) * dilation_size, dropout=dropout)]
 
         self.network = nn.Sequential(*layers)
+        self.num_channels = num_channels
+        self.dilitation_base = dilitation_base
+        self.layers = layers
+        self.dropout = dropout
+        self.kernel_size = kernel_size
 
+    def add_layer(self, num_channels):
+        num_levels = len(self.num_channels)
+        self.num_channels += num_channels
+        for i in range(num_levels, num_levels + len(num_channels)):
+            dilation_size = self.dilitation_base ** i
+            in_channels = self.num_channels[i-1]
+            out_channels = self.num_channels[i]
+            self.layers += [TemporalBlock(in_channels, out_channels, self.kernel_size, stride=1, dilation=dilation_size,
+                                     padding=(self.kernel_size-1) * dilation_size, dropout=self.dropout)]
+
+        self.network = nn.Sequential(*self.layers)
+        self.num_channels = num_channels
+        
     def forward(self, x):
         return self.network(x)
 
@@ -341,8 +359,8 @@ train_data_generator = KerasBatchGenerator(train_data_set)
 test_data_generator = KerasBatchGenerator(test_data_set)
 
 input_dim = max_output
-embed_dim = 300
-hidden_dim = 300
+embed_dim = 100
+hidden_dim = 100
 n_layers = 1
 
 batch_size = 1
@@ -397,8 +415,9 @@ acc_factor = 0.01
 plt_data = []
 acc_mean = None
 
-#optimizer = torch.optim.SGD(net_model.parameters(), lr=1, momentum=0.6)
-optimizer = torch.optim.AdamW(net_model.parameters(), lr=0.0001)
+#optimizer = torch.optim.ASGD(net_model.parameters(), lr = 10)
+#optimizer = torch.optim.SGD(net_model.parameters(), lr=0.1, momentum=0.9, nesterov=True)
+optimizer = torch.optim.AdamW(net_model.parameters(), lr=0.0002)
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter()
 
@@ -429,8 +448,8 @@ ii, oo = next(train_gen)
 for _ in range(1,100):
     print(one_step(ii,oo))
     
-
-for cc in range(1,1000000):
+cc = 0
+while cc < 1000000:
     ii, oo = next(train_gen)
     v, loss, acc = one_step(ii,oo)
     loss_sum += loss
@@ -447,8 +466,10 @@ for cc in range(1,1000000):
         acc_sum = 0
         for i in range(10):
             ii, oo = next(test_gen)
+            oo = oo.to(cuda)
             out = net_model.forward(torch.tensor(ii).to(cuda))
-            loss = error(out,oo.to(cuda))
+            loss = error(out,oo)
+            acc = float((torch.argmax(oo,2) == torch.argmax(out,2)).type(torch.FloatTensor).mean())
             loss_sum += loss
             acc_sum += acc
             loss_count +=1
@@ -460,5 +481,43 @@ for cc in range(1,1000000):
         loss_sum = 0
         acc_count = 0
         acc_sum = 0
+    cc += 1
         
+net_model.to('cpu')
+net_model.tcn_layer.add_layer([hidden_dim]*3)
+net_model.to(cuda)
 
+while cc < 2000000:
+    ii, oo = next(train_gen)
+    v, loss, acc = one_step(ii,oo)
+    loss_sum += loss
+    acc_sum += acc
+    loss_count +=1
+    acc_count += 1
+    if cc % 1000 == 0:
+        print(cc, float(loss_sum / loss_count), float(acc_sum / acc_count))
+        writer.add_scalar('Loss/train', loss_sum / loss_count, cc)
+        writer.add_scalar('Accuracy/train', acc_sum / acc_count, cc)
+        loss_count = 0
+        loss_sum = 0
+        acc_count = 0
+        acc_sum = 0
+        for i in range(10):
+            ii, oo = next(test_gen)
+            oo = oo.to(cuda)
+            out = net_model.forward(torch.tensor(ii).to(cuda))
+            loss = error(out,oo)
+            acc = float((torch.argmax(oo,2) == torch.argmax(out,2)).type(torch.FloatTensor).mean())
+            loss_sum += loss
+            acc_sum += acc
+            loss_count +=1
+            acc_count += 1
+        print('test', float(loss_sum / loss_count), float(acc_sum / acc_count))
+        writer.add_scalar('Loss/test', loss_sum / loss_count, cc)
+        writer.add_scalar('Accuracy/test', acc_sum / acc_count, cc)
+        loss_count = 0
+        loss_sum = 0
+        acc_count = 0
+        acc_sum = 0
+    cc += 1
+        
