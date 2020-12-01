@@ -143,7 +143,7 @@ parser.add_argument('--EarlyStop', dest='EarlyStop',  type=str, default='EarlySt
 parser.add_argument('--embeddings_trainable', dest='embeddings_trainable', action='store_true')
 parser.add_argument('--embed_len', dest='embed_len',  type=int, default=None)
 parser.add_argument('--two_LSTM', dest='two_LSTM', action='store_true')
-parser.add_argument('--token_number', dest='token_number',  type=int, default=1000)
+parser.add_argument('--token_number', dest='token_number',  type=int, default=0)
 parser.add_argument('--only_token_type', dest='only_token_type', action='store_true')
 parser.add_argument('--remove_comments', dest='remove_comments', action='store_true')
 parser.add_argument('--only_token_detail', dest='only_token_detail', action='store_true')
@@ -160,6 +160,7 @@ parser.add_argument('--string_hash', dest='string_hash', action='store_true')
 parser.add_argument('--keras_tcn', dest='keras_tcn', action='store_true')
 parser.add_argument('--only_second_keras_tcn', dest='only_second_keras_tcn', action='store_true')
 parser.add_argument('--only_first_keras_tcn', dest='only_first_keras_tcn', action='store_true')
+
 args = parser.parse_args()
 
 
@@ -257,7 +258,7 @@ saved_tokens = {}
 saved_tokens_howoften = {}
 saved_tokens_howoften_id = {}
 saved_pos = 0    
-if args.save_tokens_file_num != 0:
+if args.save_tokens_file_num != 0 and max_output == 0:
     load_dataset(read_file('python100k_train.txt_random'), args.save_tokens_file_num)
     print('used for counting',args.save_tokens_file_num, 'min num', args.save_tokens_min_num)
     for i in all_tokens:
@@ -308,10 +309,10 @@ else:
     test_data_set = load_dataset(read_file('python50k_eval.txt'+file_append))    
     if args.limit_files == 0:
         with open('test.ddddd','wb') as fb:
-            pickle.dump(train_data_set, fb)
+            pickle.dump(test_data_set, fb)
 
 print(len(test_data_set))
-    
+
 files_prepared = {}
 class KerasBatchGenerator(object):
     # data_set contains train or test data_set
@@ -359,8 +360,8 @@ train_data_generator = KerasBatchGenerator(train_data_set)
 test_data_generator = KerasBatchGenerator(test_data_set)
 
 input_dim = max_output
-embed_dim = 100
-hidden_dim = 100
+embed_dim  = 500
+hidden_dim = 500
 n_layers = 1
 
 batch_size = 1
@@ -417,7 +418,7 @@ acc_mean = None
 
 #optimizer = torch.optim.ASGD(net_model.parameters(), lr = 10)
 #optimizer = torch.optim.SGD(net_model.parameters(), lr=0.1, momentum=0.9, nesterov=True)
-optimizer = torch.optim.AdamW(net_model.parameters(), lr=0.0002)
+optimizer = torch.optim.AdamW(net_model.parameters(), lr=0.00002)
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter()
 
