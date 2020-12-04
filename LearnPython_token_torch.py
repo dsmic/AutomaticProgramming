@@ -406,7 +406,7 @@ def error(pred, target): return ((pred-target)**2).mean()
 
 for name, W in net_model.named_parameters(): print(name)
 
-lr = torch.tensor(10).to(cuda)
+lr = torch.tensor(1).to(cuda)
 
 loss_sum = 0
 loss_count = 0
@@ -433,9 +433,9 @@ def one_step(ii, oo):
     loss = error(out,oo)
     loss.backward()
     
-    # for l in net_model.parameters():
-    #     l.data -= lr * l.grad
-    optimizer.step()
+    for l in net_model.parameters():
+        l.data -= lr * l.grad
+    #optimizer.step()
     
     acc = float((torch.argmax(oo,2) == torch.argmax(out,2)).type(torch.FloatTensor).mean())
     if acc_mean is None:
