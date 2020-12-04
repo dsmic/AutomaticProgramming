@@ -444,6 +444,36 @@ def one_step(ii, oo):
     
     return 'loss {:7.5f} acc {:7.5f} acc_mean {:7.5f}'.format(float(loss),  acc, acc_mean), loss, acc
 
+def one_step_2(ii, oo):
+    global acc_mean
+    oo = oo.to(cuda)
+    #xx = train_data_generator.ToCategorical[ii].reshape(1,-1,max_output)
+    
+    # net_model.zero_grad()
+    last_loss = None
+    for f in range(5):
+        flr = 1/2**f
+        while True:
+            optimizer.zero_grad()
+            out = net_model.forward(torch.tensor(ii).to(cuda))
+            loss = error(out,oo)
+            loss.backward()
+            if last_loss is not None and loss > last_loss:
+                break
+            last_loss = loss
+            for l in net_model.parameters():
+                l.data -= flr * lr * l.grad
+            
+    #optimizer.step()
+    
+    acc = float((torch.argmax(oo,2) == torch.argmax(out,2)).type(torch.FloatTensor).mean())
+    if acc_mean is None:
+        acc_mean = acc
+    acc_mean = (1-acc_factor) * acc_mean + acc_factor*acc
+    
+    return 'loss {:7.5f} acc {:7.5f} acc_mean {:7.5f}'.format(float(loss),  acc, acc_mean), loss, acc
+
+
 net_model.to(cuda)    
 ii, oo = next(train_gen)
 for _ in range(1,100):
