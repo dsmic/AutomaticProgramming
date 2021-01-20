@@ -428,7 +428,7 @@ functions_test = func_provider('python50k_eval.txt_random', 100).generator()
 
 max_len = 200
 max_tokens = 1000
-hidden_size = max_tokens * 2
+hidden_size = max_tokens * 5
 ToCategorical = torch.eye(max_tokens)
 
 
