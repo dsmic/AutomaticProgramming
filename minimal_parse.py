@@ -2,6 +2,8 @@
 
 #import sys
 #import traceback
+import os
+import random
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
@@ -423,12 +425,12 @@ def mini_tokenizer(lines):
 
 
 
-functions_train = func_provider('python100k_train.txt_random', 10).generator()
-functions_test = func_provider('python50k_eval.txt_random', 100).generator()
+functions_train = func_provider('python100k_train.txt_random', 100).generator()
+functions_test = func_provider('python50k_eval.txt_random', 1000).generator()
 
-max_len = 200
-max_tokens = 1000
-hidden_size = max_tokens * 5
+max_len = 60
+max_tokens = 300
+hidden_size = max_tokens * 50
 ToCategorical = torch.eye(max_tokens)
 
 
@@ -439,14 +441,17 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.embedding = nn.Embedding(max_tokens, max_tokens)
         self.fc1 = nn.Linear(max_tokens, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, max_tokens)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, max_tokens)
         self.sigmoid = nn.Sigmoid()
+        self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
         #y, (self.hidden_state, self.cell_state) = self.lstm_layer(x, (self.hidden_state, self.cell_state)) # would be statefull, but problem with backward ??
         x = self.embedding(x)
-        x = self.sigmoid(self.fc1(x))
-        x = self.sigmoid(self.fc2(x))
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        x = self.sigmoid(self.fc3(x))
         return x
 
 net_model = Model().to(cuda)
@@ -460,6 +465,51 @@ def token_to_int(token_list, lenret = None):
     return [hash(x) % max_tokens for x in token_list]
 
 
+debug = False
+def create_input_files(filenames, destination_dir):
+    functions_train = func_provider(filenames, 1).generator()
+    counter = 0
+    for s in functions_train:
+        try:
+            pycode = ''.join(s)
+            jscode = str(JSFuncStr('@js\ndef js_code():\n\n  ' + ''.join(s).replace('\n','\n  ')))
+            pytokens = mini_tokenizer([pycode])
+            jstokens = mini_tokenizer([jscode])
+            
+            if debug:
+                print('111111111111111111111111111\n' + pycode)
+                print(pytokens, token_to_int(pytokens))
+                print('222222222222222222222222222\n' + jscode)
+                print(jstokens, token_to_int(jstokens))
+            _ = token_to_int(jstokens, max_len)
+            _ = token_to_int(pytokens, max_len)
+            ff = open(destination_dir + '/' + str(counter), "w")
+            ff.write(pycode)
+            ff.close()
+            counter += 1
+            print(counter)
+        except Exception as e:
+            print(e)
+            pass
+    return counter
+
+num_train = len([name for name in os.listdir('tmptrain')])
+num_test = len([name for name in os.listdir('tmptest')])
+     
+if num_train == 0:
+    num_train = create_input_files('python100k_train.txt_random', 'tmptrain')
+if num_test == 0:
+    num_test = create_input_files('python50k_eval.txt_random', 'tmptest')
+
+num_train = len([name for name in os.listdir('tmptrain')])
+num_test = len([name for name in os.listdir('tmptest')])
+
+rand_train = list(range(num_train))
+rand_test = list(range(num_test))
+
+random.shuffle(rand_train)
+random.shuffle(rand_test)
+
 #optimizer = torch.optim.SGD(net_model.parameters(), lr=0.1, momentum=0.9, nesterov=True)
 optimizer = torch.optim.AdamW(net_model.parameters(), lr=0.00002)
 ccc = 0
@@ -467,8 +517,11 @@ debug = False
 float_loss = None
 test_loss = None
 smoothing = 0.001
-for s in functions_train:
+for fnum in rand_train:
     try:
+        ff = open('tmptrain/' + str(fnum))
+        s = ff.readlines()
+        ff.close()
         pycode = ''.join(s)
         jscode = str(JSFuncStr('@js\ndef js_code():\n\n  ' + ''.join(s).replace('\n','\n  ')))
         pytokens = mini_tokenizer([pycode])
@@ -481,7 +534,7 @@ for s in functions_train:
             print(jstokens, token_to_int(jstokens))
         oo = ToCategorical[token_to_int(jstokens, max_len)].reshape(1,-1,max_tokens).to(cuda)
         optimizer.zero_grad()
-        otmp = net_model.forward(torch.tensor(token_to_int(jstokens, max_len)).to(cuda))
+        otmp = net_model.forward(torch.tensor(token_to_int(pytokens, max_len)).to(cuda))
         acc = float((torch.argmax(oo,2) == torch.argmax(otmp,1)).type(torch.FloatTensor).mean())
         loss = error(oo, otmp)
         loss.backward()
@@ -500,7 +553,11 @@ for s in functions_train:
         ok = True
         while ok:
             try:
-                s = next(functions_test)
+                fnum = rand_test.pop(0)
+                ff = open('tmptest/' + str(fnum))
+                s = ff.readlines()
+                ff.close()
+                # s = next(functions_test)
                 pycode = ''.join(s)
                 jscode = str(JSFuncStr('@js\ndef js_code():\n\n  ' + ''.join(s).replace('\n','\n  ')))
                 pytokens = mini_tokenizer([pycode])
@@ -513,7 +570,7 @@ for s in functions_train:
                     print(jstokens, token_to_int(jstokens))
                 oo = ToCategorical[token_to_int(jstokens, max_len)].reshape(1,-1,max_tokens).to(cuda)
                 optimizer.zero_grad()
-                otmp = net_model.forward(torch.tensor(token_to_int(jstokens, max_len)).to(cuda))
+                otmp = net_model.forward(torch.tensor(token_to_int(pytokens, max_len)).to(cuda))
                 acc = float((torch.argmax(oo,2) == torch.argmax(otmp,1)).type(torch.FloatTensor).mean())
                 loss = error(oo, otmp)
                 if test_loss is None:

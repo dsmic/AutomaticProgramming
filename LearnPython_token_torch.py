@@ -22,8 +22,14 @@ import tokenize
 
 import torch
 import torch.nn as nn
+import time
 
 cuda = torch.device('cuda') 
+use_single_new = False
+mask_limit = 0.95
+opt_size = 5
+
+
 
 
 from torch.nn.utils import weight_norm
@@ -317,9 +323,10 @@ files_prepared = {}
 class KerasBatchGenerator(object):
     # data_set contains train or test data_set
     # vocabin 
-    def __init__(self, data_set):
+    def __init__(self, data_set, max_length=args.max_length):
         self.data_set = data_set
         self.ToCategorical = torch.eye(max_output)
+        self.max_length = max_length
             
     def generate(self):
         while True:
@@ -344,24 +351,39 @@ class KerasBatchGenerator(object):
                      with open(python_file+'.ddddd','rb') as fb:
                          full_python_file_string = pickle.load(fb)
                 position=0
-                while position * args.max_length < len(full_python_file_string)-2:
-                    end_is = (position+1)*args.max_length
-                    if end_is >= len(full_python_file_string)-2:
-                        end_is = len(full_python_file_string)-2
-                    tmp_x = np.array([full_python_file_string[position*args.max_length:end_is]], dtype=int)
-                    tmp_y = np.array([full_python_file_string[position*args.max_length+1:end_is+1]], dtype=int)
-                    position += 1
-                    ret = tmp_x, self.ToCategorical[tmp_y].reshape(1,-1,max_output) #wrong shape if exactly one is in
-                    if len(ret[1].shape) != 3:
-                        print(ret)
-                    yield ret
+
+                if use_single_new:
+                    while position  < len(full_python_file_string)-2:
+                        end_is = position+self.max_length
+                        if end_is >= len(full_python_file_string)-2:
+                            end_is = len(full_python_file_string)-2
+                        tmp_x = np.array([full_python_file_string[position:end_is]], dtype=int)
+                        tmp_y = np.array([full_python_file_string[position+1:end_is+1]], dtype=int)
+                        position += 1
+                        ret = tmp_x, self.ToCategorical[tmp_y].reshape(1,-1,max_output) #wrong shape if exactly one is in
+                        if len(ret[1].shape) != 3:
+                            print(ret)
+                        yield ret
+                else:
+                    while position * self.max_length < len(full_python_file_string)-2:
+                        end_is = (position+1)*self.max_length
+                        if end_is >= len(full_python_file_string)-2:
+                            end_is = len(full_python_file_string)-2
+                        tmp_x = np.array([full_python_file_string[position*self.max_length:end_is]], dtype=int)
+                        tmp_y = np.array([full_python_file_string[position*self.max_length+1:end_is+1]], dtype=int)
+                        position += 1
+                        ret = tmp_x, self.ToCategorical[tmp_y].reshape(1,-1,max_output) #wrong shape if exactly one is in
+                        if len(ret[1].shape) != 3:
+                            print(ret)
+                        yield ret
+
 
 train_data_generator = KerasBatchGenerator(train_data_set)
 test_data_generator = KerasBatchGenerator(test_data_set)
 
 input_dim = max_output
 embed_dim  = 500
-hidden_dim = 500
+hidden_dim = 4000
 n_layers = 1
 
 batch_size = 1
@@ -378,14 +400,18 @@ print(ii.shape, oo.shape)
 
 inp = train_data_generator.ToCategorical[ii].reshape(1,-1,max_output) 
 
+do_attention = True
 class Model(nn.Module):
     def __init__(self):
         super(Model, self).__init__()
         self.embedding = nn.Embedding(input_dim, embed_dim)
-        #self.lstm_layer = nn.LSTM(input_dim, hidden_dim, n_layers, batch_first=True)
-        #self.gru_layer = nn.GRU(embed_dim, hidden_dim, n_layers, batch_first=True)
-        self.tcn_layer = TemporalConvNet(embed_dim, [hidden_dim]*3, dropout=0)
-        self.fc = nn.Linear(hidden_dim, input_dim)
+        self.tcn_layer = TemporalConvNet(embed_dim, [hidden_dim], kernel_size=8, dropout=0)
+        self.fc1 = nn.Linear(hidden_dim, input_dim)
+        #self.fc1.lr_factor = 10
+        if do_attention:
+            self.fc2 = nn.Linear(hidden_dim, input_dim)
+            self.fc2.bias.data.uniform_(3,4)
+            self.fc2.lr_factor = 0.1
         self.sigmoid = nn.Sigmoid()
         #self.register_buffer('hidden_state', torch.zeros(n_layers, batch_size, hidden_dim))
         #self.register_buffer('cell_state', torch.zeros(n_layers, batch_size, hidden_dim))
@@ -393,12 +419,13 @@ class Model(nn.Module):
     def forward(self, x):
         #y, (self.hidden_state, self.cell_state) = self.lstm_layer(x, (self.hidden_state, self.cell_state)) # would be statefull, but problem with backward ??
         x = self.embedding(x)
-        #y, (self.hidden_state, self.cell_state) = self.lstm_layer(x, (self.hidden_state.detach(), self.cell_state.detach())) # stateless with _
-        #x, self.hidden_state = self.gru_layer(x, self.hidden_state.detach()) # stateless with _
         x = self.tcn_layer(x.transpose(1, 2)).transpose(1, 2) # stateless with _
-        #x, _ = self.gru_layer(x, self.hidden_state.detach()) # stateless with _
-        x = self.fc(x)
-        return self.sigmoid(x)
+        x1 = self.sigmoid(self.fc1(x))
+        if do_attention:
+            x2 = self.sigmoid(self.fc2(x)*10)
+            return torch.mul(x1,x2)
+        else:
+            return x1
 
 net_model = Model()
 
@@ -433,9 +460,14 @@ def one_step(ii, oo):
     loss = error(out,oo)
     loss.backward()
     
-    for l in net_model.parameters():
-        l.data -= lr * l.grad
-    #optimizer.step()
+    for ll in net_model.children():
+        if hasattr(ll, 'lr_factor'):
+            lr_factor = ll.lr_factor
+        else:
+            lr_factor = 1
+        for l in ll.parameters():
+            l.data -= lr_factor * lr * l.grad
+    # optimizer.step()
     
     acc = float((torch.argmax(oo,2) == torch.argmax(out,2)).type(torch.FloatTensor).mean())
     if acc_mean is None:
@@ -444,6 +476,7 @@ def one_step(ii, oo):
     
     return 'loss {:7.5f} acc {:7.5f} acc_mean {:7.5f}'.format(float(loss),  acc, acc_mean), loss, acc
 
+    
 def one_step_2(ii, oo):
     global acc_mean
     oo = oo.to(cuda)
@@ -451,18 +484,75 @@ def one_step_2(ii, oo):
     
     # net_model.zero_grad()
     last_loss = None
-    for f in range(5):
-        flr = 1/2**f
+    last_tmp_acc = None
+    old_parameters = None
+    flr = 1
+    last_time = time.perf_counter()
+    cc_forw_back = 0
+    if mask_limit > 0:
+        masks = []
+        for ll in net_model.children():
+            for l in ll.parameters():
+                masks.append((torch.cuda.FloatTensor(l.data.size()).uniform_() > mask_limit).float().to(cuda))
+    while 0.0001 < flr:
         while True:
             optimizer.zero_grad()
             out = net_model.forward(torch.tensor(ii).to(cuda))
+            oo = oo[ :, -opt_size:, :]
+            out = out[ :, -opt_size:, :]
             loss = error(out,oo)
             loss.backward()
-            if last_loss is not None and loss > last_loss:
-                break
+            cc_forw_back += 1
+            tmp_acc = float((torch.argmax(oo,2) == torch.argmax(out,2)).type(torch.FloatTensor).mean())
+            if torch.argmax(oo[ :, -1:, :],2) == torch.argmax(out[ :, -1:, :],2):
+                biggest_two = torch.topk(out[ :, -1:, :].flatten(), 2).values
+                print('ok', biggest_two[0], biggest_two[1])
+                if biggest_two[0] > biggest_two[1]*1.2:
+                    flr = 0
+                    break
+                
+            # if (last_tmp_acc is not None and tmp_acc > last_tmp_acc * 1.02):
+            #     print(f'stop at acc {tmp_acc:5.3f} last acc {last_tmp_acc:5.3f}')
+            #     flr = 0
+            #     break
+            if last_loss is not None and time.perf_counter() -10 > last_time:
+                last_time = time.perf_counter()
+                print(f'flr {flr: 15.8f}  {float(loss):15.8f}  {float(last_loss):15.8f} acc {tmp_acc: 8.5f} ({cc_forw_back: 6d}) {float(loss) - float(last_loss):15.8e}')
+            if last_loss is not None: 
+                if  loss + 1e-6 >= last_loss:
+                    flr /= 2
+                    r = net_model.parameters()
+                    for p in old_parameters:
+                        tmp_r = next(r) 
+                        tmp_r.data = p
+                    last_loss = None # repeating calc with old data
+                    break
+                else:
+                    if flr < 1:
+                        flr *= 1.1
+                    # else:
+                    #     print(f'flr {flr: 15.8f}  {float(loss):15.8e}  {float(last_loss):15.8e} acc {tmp_acc: 8.5f} ({cc_forw_back: 6d}) {float(loss) - float(last_loss):15.8e}')
+                    # # else:
+                    #     if loss < last_loss  + 0.000001: # not getting better even with large lr
+                    #         print(f'ready  {flr: 13.7f}  {loss: 15.9f} {last_loss:15.9f}  ({cc_forw_back: 6d})')
+                    #         flr = 0
+                    #         break 
+            if last_tmp_acc is None:
+                last_tmp_acc = tmp_acc
             last_loss = loss
-            for l in net_model.parameters():
-                l.data -= flr * lr * l.grad
+            old_parameters = [l.detach().clone() for l in net_model.parameters()] # th objects l are not copied !!!
+            pp = 0
+            for ll in net_model.children():
+                if hasattr(ll, 'lr_factor'):
+                    lr_factor = ll.lr_factor
+                else:
+                    lr_factor = 1
+                for l in ll.parameters():
+                    if mask_limit > 0:
+                        l.data -= flr * lr_factor * lr * l.grad * masks[pp]
+                    else:
+                        l.data -= flr * lr_factor * lr * l.grad
+                    pp += 1
             
     #optimizer.step()
     
@@ -475,19 +565,21 @@ def one_step_2(ii, oo):
 
 
 net_model.to(cuda)    
-ii, oo = next(train_gen)
-for _ in range(1,100):
-    print(one_step(ii,oo))
+# ii, oo = next(train_gen)
+# for _ in range(1,10):
+#     print(one_step(ii,oo))
+
+opt_func = one_step
     
 cc = 0
 while cc < 1000000:
     ii, oo = next(train_gen)
-    v, loss, acc = one_step(ii,oo)
+    v, loss, acc = opt_func(ii,oo)
     loss_sum += loss
     acc_sum += acc
     loss_count +=1
     acc_count += 1
-    if cc % 1000 == 0:
+    if cc % 1 == 0:
         print(cc, float(loss_sum / loss_count), float(acc_sum / acc_count))
         writer.add_scalar('Loss/train', loss_sum / loss_count, cc)
         writer.add_scalar('Accuracy/train', acc_sum / acc_count, cc)
@@ -498,7 +590,8 @@ while cc < 1000000:
         for i in range(10):
             ii, oo = next(test_gen)
             oo = oo.to(cuda)
-            out = net_model.forward(torch.tensor(ii).to(cuda))
+            with torch.no_grad():
+                out = net_model.forward(torch.tensor(ii).to(cuda))
             loss = error(out,oo)
             acc = float((torch.argmax(oo,2) == torch.argmax(out,2)).type(torch.FloatTensor).mean())
             loss_sum += loss
@@ -520,12 +613,12 @@ net_model.to(cuda)
 
 while cc < 2000000:
     ii, oo = next(train_gen)
-    v, loss, acc = one_step(ii,oo)
+    v, loss, acc = opt_func(ii,oo)
     loss_sum += loss
     acc_sum += acc
     loss_count +=1
     acc_count += 1
-    if cc % 1000 == 0:
+    if cc % 1 == 0:
         print(cc, float(loss_sum / loss_count), float(acc_sum / acc_count))
         writer.add_scalar('Loss/train', loss_sum / loss_count, cc)
         writer.add_scalar('Accuracy/train', acc_sum / acc_count, cc)
