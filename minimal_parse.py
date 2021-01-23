@@ -7,6 +7,7 @@ import random
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
+import pickle
 writer = SummaryWriter()
 
 
@@ -429,7 +430,7 @@ functions_train = func_provider('python100k_train.txt_random', 100).generator()
 functions_test = func_provider('python50k_eval.txt_random', 1000).generator()
 
 max_len = 60
-max_tokens = 300
+max_tokens = 30
 hidden_size = max_tokens * 50
 ToCategorical = torch.eye(max_tokens)
 
@@ -441,19 +442,26 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.embedding = nn.Embedding(max_tokens, max_tokens)
         self.fc1 = nn.Linear(max_tokens, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc2 = [nn.Linear(hidden_size, hidden_size)] * 5
         self.fc3 = nn.Linear(hidden_size, max_tokens)
         self.sigmoid = nn.Sigmoid()
-        self.relu = nn.ReLU(inplace=True)
+        #self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
         #y, (self.hidden_state, self.cell_state) = self.lstm_layer(x, (self.hidden_state, self.cell_state)) # would be statefull, but problem with backward ??
         x = self.embedding(x)
-        x = self.relu(self.fc1(x))
-        x = self.relu(self.fc2(x))
+        x = self.sigmoid(self.fc1(x))
+        for fcc in self.fc2:
+            x = self.sigmoid(fcc(x))
         x = self.sigmoid(self.fc3(x))
         return x
 
+    def to(self, *args, **kwargs):
+        self = super().to(*args, **kwargs) 
+        for fcc in self.fc2:
+            fcc.to(*args, **kwargs)
+        return self
+    
 net_model = Model().to(cuda)
 
 def token_to_int(token_list, lenret = None):
@@ -486,6 +494,9 @@ def create_input_files(filenames, destination_dir):
             ff = open(destination_dir + '/' + str(counter), "w")
             ff.write(pycode)
             ff.close()
+            ff = open(destination_dir + 'js/' + str(counter), "w")
+            ff.write(jscode)
+            ff.close()
             counter += 1
             print(counter)
         except Exception as e:
@@ -510,15 +521,16 @@ rand_test = list(range(num_test))
 random.shuffle(rand_train)
 random.shuffle(rand_test)
 
-#optimizer = torch.optim.SGD(net_model.parameters(), lr=0.1, momentum=0.9, nesterov=True)
-optimizer = torch.optim.AdamW(net_model.parameters(), lr=0.00002)
-ccc = 0
-debug = False
-float_loss = None
-test_loss = None
-smoothing = 0.001
-for fnum in rand_train:
-    try:
+batch_size = 100
+
+num_batch_train = len([name for name in os.listdir('batchtrain')])
+num_batch_test = len([name for name in os.listdir('batchtest')])
+
+if num_batch_train == 0:
+    count = 0
+    x_tensor = []
+    y_tensor = []
+    for fnum in rand_train:
         ff = open('tmptrain/' + str(fnum))
         s = ff.readlines()
         ff.close()
@@ -526,34 +538,95 @@ for fnum in rand_train:
         jscode = str(JSFuncStr('@js\ndef js_code():\n\n  ' + ''.join(s).replace('\n','\n  ')))
         pytokens = mini_tokenizer([pycode])
         jstokens = mini_tokenizer([jscode])
+        x_tensor.append(pytokens)
+        y_tensor.append(jstokens)
+        count += 1
+        if count % batch_size == 0:
+            ff = open('batchtrain/' + str(int(count / batch_size) - 1), 'wb')
+            pickle.dump((x_tensor, y_tensor), ff)
+            ff.close()
+            x_tensor = []
+            y_tensor = []
         
-        if debug:
-            print('111111111111111111111111111\n' + pycode)
-            print(pytokens, token_to_int(pytokens))
-            print('222222222222222222222222222\n' + jscode)
-            print(jstokens, token_to_int(jstokens))
-        oo = ToCategorical[token_to_int(jstokens, max_len)].reshape(1,-1,max_tokens).to(cuda)
-        optimizer.zero_grad()
-        otmp = net_model.forward(torch.tensor(token_to_int(pytokens, max_len)).to(cuda))
-        acc = float((torch.argmax(oo,2) == torch.argmax(otmp,1)).type(torch.FloatTensor).mean())
-        loss = error(oo, otmp)
-        loss.backward()
-        optimizer.step()
-        if float_loss is None:
-            float_loss = float(loss)
-            float_acc = float(acc)
-        else:
-            float_loss = (1-smoothing) * float_loss + smoothing * float(loss)
-            float_acc  = (1-smoothing) * float_acc  + smoothing * float(acc)
+if num_batch_test == 0:
+    count = 0
+    x_tensor = []
+    y_tensor = []
+    for fnum in rand_test:
+        ff = open('tmptest/' + str(fnum))
+        s = ff.readlines()
+        ff.close()
+        pycode = ''.join(s)
+        jscode = str(JSFuncStr('@js\ndef js_code():\n\n  ' + ''.join(s).replace('\n','\n  ')))
+        pytokens = mini_tokenizer([pycode])
+        jstokens = mini_tokenizer([jscode])
+        x_tensor.append(pytokens)
+        y_tensor.append(jstokens)
+        count += 1
+        if count % batch_size == 0:
+            ff = open('batchtest/' + str(int(count / batch_size) - 1), 'wb')
+            pickle.dump((x_tensor, y_tensor), ff)
+            ff.close()
+            x_tensor = []
+            y_tensor = []
+        
+optimizer = torch.optim.SGD(net_model.parameters(), lr=0.00001, momentum=0.9, nesterov=True)
+#optimizer = torch.optim.AdamW(net_model.parameters(), lr=0.00002)
+ccc = 0
+debug = False
+float_loss = None
+test_loss = None
+smoothing = 0.001
+for _ in range(10):
+
+    for fnum in rand_train:
+        try:
+            ff = open('tmptrain/' + str(fnum))
+            s = ff.readlines()
+            ff.close()
+            pycode = ''.join(s)
+            jscode = str(JSFuncStr('@js\ndef js_code():\n\n  ' + ''.join(s).replace('\n','\n  ')))
+            pytokens = mini_tokenizer([pycode])
+            jstokens = mini_tokenizer([jscode])
+            jstokensint = [token_to_int(jstokens, max_len)]
+            pytokensint = [token_to_int(pytokens, max_len)]
             
-        ccc += 1
-        print('{:7d} Loss = {:10.7f} {:10.7f} acc = {:10.7f} {:10.7f}'.format(ccc, float(loss), float(float_loss), float(acc), float(float_acc)))
-        writer.add_scalar('Loss/train', loss, ccc)
-        writer.add_scalar('Accuracy/train', acc, ccc)
-        ok = True
-        while ok:
+#    for fnum in range(num_batch_train):
+#        try:
+#            ff = open('batchtrain/' + str(fnum), 'rb')
+#            (pytokensint, jstokensint) = pickle.load(ff)
+
+            if debug:
+                print('111111111111111111111111111\n' + pycode)
+                print(pytokens, token_to_int(pytokens))
+                print('222222222222222222222222222\n' + jscode)
+                print(jstokens, token_to_int(jstokens))
+            oo = ToCategorical[jstokensint].reshape(1,-1,max_tokens).to(cuda)
+            optimizer.zero_grad()
+            otmp = net_model.forward(torch.tensor(pytokensint).to(cuda))
+#            acc = float((torch.argmax(oo,2) == torch.argmax(otmp,1)).type(torch.FloatTensor).mean())
+            acc = float((torch.argmax(oo,2) == torch.argmax(otmp,2)).type(torch.FloatTensor).mean())
+            loss = error(oo, otmp)
+            loss.backward()
+            optimizer.step()
+            if float_loss is None:
+                float_loss = float(loss)
+                float_acc = float(acc)
+            else:
+                float_loss = (1-smoothing) * float_loss + smoothing * float(loss)
+                float_acc  = (1-smoothing) * float_acc  + smoothing * float(acc)
+                
+            ccc += 1
+            print('{:7d} Loss = {:10.7f} {:10.7f} acc = {:10.7f} {:10.7f}'.format(ccc, float(loss), float(float_loss), float(acc), float(float_acc)))
+            writer.add_scalar('Loss/train', loss, ccc)
+            writer.add_scalar('Accuracy/train', acc, ccc)
+            ok = True
             try:
                 fnum = rand_test.pop(0)
+                if len(rand_test) == 0:
+                    rand_test = list(range(num_test))
+                    random.shuffle(rand_test)
+    
                 ff = open('tmptest/' + str(fnum))
                 s = ff.readlines()
                 ff.close()
@@ -583,12 +656,11 @@ for fnum in rand_train:
                 writer.add_scalar('Accuracy/test', acc, ccc)
                 print('   test Loss = {:10.7f} {:10.7f} acc = {:10.7f} {:10.7f}'.format(float(loss), float(test_loss), float(acc), float(test_acc)))
                 ok = False
-            except Exception:
-                pass
+            except Exception as eee:
+                print('jot able to generate javascript:' + eee)
             
-    except Exception as eee:
-        if debug:
+        except Exception as eee:
             print('jot able to generate javascript: '+ str(eee))#  + traceback.format_exc())
-    
+        
     
 
